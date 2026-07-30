@@ -119,9 +119,12 @@ h1, h2, h3, h4, h5, h6,
 /* ---- User-Friendly Enterprise Navbar ---- */
 
 .navbar.emp-navbar {
+  position: sticky;
+  top: 0;
+  z-index: 1030;
   background: var(--emp-navy);
   border-bottom: 3px solid var(--emp-primary);
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.15);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.18);
   padding: 0.7rem 0;
 }
 

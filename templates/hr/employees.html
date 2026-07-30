@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -37,6 +37,61 @@
         <button class="btn btn-outline-primary btn-sm" data-bs-toggle="offcanvas" data-bs-target="#designationsPanel">
           <i class="bi bi-award me-1"></i>Manage Designations
         </button>
+      </div>
+    </div>
+
+    <!-- Employee Overview Dashboard Metrics -->
+    <div class="row g-3 mb-4" id="employeeStatsRow">
+      <div class="col-6 col-md-3">
+        <div class="emp-stat-card">
+          <div class="emp-stat-icon primary">
+            <i class="bi bi-people-fill"></i>
+          </div>
+          <div class="emp-stat-content">
+            <div class="emp-stat-label">Total Employees</div>
+            <div class="emp-stat-val" id="statTotalEmployees">0</div>
+            <div class="emp-stat-subtext">Workforce count</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-6 col-md-3">
+        <div class="emp-stat-card">
+          <div class="emp-stat-icon success">
+            <i class="bi bi-person-check-fill"></i>
+          </div>
+          <div class="emp-stat-content">
+            <div class="emp-stat-label">Active Staff</div>
+            <div class="emp-stat-val text-success" id="statActiveEmployees">0</div>
+            <div class="emp-stat-subtext">Operational staff</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-6 col-md-3">
+        <div class="emp-stat-card">
+          <div class="emp-stat-icon warning">
+            <i class="bi bi-hourglass-split"></i>
+          </div>
+          <div class="emp-stat-content">
+            <div class="emp-stat-label">Probation</div>
+            <div class="emp-stat-val text-warning" id="statProbationEmployees">0</div>
+            <div class="emp-stat-subtext">Under evaluation</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-6 col-md-3">
+        <div class="emp-stat-card">
+          <div class="emp-stat-icon info">
+            <i class="bi bi-diagram-3-fill"></i>
+          </div>
+          <div class="emp-stat-content">
+            <div class="emp-stat-label">Depts &amp; Roles</div>
+            <div class="emp-stat-val text-info" id="statDeptDesignations" style="font-size: 1.15rem;">0 / 0</div>
+            <div class="emp-stat-subtext">Organizational units</div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -516,7 +571,19 @@
       });
     }
 
+    function updateEmployeeDashboardStats() {
+      const total = allEmployees.length;
+      const active = allEmployees.filter(function (e) { return e.is_active && e.status !== 'terminated'; }).length;
+      const probation = allEmployees.filter(function (e) { return e.status === 'probation'; }).length;
+
+      $('#statTotalEmployees').text(total);
+      $('#statActiveEmployees').text(active);
+      $('#statProbationEmployees').text(probation);
+      $('#statDeptDesignations').text(departments.length + ' / ' + designations.length);
+    }
+
     function renderEmployees() {
+      updateEmployeeDashboardStats();
       const filtered = getFilteredEmployees();
       const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
       currentPage = Math.min(currentPage, totalPages);
