@@ -33,7 +33,7 @@
 
     <div class="row g-4">
       <div class="col-lg-5">
-        <div class="card">
+        <div class="card card-accent-success">
           <div class="card-body">
             <h5 class="card-title"><i class="bi bi-calendar-plus"></i> Apply for Leave</h5>
             <form id="applyForm">
@@ -294,6 +294,11 @@
         .catch(function () { showError('Failed to download attachment.'); });
     });
 
+    if (window.EmpUX) {
+      EmpUX.showSkeleton('#balanceCards', 'stat-grid', 3);
+      EmpUX.showSkeleton('#applicationsRows', 'table-rows', 4);
+    }
+
     loadBalances();
     loadLeaveTypes();
     loadApplications();
@@ -304,5 +309,6 @@
       window.location.href = '/auth/login';
     });
   </script>
+  <script src="/static/js/app-ux.js"></script>
 </body>
 </html>

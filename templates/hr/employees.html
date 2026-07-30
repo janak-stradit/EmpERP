@@ -39,7 +39,7 @@
 
     <div class="toast-container position-fixed top-0 end-0 p-3" id="toastContainer"></div>
 
-    <div class="card mb-4">
+    <div class="card card-accent-primary mb-4">
       <div class="card-body">
         <h5 class="card-title"><i class="bi bi-person-plus"></i> Add Employee</h5>
         <form id="createForm" class="row g-3 mt-1">
@@ -343,6 +343,7 @@
     let moduleCatalog = [];
 
     function showToast(message, variant) {
+      if (window.EmpUX) { return EmpUX.showToast(message, variant); }
       const bg = variant === 'success' ? 'text-bg-success' : 'text-bg-danger';
       const icon = variant === 'success' ? 'bi-check-circle' : 'bi-exclamation-triangle';
       const toastEl = $(
@@ -792,6 +793,10 @@
       renderEmployees();
     });
 
+    if (window.EmpUX) {
+      EmpUX.showSkeleton('#employeeRows', 'table-rows', 5);
+    }
+
     loadDepartments();
     loadDesignations();
     loadEmployees();
@@ -802,5 +807,7 @@
       window.location.href = '/auth/login';
     });
   </script>
+  <script src="/static/js/app-ux.js"></script>
 </body>
 </html>
+

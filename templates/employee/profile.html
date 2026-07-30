@@ -29,7 +29,7 @@
 
     <div class="toast-container position-fixed top-0 end-0 p-3" id="toastContainer"></div>
 
-    <div class="card mb-4">
+    <div class="card card-accent-indigo mb-4">
       <div class="card-body">
         <div class="d-flex flex-wrap align-items-center gap-4">
           <div class="position-relative">
@@ -39,7 +39,7 @@
           <div class="flex-grow-1" style="min-width: 240px;">
             <div id="photoDropZone" class="emp-dropzone">
               <i class="bi bi-cloud-arrow-up d-block mb-1" style="font-size: 1.5rem;"></i>
-              <div class="small">Drag &amp; drop a photo here, or click to browse</div>
+              <div class="small fw-semibold">Drag &amp; drop a photo here, or click to browse</div>
               <div class="text-muted" style="font-size: 0.75rem;">JPG or PNG, up to 5 MB</div>
             </div>
             <input type="file" id="photoInput" accept="image/jpeg,image/png" class="d-none">
@@ -48,11 +48,11 @@
       </div>
     </div>
 
-    <div class="card mb-4">
+    <div class="card card-accent-warning mb-4">
       <div class="card-body">
         <div class="d-flex justify-content-between align-items-center mb-2">
           <h5 class="card-title mb-0"><i class="bi bi-clipboard-check"></i> Profile Completion</h5>
-          <span class="fw-semibold" id="completionPercentText">0%</span>
+          <span class="badge emp-status emp-status-active fs-6" id="completionPercentText">0%</span>
         </div>
         <div class="progress mb-2">
           <div class="progress-bar" id="completionProgressBar" style="width: 0%"></div>
@@ -62,7 +62,7 @@
       </div>
     </div>
 
-    <div class="card mb-4">
+    <div class="card card-accent-info mb-4">
       <div class="card-body">
         <h5 class="card-title"><i class="bi bi-briefcase"></i> Employment Details</h5>
         <p class="text-muted small mb-3">Managed by HR &mdash; contact HR to request changes here.</p>
@@ -78,7 +78,7 @@
     </div>
 
     <form id="profileForm" novalidate>
-      <div class="card mb-4">
+      <div class="card card-accent-primary mb-4">
         <div class="card-body">
           <h5 class="card-title"><i class="bi bi-person-lines-fill"></i> Personal &amp; Contact Information</h5>
           <div class="row g-3 mt-1">
