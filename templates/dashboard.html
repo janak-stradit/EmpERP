@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Stradit Workforce &mdash; Dashboard</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="/static/css/app.css" rel="stylesheet">
+</head>
+<body>
+  <nav class="navbar navbar-expand emp-navbar mb-4">
+    <div class="container">
+      <span class="navbar-brand"><i class="bi bi-buildings me-2"></i>Stradit Workforce</span>
+      <div class="navbar-nav">
+        <a class="nav-link" href="#" id="logoutLink"><i class="bi bi-box-arrow-right me-1"></i>Logout</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container pb-5">
+    <div class="emp-page-header">
+      <h1 id="greeting">Welcome</h1>
+      <p>Choose a module to get started.</p>
+    </div>
+
+    <div class="row g-4" id="tileRow"></div>
+  </div>
+
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script nonce="{{ csp_nonce }}">
+    const token = sessionStorage.getItem('access_token');
+    if (!token) { window.location.href = '/auth/login'; }
+    const authHeader = { Authorization: 'Bearer ' + token };
+
+    const HR_ROLES = ['super_admin', 'admin', 'hr'];
+
+    // Definitions for every module key the backend can grant (see app/core/modules.py's
+    // MODULE_CATALOG - keys must match exactly). A Super Admin can override which of
+    // these an individual employee gets via the enabled_modules field on /employees/me;
+    // this dict only supplies the presentation (title/desc/icon/url), not the access rule.
+    const MODULE_DEFS = {
+      profile: { title: 'My Profile', desc: 'View and update your personal, contact, and bank details.', icon: 'bi-person-circle', url: '/employee/profile', alwaysUnlocked: true },
+      documents: { title: 'Upload Documents', desc: 'Upload and track your identification and other documents.', icon: 'bi-folder2-open', url: '/employee/documents' },
+      leave: { title: 'My Leave', desc: 'Apply for leave and track your balances and requests.', icon: 'bi-calendar-check', url: '/employee/leave' },
+      attendance: { title: 'My Attendance', desc: 'Clock in/out, review your timesheet, and request corrections.', icon: 'bi-clock-history', url: '/employee/attendance' },
+      kra: { title: 'My KRA', desc: 'Rate yourself against this cycle\'s key result areas and track your appraisal.', icon: 'bi-bullseye', url: '/employee/kra' },
+      pms: { title: 'My Performance', desc: 'Complete reviews you owe and view your 360-degree performance results.', icon: 'bi-graph-up-arrow', url: '/employee/pms' },
+      hr_employees: { title: 'Employees', desc: 'Manage employee profiles, departments, and designations.', icon: 'bi-people', url: '/hr/employees', alwaysUnlocked: true },
+      hr_onboarding: { title: 'Onboarding', desc: 'Build checklists, assign them, and track new-hire progress.', icon: 'bi-clipboard-check', url: '/hr/onboarding', alwaysUnlocked: true },
+      hr_documents: { title: 'Document Review', desc: 'Review, approve, or reject employee-submitted documents.', icon: 'bi-folder2-open', url: '/hr/documents', alwaysUnlocked: true },
+      hr_leave: { title: 'Leave Management', desc: 'Manage leave types, balances, and approve HR-stage requests.', icon: 'bi-calendar-week', url: '/hr/leave', alwaysUnlocked: true },
+      hr_attendance: { title: 'Attendance', desc: 'Manage shifts, review reports, and approve correction requests.', icon: 'bi-clock-history', url: '/hr/attendance', alwaysUnlocked: true },
+      hr_kra: { title: 'KRA Management', desc: 'Manage appraisal cycles, KRA templates, assignments, and approvals.', icon: 'bi-bullseye', url: '/hr/kra', alwaysUnlocked: true },
+      hr_pms: { title: 'Performance Management', desc: 'Run 360-degree reviews, track completion, and view rating normalization.', icon: 'bi-graph-up-arrow', url: '/hr/pms', alwaysUnlocked: true },
+      manager_team: { title: 'Team Approvals', desc: 'Review and approve leave requests from your direct reports.', icon: 'bi-person-check', url: '/manager/team-leave', alwaysUnlocked: true }
+    };
+
+    function buildModuleList(enabledModules) {
+      return (enabledModules || []).map(function (key) { return MODULE_DEFS[key]; }).filter(Boolean);
+    }
+
+    function renderTiles(modules, isComplete) {
+      const html = modules.map(function (m) {
+        const locked = !m.alwaysUnlocked && !isComplete;
+        if (locked) {
+          return '<div class="col-md-4">' +
+            '<div class="card h-100" style="opacity: 0.55;">' +
+              '<div class="card-body">' +
+                '<div class="emp-tile-icon"><i class="bi bi-lock"></i></div>' +
+                '<h5 class="card-title mb-1">' + m.title + '</h5>' +
+                '<p class="text-muted small mb-0">Complete your profile to unlock this module.</p>' +
+              '</div>' +
+            '</div>' +
+          '</div>';
+        }
+        return '<div class="col-md-4">' +
+          '<a class="emp-tile" href="' + m.url + '">' +
+            '<div class="card h-100"><div class="card-body">' +
+              '<div class="emp-tile-icon"><i class="bi ' + m.icon + '"></i></div>' +
+              '<h5 class="card-title mb-1">' + m.title + '</h5>' +
+              '<p class="text-muted small mb-0">' + m.desc + '</p>' +
+            '</div></div>' +
+          '</a>' +
+        '</div>';
+      }).join('');
+      $('#tileRow').html(html);
+    }
+
+    function showCompletionBanner(percent) {
+      $('#completionBanner').remove();
+      $('#tileRow').before(
+        '<div class="alert alert-info d-flex justify-content-between align-items-center flex-wrap gap-2" id="completionBanner">' +
+          '<span><i class="bi bi-info-circle me-1"></i>Your profile is ' + percent + '% complete. Finish it to unlock all modules.</span>' +
+          '<a href="/employee/profile" class="btn btn-sm btn-primary">Complete Profile</a>' +
+        '</div>'
+      );
+    }
+
+    $.ajax({ url: '/api/v1/auth/me', headers: authHeader })
+      .done(function (me) {
+        $('#greeting').text('Welcome, ' + me.full_name);
+
+        $.ajax({ url: '/api/v1/employees/me', headers: authHeader })
+          .done(function (profile) {
+            const isComplete = profile.profile_completion_percent === 100;
+            if (!isComplete) showCompletionBanner(profile.profile_completion_percent);
+            renderTiles(buildModuleList(profile.enabled_modules), isComplete);
+          })
+          .fail(function () {
+            // No linked employee record (e.g. a bare Super Admin account) - fall back to
+            // just the HR modules their role grants, since there's no employee profile
+            // to hold a module override or personal tiles like Leave/Attendance.
+            const fallback = HR_ROLES.includes(me.role)
+              ? ['hr_employees', 'hr_onboarding', 'hr_documents', 'hr_leave', 'hr_attendance', 'hr_kra', 'hr_pms']
+              : [];
+            renderTiles(buildModuleList(fallback), true);
+          });
+      })
+      .fail(function () {
+        sessionStorage.clear();
+        window.location.href = '/auth/login';
+      });
+
+    $('#logoutLink').on('click', function (e) {
+      e.preventDefault();
+      sessionStorage.clear();
+      window.location.href = '/auth/login';
+    });
+  </script>
+</body>
+</html>

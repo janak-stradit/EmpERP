@@ -1,0 +1,806 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Stradit Workforce &mdash; Employees</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="/static/css/app.css" rel="stylesheet">
+</head>
+<body>
+  <nav class="navbar navbar-expand emp-navbar mb-4">
+    <div class="container">
+      <span class="navbar-brand"><i class="bi bi-buildings me-2"></i>Stradit Workforce &mdash; HR</span>
+      <div class="navbar-nav">
+        <a class="nav-link" href="/dashboard"><i class="bi bi-grid me-1"></i>Dashboard</a>
+        <a class="nav-link" href="#" id="logoutLink"><i class="bi bi-box-arrow-right me-1"></i>Logout</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container pb-5">
+    <a href="/dashboard" class="btn btn-sm btn-link ps-0 mb-2"><i class="bi bi-arrow-left me-1"></i>Back to Dashboard</a>
+
+    <div class="emp-page-header d-flex justify-content-between align-items-start flex-wrap gap-2">
+      <div>
+        <h1>Employees</h1>
+        <p>Manage employee profiles, departments, and designations for your company.</p>
+      </div>
+      <div class="d-flex gap-2">
+        <button class="btn btn-outline-primary btn-sm" data-bs-toggle="offcanvas" data-bs-target="#departmentsPanel">
+          <i class="bi bi-diagram-3 me-1"></i>Manage Departments
+        </button>
+        <button class="btn btn-outline-primary btn-sm" data-bs-toggle="offcanvas" data-bs-target="#designationsPanel">
+          <i class="bi bi-award me-1"></i>Manage Designations
+        </button>
+      </div>
+    </div>
+
+    <div class="toast-container position-fixed top-0 end-0 p-3" id="toastContainer"></div>
+
+    <div class="card mb-4">
+      <div class="card-body">
+        <h5 class="card-title"><i class="bi bi-person-plus"></i> Add Employee</h5>
+        <form id="createForm" class="row g-3 mt-1">
+          <div class="col-md-4">
+            <label class="form-label">Full name</label>
+            <input type="text" class="form-control" id="full_name" required>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Email</label>
+            <input type="email" class="form-control" id="email" required>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Initial password</label>
+            <input type="text" class="form-control" id="initial_password" minlength="8" required>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Role</label>
+            <select class="form-select" id="role">
+              <option value="employee" selected>Employee</option>
+              <option value="hr">HR</option>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Department</label>
+            <select class="form-select" id="department_id"><option value="">-- none --</option></select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Designation</label>
+            <select class="form-select" id="designation_id"><option value="">-- none --</option></select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Joining date</label>
+            <input type="date" class="form-control" id="joining_date" required>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Phone</label>
+            <input type="text" class="form-control" id="phone">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Personal email</label>
+            <input type="email" class="form-control" id="personal_email">
+          </div>
+          <div class="col-12">
+            <button type="submit" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Create Employee</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+          <h5 class="card-title mb-0"><i class="bi bi-list-ul"></i> Employees</h5>
+          <div class="d-flex gap-2">
+            <select class="form-select form-select-sm" id="statusFilter" style="width: auto;">
+              <option value="">All statuses</option>
+              <option value="probation">Probation</option>
+              <option value="active">Active</option>
+              <option value="terminated">Terminated</option>
+              <option value="resigned">Resigned</option>
+            </select>
+            <div class="input-group input-group-sm" style="max-width: 260px;">
+              <span class="input-group-text"><i class="bi bi-search"></i></span>
+              <input type="text" class="form-control" id="searchBox" placeholder="Search employees...">
+            </div>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover align-middle">
+            <thead>
+              <tr>
+                <th>Code</th><th>Name</th><th>Email</th><th>Department</th><th>Designation</th>
+                <th>Status</th><th>Account</th><th>Joined</th><th class="text-end">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="employeeRows"></tbody>
+          </table>
+        </div>
+        <div id="emptyState" class="emp-empty-state d-none">
+          <i class="bi bi-people display-6 d-block mb-2"></i>
+          No employees yet. Add your first employee above.
+        </div>
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mt-2" id="paginationBar">
+          <div class="text-muted small" id="paginationSummary"></div>
+          <nav>
+            <ul class="pagination pagination-sm mb-0" id="paginationControls"></ul>
+          </nav>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Departments offcanvas -->
+  <div class="offcanvas offcanvas-end" tabindex="-1" id="departmentsPanel">
+    <div class="offcanvas-header">
+      <h5 class="offcanvas-title"><i class="bi bi-diagram-3 me-1"></i>Departments</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+    </div>
+    <div class="offcanvas-body">
+      <form id="departmentForm" class="input-group input-group-sm mb-3">
+        <input type="text" class="form-control" id="newDepartmentName" placeholder="New department name" required>
+        <button type="submit" class="btn btn-primary"><i class="bi bi-plus-lg"></i></button>
+      </form>
+      <ul class="list-group list-group-flush" id="departmentList"></ul>
+    </div>
+  </div>
+
+  <!-- Designations offcanvas -->
+  <div class="offcanvas offcanvas-end" tabindex="-1" id="designationsPanel">
+    <div class="offcanvas-header">
+      <h5 class="offcanvas-title"><i class="bi bi-award me-1"></i>Designations</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+    </div>
+    <div class="offcanvas-body">
+      <form id="designationForm" class="row g-2 mb-3">
+        <input type="hidden" id="editingDesignationId">
+        <div class="col-7">
+          <input type="text" class="form-control form-control-sm" id="newDesignationName" placeholder="New designation name" required>
+        </div>
+        <div class="col-3">
+          <input type="number" class="form-control form-control-sm" id="newDesignationLevel" placeholder="Level" value="0" min="0">
+        </div>
+        <div class="col-2">
+          <button type="submit" class="btn btn-primary btn-sm w-100" id="designationSubmitBtn"><i class="bi bi-plus-lg"></i></button>
+        </div>
+        <div class="col-12 d-none" id="designationCancelEditWrap">
+          <button type="button" class="btn btn-sm btn-link p-0" id="cancelDesignationEdit">Cancel edit</button>
+        </div>
+      </form>
+      <ul class="list-group list-group-flush" id="designationList"></ul>
+    </div>
+  </div>
+
+  <!-- Module access offcanvas (Super Admin only) -->
+  <div class="offcanvas offcanvas-end" tabindex="-1" id="moduleAccessPanel">
+    <div class="offcanvas-header">
+      <h5 class="offcanvas-title"><i class="bi bi-grid-3x3-gap me-1"></i>Module Access</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+    </div>
+    <div class="offcanvas-body d-flex flex-column">
+      <input type="hidden" id="moduleAccessEmployeeId">
+      <p class="mb-1"><strong id="moduleAccessEmployeeName">&mdash;</strong></p>
+      <p class="text-muted small mb-2" id="moduleAccessStatus"></p>
+      <p class="text-muted small mb-3">
+        Checking any module here fully overrides this employee's normal role-based access &mdash;
+        only the checked modules (plus My Profile, which is always granted) will appear on their
+        dashboard. Use &ldquo;Reset to default&rdquo; to remove the override entirely.
+      </p>
+      <div class="flex-grow-1" style="overflow-y: auto;" id="moduleAccessChecklist"></div>
+      <div class="d-flex gap-2 pt-3 mt-2 border-top">
+        <button type="button" class="btn btn-outline-secondary w-50" id="resetModuleAccessBtn">Reset to Default</button>
+        <button type="button" class="btn btn-primary w-50" id="saveModuleAccessBtn"><i class="bi bi-check-lg me-1"></i>Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit employee offcanvas -->
+  <div class="offcanvas offcanvas-end" tabindex="-1" id="editPanel" style="width: 480px;">
+    <div class="offcanvas-header">
+      <h5 class="offcanvas-title"><i class="bi bi-pencil-square me-1"></i>Edit Employee</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+    </div>
+    <div class="offcanvas-body d-flex flex-column">
+      <input type="hidden" id="edit_employee_id">
+      <div id="editAlertBox" class="alert alert-danger d-none"></div>
+      <form id="editForm" class="flex-grow-1 d-flex flex-column">
+        <div class="row g-3 flex-grow-1" style="overflow-y: auto;">
+          <div class="col-12">
+            <label class="form-label">Department</label>
+            <select class="form-select" id="edit_department_id"><option value="">-- none --</option></select>
+          </div>
+          <div class="col-12">
+            <label class="form-label">Designation</label>
+            <select class="form-select" id="edit_designation_id"><option value="">-- none --</option></select>
+          </div>
+          <div class="col-12">
+            <label class="form-label">Reporting Manager</label>
+            <select class="form-select" id="edit_reporting_manager_id"><option value="">-- none --</option></select>
+          </div>
+          <div class="col-12">
+            <label class="form-label">Employment status</label>
+            <select class="form-select" id="edit_status">
+              <option value="probation">Probation</option>
+              <option value="active">Active</option>
+              <option value="terminated">Terminated</option>
+              <option value="resigned">Resigned</option>
+            </select>
+          </div>
+          <div class="col-12">
+            <label class="form-label">Role</label>
+            <select class="form-select" id="edit_role">
+              <option value="employee">Employee</option>
+              <option value="hr">HR</option>
+            </select>
+            <div class="form-text small">Grants access to Employees, Onboarding, and Document Review modules.</div>
+          </div>
+          <div class="col-12">
+            <label class="form-label">Probation end date</label>
+            <input type="date" class="form-control" id="edit_probation_end_date">
+          </div>
+          <div class="col-12">
+            <label class="form-label">Phone</label>
+            <div class="input-group">
+              <select class="form-select" id="edit_phone_code" style="max-width: 90px;">
+                <option value="+91">+91</option><option value="+1">+1</option><option value="+44">+44</option>
+                <option value="+61">+61</option><option value="+971">+971</option><option value="+65">+65</option>
+              </select>
+              <input type="tel" class="form-control" id="edit_phone_number">
+            </div>
+          </div>
+          <div class="col-12">
+            <label class="form-label">Personal email</label>
+            <input type="email" class="form-control" id="edit_personal_email">
+          </div>
+          <div class="col-12">
+            <label class="form-label">Date of birth</label>
+            <input type="date" class="form-control" id="edit_date_of_birth">
+          </div>
+          <div class="col-12">
+            <label class="form-label">Gender</label>
+            <select class="form-select" id="edit_gender">
+              <option value="">-- select --</option>
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+              <option value="non_binary">Non-binary</option>
+              <option value="undisclosed">Prefer not to say</option>
+            </select>
+          </div>
+          <div class="col-12">
+            <label class="form-label">Address</label>
+            <textarea class="form-control" id="edit_address" rows="3"></textarea>
+          </div>
+          <div class="col-12">
+            <label class="form-label">Emergency contact name</label>
+            <input type="text" class="form-control" id="edit_emergency_contact_name">
+          </div>
+          <div class="col-12">
+            <label class="form-label">Emergency contact phone</label>
+            <div class="input-group">
+              <select class="form-select" id="edit_emergency_phone_code" style="max-width: 90px;">
+                <option value="+91">+91</option><option value="+1">+1</option><option value="+44">+44</option>
+                <option value="+61">+61</option><option value="+971">+971</option><option value="+65">+65</option>
+              </select>
+              <input type="tel" class="form-control" id="edit_emergency_phone_number">
+            </div>
+          </div>
+          <div class="col-12">
+            <label class="form-label">Relation</label>
+            <input type="text" class="form-control" id="edit_emergency_contact_relation">
+          </div>
+          <div class="col-12">
+            <label class="form-label">Bank account holder name</label>
+            <input type="text" class="form-control" id="edit_bank_account_holder_name">
+          </div>
+          <div class="col-12">
+            <label class="form-label">Bank account number</label>
+            <input type="text" class="form-control" id="edit_bank_account_number">
+          </div>
+          <div class="col-6">
+            <label class="form-label">Bank IFSC</label>
+            <input type="text" class="form-control" id="edit_bank_ifsc" style="text-transform: uppercase;">
+          </div>
+          <div class="col-6">
+            <label class="form-label">Bank name</label>
+            <input type="text" class="form-control" id="edit_bank_name">
+          </div>
+          <div class="col-6">
+            <label class="form-label">Branch name</label>
+            <input type="text" class="form-control" id="edit_bank_branch_name">
+          </div>
+          <div class="col-6">
+            <label class="form-label">Account type</label>
+            <select class="form-select" id="edit_bank_account_type">
+              <option value="">-- select --</option>
+              <option value="savings">Savings</option>
+              <option value="current">Current</option>
+            </select>
+          </div>
+        </div>
+        <div class="d-flex gap-2 pt-3 mt-2 border-top">
+          <button type="button" class="btn btn-outline-secondary w-50" data-bs-dismiss="offcanvas">Cancel</button>
+          <button type="submit" class="btn btn-primary w-50"><i class="bi bi-check-lg me-1"></i>Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script nonce="{{ csp_nonce }}">
+    const token = sessionStorage.getItem('access_token');
+    if (!token) { window.location.href = '/auth/login'; }
+    const authHeader = { Authorization: 'Bearer ' + token };
+
+    const PAGE_SIZE = 10;
+    let currentPage = 1;
+    let departments = [];
+    let designations = [];
+    let allEmployees = [];
+    let isSuperAdmin = false;
+    let moduleCatalog = [];
+
+    function showToast(message, variant) {
+      const bg = variant === 'success' ? 'text-bg-success' : 'text-bg-danger';
+      const icon = variant === 'success' ? 'bi-check-circle' : 'bi-exclamation-triangle';
+      const toastEl = $(
+        '<div class="toast align-items-center ' + bg + ' border-0" role="alert">' +
+          '<div class="d-flex">' +
+            '<div class="toast-body"><i class="bi ' + icon + ' me-2"></i>' + message + '</div>' +
+            '<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>' +
+          '</div>' +
+        '</div>'
+      );
+      $('#toastContainer').append(toastEl);
+      const toast = new bootstrap.Toast(toastEl[0], { delay: 4000 });
+      toast.show();
+      toastEl.on('hidden.bs.toast', function () { toastEl.remove(); });
+    }
+
+    function showError(message) { showToast(message, 'danger'); }
+    function showSuccess(message) { showToast(message, 'success'); }
+
+    function statusBadge(value) {
+      return '<span class="badge emp-status emp-status-' + value + '">' + value.replace('_', ' ') + '</span>';
+    }
+
+    function accountBadge(isActive) {
+      return isActive
+        ? '<span class="badge emp-status emp-status-active">active</span>'
+        : '<span class="badge emp-status emp-status-terminated">disabled</span>';
+    }
+
+    function nameById(list, id) {
+      const match = list.find(function (item) { return item.id === id; });
+      return match ? match.name : '&mdash;';
+    }
+
+    function fillSelect(selectId, items, placeholder) {
+      const select = $(selectId);
+      select.html('<option value="">' + placeholder + '</option>');
+      items.forEach(function (item) {
+        select.append($('<option>').val(item.id).text(item.name));
+      });
+    }
+
+    // ---- Departments ----
+    function loadDepartments() {
+      $.ajax({ url: '/api/v1/departments', headers: authHeader }).done(function (items) {
+        departments = items;
+        fillSelect('#department_id', items, '-- none --');
+        fillSelect('#edit_department_id', items, '-- none --');
+        $('#departmentList').html(items.map(function (d) {
+          return '<li class="list-group-item d-flex justify-content-between align-items-center py-2">' +
+            d.name + '<button class="btn btn-sm btn-outline-danger delete-department" data-id="' + d.id + '"><i class="bi bi-trash"></i></button></li>';
+        }).join('') || '<li class="list-group-item text-muted small">No departments yet.</li>');
+        renderEmployees();
+      });
+    }
+
+    // ---- Designations ----
+    function loadDesignations() {
+      $.ajax({ url: '/api/v1/designations', headers: authHeader }).done(function (items) {
+        designations = items;
+        fillSelect('#designation_id', items, '-- none --');
+        fillSelect('#edit_designation_id', items, '-- none --');
+        $('#designationList').html(items.map(function (d) {
+          return '<li class="list-group-item d-flex justify-content-between align-items-center py-2">' +
+            '<span>' + d.name + ' <span class="text-muted small">L' + d.level + '</span></span>' +
+            '<span>' +
+              '<button class="btn btn-sm btn-outline-primary edit-designation" data-id="' + d.id + '" data-name="' + d.name.replace(/"/g, '&quot;') + '" data-level="' + d.level + '"><i class="bi bi-pencil"></i></button> ' +
+              '<button class="btn btn-sm btn-outline-danger delete-designation" data-id="' + d.id + '"><i class="bi bi-trash"></i></button>' +
+            '</span></li>';
+        }).join('') || '<li class="list-group-item text-muted small">No designations yet.</li>');
+        renderEmployees();
+      });
+    }
+
+    $('#departmentForm').on('submit', function (e) {
+      e.preventDefault();
+      $.ajax({
+        url: '/api/v1/departments', method: 'POST', contentType: 'application/json', headers: authHeader,
+        data: JSON.stringify({ name: $('#newDepartmentName').val() })
+      }).done(function () {
+        $('#departmentForm')[0].reset();
+        loadDepartments();
+        showSuccess('Department added.');
+      }).fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to add department.'); });
+    });
+
+    function resetDesignationForm() {
+      $('#designationForm')[0].reset();
+      $('#editingDesignationId').val('');
+      $('#designationSubmitBtn').html('<i class="bi bi-plus-lg"></i>');
+      $('#designationCancelEditWrap').addClass('d-none');
+    }
+
+    $('#designationForm').on('submit', function (e) {
+      e.preventDefault();
+      const editingId = $('#editingDesignationId').val();
+      const payload = { name: $('#newDesignationName').val(), level: parseInt($('#newDesignationLevel').val(), 10) || 0 };
+
+      if (editingId) {
+        $.ajax({
+          url: '/api/v1/designations/' + editingId, method: 'PUT', contentType: 'application/json', headers: authHeader,
+          data: JSON.stringify(payload)
+        }).done(function () {
+          resetDesignationForm();
+          loadDesignations();
+          showSuccess('Designation updated.');
+        }).fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to update designation.'); });
+        return;
+      }
+
+      $.ajax({
+        url: '/api/v1/designations', method: 'POST', contentType: 'application/json', headers: authHeader,
+        data: JSON.stringify(payload)
+      }).done(function () {
+        resetDesignationForm();
+        loadDesignations();
+        showSuccess('Designation added.');
+      }).fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to add designation.'); });
+    });
+
+    $(document).on('click', '.edit-designation', function () {
+      $('#editingDesignationId').val($(this).data('id'));
+      $('#newDesignationName').val($(this).data('name'));
+      $('#newDesignationLevel').val($(this).data('level'));
+      $('#designationSubmitBtn').html('<i class="bi bi-check-lg"></i>');
+      $('#designationCancelEditWrap').removeClass('d-none');
+      $('#newDesignationName').trigger('focus');
+    });
+
+    $('#cancelDesignationEdit').on('click', resetDesignationForm);
+
+    $(document).on('click', '.delete-department', function () {
+      if (!confirm('Delete this department?')) return;
+      $.ajax({ url: '/api/v1/departments/' + $(this).data('id'), method: 'DELETE', headers: authHeader })
+        .done(loadDepartments)
+        .fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to delete department.'); });
+    });
+
+    $(document).on('click', '.delete-designation', function () {
+      if (!confirm('Delete this designation?')) return;
+      $.ajax({ url: '/api/v1/designations/' + $(this).data('id'), method: 'DELETE', headers: authHeader })
+        .done(loadDesignations)
+        .fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to delete designation.'); });
+    });
+
+    // ---- Employees ----
+    function loadEmployees() {
+      $.ajax({ url: '/api/v1/employees', headers: authHeader })
+        .done(function (employees) {
+          allEmployees = employees;
+          currentPage = 1;
+          renderEmployees();
+        })
+        .fail(function (xhr) {
+          showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to load employees.');
+        });
+    }
+
+    function getFilteredEmployees() {
+      const query = ($('#searchBox').val() || '').toLowerCase();
+      const statusFilter = $('#statusFilter').val();
+      return allEmployees.filter(function (e) {
+        const matchesQuery = (e.employee_code + ' ' + e.full_name + ' ' + e.email).toLowerCase().includes(query);
+        const matchesStatus = !statusFilter || e.status === statusFilter;
+        return matchesQuery && matchesStatus;
+      });
+    }
+
+    function renderEmployees() {
+      const filtered = getFilteredEmployees();
+      const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+      currentPage = Math.min(currentPage, totalPages);
+      const start = (currentPage - 1) * PAGE_SIZE;
+      const pageItems = filtered.slice(start, start + PAGE_SIZE);
+
+      $('#emptyState').toggleClass('d-none', allEmployees.length > 0);
+
+      const rows = pageItems.map(function (e) {
+        const toggleLabel = e.is_active ? 'Disable' : 'Enable';
+        const toggleIcon = e.is_active ? 'bi-slash-circle' : 'bi-check-circle';
+        const toggleClass = e.is_active ? 'btn-outline-danger' : 'btn-outline-success';
+        const moduleAccessBtn = isSuperAdmin
+          ? '<button class="btn btn-sm btn-outline-secondary manage-module-access" data-id="' + e.id + '" title="Module Access"><i class="bi bi-grid-3x3-gap"></i></button> '
+          : '';
+        return '<tr>' +
+          '<td>' + e.employee_code + '</td>' +
+          '<td>' + e.full_name + '</td>' +
+          '<td>' + e.email + '</td>' +
+          '<td>' + nameById(departments, e.department_id) + '</td>' +
+          '<td>' + nameById(designations, e.designation_id) + '</td>' +
+          '<td>' + statusBadge(e.status) + '</td>' +
+          '<td>' + accountBadge(e.is_active) + '</td>' +
+          '<td>' + e.joining_date + '</td>' +
+          '<td class="text-end text-nowrap">' +
+            '<button class="btn btn-sm btn-outline-primary edit-employee" data-id="' + e.id + '"><i class="bi bi-pencil"></i></button> ' +
+            moduleAccessBtn +
+            '<button class="btn btn-sm ' + toggleClass + ' toggle-access" data-id="' + e.id + '" data-active="' + e.is_active + '">' +
+              '<i class="bi ' + toggleIcon + '"></i> ' + toggleLabel +
+            '</button>' +
+          '</td>' +
+        '</tr>';
+      });
+      $('#employeeRows').html(rows.join(''));
+
+      renderPagination(filtered.length, totalPages);
+    }
+
+    function renderPagination(totalCount, totalPages) {
+      $('#paginationBar').toggleClass('d-none', totalCount === 0);
+      if (totalCount === 0) return;
+
+      const start = totalCount === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
+      const end = Math.min(currentPage * PAGE_SIZE, totalCount);
+      $('#paginationSummary').text('Showing ' + start + '-' + end + ' of ' + totalCount);
+
+      let html = '';
+      html += '<li class="page-item' + (currentPage === 1 ? ' disabled' : '') + '">' +
+        '<a class="page-link" href="#" data-page="' + (currentPage - 1) + '">Prev</a></li>';
+      for (let p = 1; p <= totalPages; p++) {
+        html += '<li class="page-item' + (p === currentPage ? ' active' : '') + '">' +
+          '<a class="page-link" href="#" data-page="' + p + '">' + p + '</a></li>';
+      }
+      html += '<li class="page-item' + (currentPage === totalPages ? ' disabled' : '') + '">' +
+        '<a class="page-link" href="#" data-page="' + (currentPage + 1) + '">Next</a></li>';
+      $('#paginationControls').html(html);
+    }
+
+    $(document).on('click', '#paginationControls a', function (e) {
+      e.preventDefault();
+      const page = parseInt($(this).data('page'), 10);
+      if (!page || page < 1) return;
+      currentPage = page;
+      renderEmployees();
+    });
+
+    $('#searchBox').on('input', function () { currentPage = 1; renderEmployees(); });
+    $('#statusFilter').on('change', function () { currentPage = 1; renderEmployees(); });
+
+    $('#createForm').on('submit', function (e) {
+      e.preventDefault();
+      const payload = {
+        full_name: $('#full_name').val(),
+        email: $('#email').val(),
+        initial_password: $('#initial_password').val(),
+        role: $('#role').val(),
+        department_id: $('#department_id').val() || null,
+        designation_id: $('#designation_id').val() || null,
+        joining_date: $('#joining_date').val(),
+        phone: $('#phone').val() || null,
+        personal_email: $('#personal_email').val() || null
+      };
+      $.ajax({
+        url: '/api/v1/employees',
+        method: 'POST',
+        contentType: 'application/json',
+        headers: authHeader,
+        data: JSON.stringify(payload)
+      }).done(function () {
+        $('#createForm')[0].reset();
+        loadEmployees();
+      }).fail(function (xhr) {
+        showError((xhr.responseJSON && JSON.stringify(xhr.responseJSON.detail)) || 'Failed to create employee.');
+      });
+    });
+
+    // ---- Edit panel ----
+    const editPanel = new bootstrap.Offcanvas(document.getElementById('editPanel'));
+
+    function splitPhone(value) {
+      if (!value) return { code: '+91', number: '' };
+      const match = value.match(/^(\+\d{1,4})\s?(.*)$/);
+      if (match) return { code: match[1], number: match[2] };
+      return { code: '+91', number: value };
+    }
+
+    function combinePhone(code, number) {
+      const trimmed = (number || '').trim();
+      return trimmed ? code + ' ' + trimmed : null;
+    }
+
+    $(document).on('click', '.edit-employee', function () {
+      const employeeId = $(this).data('id');
+      $('#editAlertBox').addClass('d-none');
+      $.ajax({ url: '/api/v1/employees/' + employeeId, headers: authHeader }).done(function (emp) {
+        $('#edit_employee_id').val(emp.id);
+        $('#edit_department_id').val(emp.department_id || '');
+        $('#edit_designation_id').val(emp.designation_id || '');
+
+        const managerOptions = allEmployees
+          .filter(function (e) { return e.id !== emp.id; })
+          .map(function (e) { return '<option value="' + e.id + '">' + e.employee_code + ' - ' + e.full_name + '</option>'; });
+        $('#edit_reporting_manager_id').html('<option value="">-- none --</option>' + managerOptions.join(''));
+        $('#edit_reporting_manager_id').val(emp.reporting_manager_id || '');
+
+        $('#edit_status').val(emp.status);
+        $('#edit_role').val(emp.role);
+        $('#edit_probation_end_date').val(emp.probation_end_date || '');
+
+        const phone = splitPhone(emp.phone);
+        $('#edit_phone_code').val(phone.code);
+        $('#edit_phone_number').val(phone.number);
+
+        $('#edit_personal_email').val(emp.personal_email || '');
+        $('#edit_date_of_birth').val(emp.date_of_birth || '');
+        $('#edit_gender').val(emp.gender || '');
+        $('#edit_address').val(emp.address || '');
+        $('#edit_emergency_contact_name').val(emp.emergency_contact_name || '');
+
+        const emergencyPhone = splitPhone(emp.emergency_contact_phone);
+        $('#edit_emergency_phone_code').val(emergencyPhone.code);
+        $('#edit_emergency_phone_number').val(emergencyPhone.number);
+
+        $('#edit_emergency_contact_relation').val(emp.emergency_contact_relation || '');
+        $('#edit_bank_account_holder_name').val(emp.bank_account_holder_name || '');
+        $('#edit_bank_account_number').val(emp.bank_account_number || '');
+        $('#edit_bank_ifsc').val(emp.bank_ifsc || '');
+        $('#edit_bank_name').val(emp.bank_name || '');
+        $('#edit_bank_branch_name').val(emp.bank_branch_name || '');
+        $('#edit_bank_account_type').val(emp.bank_account_type || '');
+        editPanel.show();
+      }).fail(function (xhr) {
+        showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to load employee.');
+      });
+    });
+
+    $('#editForm').on('submit', function (e) {
+      e.preventDefault();
+      const employeeId = $('#edit_employee_id').val();
+      const payload = {
+        department_id: $('#edit_department_id').val() || null,
+        designation_id: $('#edit_designation_id').val() || null,
+        reporting_manager_id: $('#edit_reporting_manager_id').val() || null,
+        status: $('#edit_status').val(),
+        role: $('#edit_role').val(),
+        probation_end_date: $('#edit_probation_end_date').val() || null,
+        phone: combinePhone($('#edit_phone_code').val(), $('#edit_phone_number').val()),
+        personal_email: $('#edit_personal_email').val() || null,
+        date_of_birth: $('#edit_date_of_birth').val() || null,
+        gender: $('#edit_gender').val() || null,
+        address: $('#edit_address').val() || null,
+        emergency_contact_name: $('#edit_emergency_contact_name').val() || null,
+        emergency_contact_phone: combinePhone($('#edit_emergency_phone_code').val(), $('#edit_emergency_phone_number').val()),
+        emergency_contact_relation: $('#edit_emergency_contact_relation').val() || null,
+        bank_account_holder_name: $('#edit_bank_account_holder_name').val() || null,
+        bank_account_number: $('#edit_bank_account_number').val() || null,
+        bank_ifsc: ($('#edit_bank_ifsc').val() || '').toUpperCase() || null,
+        bank_name: $('#edit_bank_name').val() || null,
+        bank_branch_name: $('#edit_bank_branch_name').val() || null,
+        bank_account_type: $('#edit_bank_account_type').val() || null
+      };
+      $.ajax({
+        url: '/api/v1/employees/' + employeeId,
+        method: 'PUT',
+        contentType: 'application/json',
+        headers: authHeader,
+        data: JSON.stringify(payload)
+      }).done(function () {
+        editPanel.hide();
+        loadEmployees();
+      }).fail(function (xhr) {
+        $('#editAlertBox').removeClass('d-none').text((xhr.responseJSON && JSON.stringify(xhr.responseJSON.detail)) || 'Failed to update employee.');
+      });
+    });
+
+    $(document).on('click', '.toggle-access', function () {
+      const employeeId = $(this).data('id');
+      const nextActive = !( $(this).data('active') === true );
+      const label = nextActive ? 'enable' : 'disable';
+      if (!confirm('Are you sure you want to ' + label + ' this employee\'s account?')) return;
+      $.ajax({
+        url: '/api/v1/employees/' + employeeId + '/access',
+        method: 'PUT',
+        contentType: 'application/json',
+        headers: authHeader,
+        data: JSON.stringify({ is_active: nextActive })
+      }).done(function () {
+        loadEmployees();
+      }).fail(function (xhr) {
+        showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to update account access.');
+      });
+    });
+
+    // ---- Module access (Super Admin only) ----
+    const moduleAccessPanel = new bootstrap.Offcanvas(document.getElementById('moduleAccessPanel'));
+
+    function loadModuleCatalog() {
+      return $.ajax({ url: '/api/v1/employees/module-catalog', headers: authHeader }).done(function (catalog) {
+        moduleCatalog = catalog;
+      });
+    }
+
+    function renderModuleChecklist(rawModuleAccess) {
+      $('#moduleAccessStatus').text(
+        rawModuleAccess === null || rawModuleAccess === undefined
+          ? 'Currently using default role-based access.'
+          : 'Custom override active.'
+      );
+      $('#moduleAccessChecklist').html(moduleCatalog.map(function (m) {
+        const isProfile = m.key === 'profile';
+        const checked = isProfile || (Array.isArray(rawModuleAccess) && rawModuleAccess.includes(m.key));
+        return '<div class="form-check mb-2">' +
+          '<input class="form-check-input module-access-checkbox" type="checkbox" value="' + m.key + '" id="module_' + m.key + '"' +
+            (checked ? ' checked' : '') + (isProfile ? ' disabled' : '') + '>' +
+          '<label class="form-check-label" for="module_' + m.key + '">' + m.label + (isProfile ? ' <span class="text-muted small">(always on)</span>' : '') + '</label>' +
+        '</div>';
+      }).join(''));
+    }
+
+    $(document).on('click', '.manage-module-access', function () {
+      const employeeId = $(this).data('id');
+      $.ajax({ url: '/api/v1/employees/' + employeeId, headers: authHeader }).done(function (emp) {
+        $('#moduleAccessEmployeeId').val(emp.id);
+        $('#moduleAccessEmployeeName').text(emp.employee_code + ' — ' + emp.full_name);
+        renderModuleChecklist(emp.module_access);
+        moduleAccessPanel.show();
+      }).fail(function (xhr) {
+        showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to load employee.');
+      });
+    });
+
+    $('#saveModuleAccessBtn').on('click', function () {
+      const employeeId = $('#moduleAccessEmployeeId').val();
+      const modules = $('.module-access-checkbox:checked').map(function () { return $(this).val(); }).get();
+      $.ajax({
+        url: '/api/v1/employees/' + employeeId + '/module-access', method: 'PUT', contentType: 'application/json', headers: authHeader,
+        data: JSON.stringify({ modules: modules })
+      }).done(function (emp) {
+        renderModuleChecklist(emp.module_access);
+        showSuccess('Module access updated.');
+      }).fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to update module access.'); });
+    });
+
+    $('#resetModuleAccessBtn').on('click', function () {
+      const employeeId = $('#moduleAccessEmployeeId').val();
+      $.ajax({
+        url: '/api/v1/employees/' + employeeId + '/module-access', method: 'PUT', contentType: 'application/json', headers: authHeader,
+        data: JSON.stringify({ modules: null })
+      }).done(function (emp) {
+        renderModuleChecklist(emp.module_access);
+        showSuccess('Reset to default role-based access.');
+      }).fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to reset module access.'); });
+    });
+
+    $.ajax({ url: '/api/v1/auth/me', headers: authHeader }).done(function (me) {
+      isSuperAdmin = me.role === 'super_admin';
+      if (isSuperAdmin) loadModuleCatalog();
+      renderEmployees();
+    });
+
+    loadDepartments();
+    loadDesignations();
+    loadEmployees();
+
+    $('#logoutLink').on('click', function (e) {
+      e.preventDefault();
+      sessionStorage.clear();
+      window.location.href = '/auth/login';
+    });
+  </script>
+</body>
+</html>

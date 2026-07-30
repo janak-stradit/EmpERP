@@ -1,0 +1,395 @@
+@import url('https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap');
+
+:root {
+  /* Palette inspired by fireblocks.com: bright indigo-blue accent, deep navy for
+     headers/text, soft light-gray page background, generous rounding. */
+  --emp-primary: #4568f3;
+  --emp-primary-dark: #2f4fd8;
+  --emp-primary-light: #eaf0ff;
+  --emp-secondary: #718096;
+
+  --emp-success: #16a34a;
+  --emp-success-bg: #dcfce7;
+  --emp-warning: #b45309;
+  --emp-warning-bg: #fef3c7;
+  --emp-danger: #dc2626;
+  --emp-danger-bg: #fee2e2;
+  --emp-neutral-bg: #e7e9ef;
+  --emp-neutral-text: #415080;
+
+  --emp-navy: #192a4d;
+  --emp-navy-dark: #101b33;
+
+  --emp-bg: #f4f5f7;
+  --emp-surface: #ffffff;
+  --emp-text: #192a4d;
+  --emp-text-muted: #718096;
+  --emp-border: rgba(25, 42, 77, 0.08);
+  --emp-border-strong: rgba(25, 42, 77, 0.16);
+
+  --emp-radius-sm: 0.6rem;
+  --emp-radius: 1rem;
+  --emp-radius-lg: 1.5rem;
+
+  --emp-shadow-sm: 0 1px 2px rgba(25, 42, 77, 0.05), 0 1px 3px rgba(25, 42, 77, 0.06);
+  --emp-shadow: 0 4px 14px rgba(25, 42, 77, 0.07), 0 10px 26px rgba(25, 42, 77, 0.05);
+  --emp-shadow-lg: 0 18px 36px rgba(25, 42, 77, 0.16);
+}
+
+* {
+  scrollbar-color: #c7cbd4 transparent;
+}
+
+body {
+  background-color: var(--emp-bg);
+  color: var(--emp-text);
+  font-family: 'Figtree', -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, h5, h6,
+.card-title, .offcanvas-title, .navbar-brand {
+  font-family: 'Figtree', -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  letter-spacing: -0.01em;
+}
+
+/* ---- Navbar ---- */
+
+.navbar.emp-navbar {
+  background: linear-gradient(90deg, var(--emp-navy), var(--emp-navy-dark));
+  box-shadow: 0 2px 16px rgba(16, 27, 51, 0.35);
+}
+
+.navbar.emp-navbar .navbar-brand {
+  color: #fff;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.navbar.emp-navbar .nav-link {
+  color: rgba(255, 255, 255, 0.85) !important;
+  font-weight: 500;
+  padding: 0.4rem 0.85rem !important;
+  border-radius: 999px;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.navbar.emp-navbar .nav-link:hover {
+  color: #fff !important;
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.navbar.emp-navbar .nav-link.active {
+  color: #fff !important;
+  background-color: rgba(255, 255, 255, 0.18);
+}
+
+/* ---- Page header ---- */
+
+.emp-page-header {
+  margin-bottom: 1.5rem;
+}
+
+.emp-page-header h1 {
+  font-size: 1.7rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin-bottom: 0.2rem;
+  color: var(--emp-text);
+}
+
+.emp-page-header p {
+  color: var(--emp-text-muted);
+  margin-bottom: 0;
+}
+
+/* ---- Cards ---- */
+
+.card {
+  background-color: var(--emp-surface);
+  border: 1px solid var(--emp-border);
+  border-radius: var(--emp-radius);
+  box-shadow: var(--emp-shadow-sm);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.card:hover {
+  border-color: var(--emp-border-strong);
+}
+
+.card .card-body {
+  padding: 1.35rem;
+}
+
+.card .card-title {
+  font-weight: 700;
+  font-size: 1.02rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--emp-text);
+}
+
+.card .card-title i {
+  color: var(--emp-primary);
+}
+
+/* Compact stat cards (text-center summary tiles) */
+.card.text-center {
+  border-top: 3px solid var(--emp-primary);
+}
+
+/* ---- Buttons ---- */
+
+.btn {
+  font-family: 'Figtree', -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-weight: 600;
+  border-radius: 999px;
+  transition: transform 0.1s ease, box-shadow 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.btn-primary {
+  background-color: var(--emp-primary);
+  border-color: var(--emp-primary);
+}
+
+.btn-primary:hover,
+.btn-primary:focus {
+  background-color: var(--emp-primary-dark);
+  border-color: var(--emp-primary-dark);
+}
+
+.btn-primary:not(:disabled):active {
+  transform: translateY(1px);
+}
+
+.btn-outline-primary {
+  color: var(--emp-primary);
+  border-color: var(--emp-primary);
+}
+
+.btn-outline-primary:hover {
+  background-color: var(--emp-primary);
+  border-color: var(--emp-primary);
+}
+
+.btn:disabled {
+  transform: none;
+}
+
+/* ---- Tables ---- */
+
+.table {
+  --bs-table-hover-bg: var(--emp-primary-light);
+}
+
+.table thead th {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--emp-text-muted);
+  border-bottom-width: 1px;
+  background-color: transparent;
+}
+
+.table tbody tr {
+  transition: background-color 0.12s ease;
+}
+
+/* ---- Empty state ---- */
+
+.emp-empty-state {
+  text-align: center;
+  color: #9ca3af;
+  padding: 2.5rem 1rem;
+}
+
+/* ---- Status badges ---- */
+
+.badge.emp-status {
+  font-weight: 600;
+  font-size: 0.72rem;
+  padding: 0.42em 0.8em;
+  border-radius: 999px;
+  text-transform: capitalize;
+  letter-spacing: 0.01em;
+}
+
+.badge.emp-status-active,
+.badge.emp-status-approved,
+.badge.emp-status-completed {
+  background-color: var(--emp-success-bg);
+  color: var(--emp-success);
+}
+
+.badge.emp-status-pending,
+.badge.emp-status-probation,
+.badge.emp-status-in_progress,
+.badge.emp-status-pending_manager,
+.badge.emp-status-pending_hr {
+  background-color: var(--emp-warning-bg);
+  color: var(--emp-warning);
+}
+
+.badge.emp-status-rejected,
+.badge.emp-status-terminated {
+  background-color: var(--emp-danger-bg);
+  color: var(--emp-danger);
+}
+
+.badge.emp-status-resigned,
+.badge.emp-status-not_started,
+.badge.emp-status-skipped,
+.badge.emp-status-cancelled {
+  background-color: var(--emp-neutral-bg);
+  color: var(--emp-neutral-text);
+}
+
+/* ---- Progress bars ---- */
+
+.progress {
+  height: 0.6rem;
+  border-radius: 999px;
+  background-color: var(--emp-neutral-bg);
+}
+
+.progress-bar {
+  background-color: var(--emp-primary);
+}
+
+/* ---- Login page ---- */
+
+.emp-login-wrapper {
+  min-height: 100vh;
+  background: linear-gradient(135deg, var(--emp-navy), var(--emp-navy-dark));
+}
+
+.emp-login-card {
+  border: none;
+  border-radius: var(--emp-radius-lg);
+  box-shadow: 0 20px 48px rgba(16, 27, 51, 0.4);
+}
+
+.emp-login-icon {
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.6rem;
+}
+
+/* ---- Forms ---- */
+
+.form-control,
+.form-select {
+  border-radius: var(--emp-radius-sm);
+  border-color: var(--emp-border-strong);
+}
+
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--emp-primary);
+  box-shadow: 0 0 0 0.2rem rgba(69, 104, 243, 0.15);
+}
+
+.form-label {
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: var(--emp-text);
+}
+
+/* ---- Dashboard tiles ---- */
+
+.emp-tile {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  height: 100%;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.emp-tile:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--emp-shadow-lg);
+}
+
+.emp-tile-icon {
+  width: 3rem;
+  height: 3rem;
+  border-radius: var(--emp-radius-sm);
+  background: var(--emp-primary-light);
+  color: var(--emp-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+/* ---- Avatar ---- */
+
+.emp-avatar {
+  width: 96px;
+  height: 96px;
+  border-radius: 999px;
+  object-fit: cover;
+  border: 3px solid #fff;
+  box-shadow: var(--emp-shadow);
+}
+
+.emp-avatar-placeholder {
+  width: 96px;
+  height: 96px;
+  border-radius: 999px;
+  background: var(--emp-primary-light);
+  color: var(--emp-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.5rem;
+}
+
+/* ---- Drag & drop zones ---- */
+
+.emp-dropzone {
+  border: 2px dashed var(--emp-border-strong);
+  border-radius: var(--emp-radius);
+  padding: 1.5rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+  color: var(--emp-text-muted);
+}
+
+.emp-dropzone:hover,
+.emp-dropzone.dragover {
+  border-color: var(--emp-primary);
+  background-color: var(--emp-primary-light);
+  color: var(--emp-primary);
+}
+
+/* ---- Offcanvas & modal polish ---- */
+
+.offcanvas-header {
+  border-bottom: 1px solid var(--emp-border);
+}
+
+.offcanvas-title {
+  font-weight: 700;
+}
+
+/* ---- Toasts ---- */
+
+#toastContainer {
+  z-index: 1080;
+}
+
+#toastContainer .toast {
+  border-radius: var(--emp-radius-sm);
+  box-shadow: var(--emp-shadow-lg);
+}

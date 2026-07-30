@@ -1,0 +1,462 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Stradit Workforce &mdash; Leave Management</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="/static/css/app.css" rel="stylesheet">
+</head>
+<body>
+  <nav class="navbar navbar-expand emp-navbar mb-4">
+    <div class="container">
+      <span class="navbar-brand"><i class="bi bi-buildings me-2"></i>Stradit Workforce &mdash; HR</span>
+      <div class="navbar-nav">
+        <a class="nav-link" href="/dashboard"><i class="bi bi-grid me-1"></i>Dashboard</a>
+        <a class="nav-link" href="#" id="logoutLink"><i class="bi bi-box-arrow-right me-1"></i>Logout</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="toast-container position-fixed top-0 end-0 p-3" id="toastContainer"></div>
+
+  <div class="container pb-5">
+    <a href="/dashboard" class="btn btn-sm btn-link ps-0 mb-2"><i class="bi bi-arrow-left me-1"></i>Back to Dashboard</a>
+
+    <div class="emp-page-header d-flex justify-content-between align-items-start flex-wrap gap-2">
+      <div>
+        <h1>Leave Management</h1>
+        <p>Manage leave types, allocate balances, and process HR-stage approvals.</p>
+      </div>
+      <button class="btn btn-outline-primary btn-sm" data-bs-toggle="offcanvas" data-bs-target="#typesPanel">
+        <i class="bi bi-tags me-1"></i>Manage Leave Types
+      </button>
+    </div>
+
+    <div class="row g-3 mb-3">
+      <div class="col-sm-4">
+        <div class="card text-center py-2">
+          <div class="fs-4 fw-semibold" id="statPendingHr">0</div>
+          <div class="text-muted small">Awaiting HR approval</div>
+        </div>
+      </div>
+      <div class="col-sm-4">
+        <div class="card text-center py-2">
+          <div class="fs-4 fw-semibold text-success" id="statApproved">0</div>
+          <div class="text-muted small">Approved</div>
+        </div>
+      </div>
+      <div class="col-sm-4">
+        <div class="card text-center py-2">
+          <div class="fs-4 fw-semibold text-danger" id="statRejected">0</div>
+          <div class="text-muted small">Rejected</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-4 mb-4">
+      <div class="col-lg-6">
+        <div class="card h-100">
+          <div class="card-body">
+            <h5 class="card-title"><i class="bi bi-plus-circle"></i> Allocate Leave Balances</h5>
+            <p class="text-muted small">Creates a balance for every active employee who doesn't already have one for that leave type + year. Safe to run multiple times.</p>
+            <form id="allocateForm" class="row g-2">
+              <div class="col-md-5">
+                <select class="form-select form-select-sm" id="allocate_leave_type_id" required></select>
+              </div>
+              <div class="col-md-3">
+                <input type="number" class="form-control form-control-sm" id="allocate_year" placeholder="Year" required>
+              </div>
+              <div class="col-md-3">
+                <input type="number" class="form-control form-control-sm" id="allocate_total_days" placeholder="Days" step="0.5" required>
+              </div>
+              <div class="col-md-1">
+                <button type="submit" class="btn btn-primary btn-sm w-100"><i class="bi bi-check-lg"></i></button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-6">
+        <div class="card h-100">
+          <div class="card-body">
+            <h5 class="card-title"><i class="bi bi-calendar-event"></i> Upcoming Approved Leave</h5>
+            <div id="upcomingList" class="small"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mb-4">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+          <h5 class="card-title mb-0"><i class="bi bi-wallet2"></i> Employee Leave Balances</h5>
+          <div class="d-flex gap-2">
+            <input type="number" class="form-control form-control-sm" id="balanceYear" style="width: 6.5rem;">
+            <button class="btn btn-outline-secondary btn-sm" id="downloadBalancesBtn"><i class="bi bi-download me-1"></i>Download CSV</button>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover align-middle">
+            <thead>
+              <tr>
+                <th>Employee</th><th>Leave Type</th><th class="text-end">Allocated</th>
+                <th class="text-end">Carried Fwd</th><th class="text-end">Used</th><th class="text-end">Remaining</th>
+              </tr>
+            </thead>
+            <tbody id="balanceRows"></tbody>
+          </table>
+        </div>
+        <div id="balanceEmptyState" class="emp-empty-state d-none">
+          <i class="bi bi-wallet2 display-6 d-block mb-2"></i>
+          No leave balances allocated for this year yet.
+        </div>
+      </div>
+    </div>
+
+    <div class="card mb-4">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+          <h5 class="card-title mb-0"><i class="bi bi-clock-history"></i> Past Leave History</h5>
+          <select class="form-select form-select-sm" id="historyEmployeeFilter" style="width: auto;">
+            <option value="">All employees</option>
+          </select>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover align-middle">
+            <thead><tr><th>Employee</th><th>Type</th><th>Dates</th><th>Days</th></tr></thead>
+            <tbody id="historyRows"></tbody>
+          </table>
+        </div>
+        <div id="historyEmptyState" class="emp-empty-state d-none">
+          <i class="bi bi-clock-history display-6 d-block mb-2"></i>
+          No past leave history yet.
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+          <h5 class="card-title mb-0"><i class="bi bi-list-ul"></i> Leave Requests</h5>
+          <select class="form-select form-select-sm" id="statusFilter" style="width: auto;">
+            <option value="">All statuses</option>
+            <option value="pending_manager">Pending Manager</option>
+            <option value="pending_hr" selected>Pending HR</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover align-middle">
+            <thead>
+              <tr>
+                <th>Employee</th><th>Type</th><th>Dates</th><th>Days</th>
+                <th>Status</th><th class="text-end">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="applicationRows"></tbody>
+          </table>
+        </div>
+        <div id="emptyState" class="emp-empty-state d-none">
+          <i class="bi bi-inbox display-6 d-block mb-2"></i>
+          No leave requests match this filter.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Leave types offcanvas -->
+  <div class="offcanvas offcanvas-end" tabindex="-1" id="typesPanel">
+    <div class="offcanvas-header">
+      <h5 class="offcanvas-title"><i class="bi bi-tags me-1"></i>Leave Types</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+    </div>
+    <div class="offcanvas-body">
+      <form id="typeForm" class="mb-3">
+        <div class="row g-2">
+          <div class="col-8">
+            <input type="text" class="form-control form-control-sm" id="newTypeName" placeholder="Name (e.g. Casual Leave)" required>
+          </div>
+          <div class="col-4">
+            <input type="text" class="form-control form-control-sm" id="newTypeCode" placeholder="Code (CL)" required>
+          </div>
+          <div class="col-12">
+            <input type="number" class="form-control form-control-sm" id="newTypeMaxDays" placeholder="Max days/year" step="0.5" value="0">
+          </div>
+          <div class="col-12 form-check">
+            <input class="form-check-input" type="checkbox" id="newTypeCarryForward">
+            <label class="form-check-label small" for="newTypeCarryForward">Carry-forward allowed</label>
+          </div>
+          <div class="col-12 form-check">
+            <input class="form-check-input" type="checkbox" id="newTypeUnpaid">
+            <label class="form-check-label small" for="newTypeUnpaid">Unpaid (e.g. Loss of Pay) &mdash; skips balance check</label>
+          </div>
+          <div class="col-12">
+            <button type="submit" class="btn btn-primary btn-sm w-100"><i class="bi bi-plus-lg me-1"></i>Add Leave Type</button>
+          </div>
+        </div>
+      </form>
+      <ul class="list-group list-group-flush" id="typeList"></ul>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script nonce="{{ csp_nonce }}">
+    const token = sessionStorage.getItem('access_token');
+    if (!token) { window.location.href = '/auth/login'; }
+    const authHeader = { Authorization: 'Bearer ' + token };
+
+    let allApplications = [];
+
+    function showToast(message, variant) {
+      const bg = variant === 'success' ? 'text-bg-success' : 'text-bg-danger';
+      const icon = variant === 'success' ? 'bi-check-circle' : 'bi-exclamation-triangle';
+      const toastEl = $(
+        '<div class="toast align-items-center ' + bg + ' border-0" role="alert">' +
+          '<div class="d-flex">' +
+            '<div class="toast-body"><i class="bi ' + icon + ' me-2"></i>' + message + '</div>' +
+            '<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>' +
+          '</div>' +
+        '</div>'
+      );
+      $('#toastContainer').append(toastEl);
+      const toast = new bootstrap.Toast(toastEl[0], { delay: 4000 });
+      toast.show();
+      toastEl.on('hidden.bs.toast', function () { toastEl.remove(); });
+    }
+
+    function showError(message) { showToast(message, 'danger'); }
+    function showSuccess(message) { showToast(message, 'success'); }
+
+    function statusLabel(status) {
+      const labels = { pending_manager: 'Pending Manager', pending_hr: 'Pending HR', approved: 'Approved', rejected: 'Rejected', cancelled: 'Cancelled' };
+      return labels[status] || status;
+    }
+
+    function statusBadge(status) {
+      return '<span class="badge emp-status emp-status-' + status + '">' + statusLabel(status) + '</span>';
+    }
+
+    $('#allocate_year').val(new Date().getFullYear());
+
+    function loadLeaveTypes() {
+      $.ajax({ url: '/api/v1/leave/types', headers: authHeader }).done(function (types) {
+        $('#allocate_leave_type_id').html(types.map(function (t) {
+          return '<option value="' + t.id + '">' + t.name + '</option>';
+        }).join(''));
+        $('#typeList').html(types.map(function (t) {
+          return '<li class="list-group-item d-flex justify-content-between align-items-center py-2">' +
+            '<span>' + t.name + ' <span class="text-muted small">(' + t.code + ')</span>' +
+              (t.is_unpaid ? ' <span class="badge bg-secondary">unpaid</span>' : '') +
+            '</span>' +
+            '<button class="btn btn-sm btn-outline-danger delete-type" data-id="' + t.id + '"><i class="bi bi-trash"></i></button></li>';
+        }).join('') || '<li class="list-group-item text-muted small">No leave types yet.</li>');
+      });
+    }
+
+    $('#typeForm').on('submit', function (e) {
+      e.preventDefault();
+      $.ajax({
+        url: '/api/v1/leave/types', method: 'POST', contentType: 'application/json', headers: authHeader,
+        data: JSON.stringify({
+          name: $('#newTypeName').val(),
+          code: $('#newTypeCode').val(),
+          max_days_per_year: parseFloat($('#newTypeMaxDays').val()) || 0,
+          carry_forward_allowed: $('#newTypeCarryForward').is(':checked'),
+          is_unpaid: $('#newTypeUnpaid').is(':checked')
+        })
+      }).done(function () {
+        $('#typeForm')[0].reset();
+        loadLeaveTypes();
+        showSuccess('Leave type added.');
+      }).fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to add leave type.'); });
+    });
+
+    $(document).on('click', '.delete-type', function () {
+      if (!confirm('Delete this leave type?')) return;
+      $.ajax({ url: '/api/v1/leave/types/' + $(this).data('id'), method: 'DELETE', headers: authHeader })
+        .done(loadLeaveTypes)
+        .fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to delete leave type.'); });
+    });
+
+    $('#allocateForm').on('submit', function (e) {
+      e.preventDefault();
+      $.ajax({
+        url: '/api/v1/leave/balances/allocate', method: 'POST', contentType: 'application/json', headers: authHeader,
+        data: JSON.stringify({
+          leave_type_id: parseInt($('#allocate_leave_type_id').val(), 10),
+          year: parseInt($('#allocate_year').val(), 10),
+          total_days: parseFloat($('#allocate_total_days').val())
+        })
+      }).done(function (result) {
+        showSuccess('Allocated to ' + result.created + ' employee(s), ' + result.skipped + ' already had a balance.');
+      }).fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to allocate balances.'); });
+    });
+
+    function loadCalendar() {
+      $.ajax({ url: '/api/v1/leave/calendar', headers: authHeader }).done(function (applications) {
+        const today = new Date().toISOString().slice(0, 10);
+        const upcoming = applications.filter(function (a) { return a.to_date >= today; });
+        const past = applications.filter(function (a) { return a.to_date < today; })
+          .sort(function (a, b) { return b.to_date.localeCompare(a.to_date); });
+
+        if (upcoming.length === 0) {
+          $('#upcomingList').html('<p class="text-muted mb-0">No upcoming approved leave.</p>');
+        } else {
+          $('#upcomingList').html(upcoming.slice(0, 10).map(function (a) {
+            return '<div class="d-flex justify-content-between border-bottom py-1">' +
+              '<span>' + a.employee_name + ' &mdash; ' + a.leave_type_name + '</span>' +
+              '<span class="text-muted">' + a.from_date + ' &rarr; ' + a.to_date + '</span>' +
+            '</div>';
+          }).join(''));
+        }
+
+        const employeeOptions = ['<option value="">All employees</option>'];
+        const seen = {};
+        applications.forEach(function (a) {
+          if (!seen[a.employee_id]) { seen[a.employee_id] = true; employeeOptions.push('<option value="' + a.employee_id + '">' + a.employee_code + ' - ' + a.employee_name + '</option>'); }
+        });
+        $('#historyEmployeeFilter').html(employeeOptions.join(''));
+
+        renderHistory(past);
+      });
+    }
+
+    let pastLeaveHistory = [];
+
+    function renderHistory(past) {
+      if (past !== undefined) pastLeaveHistory = past;
+      const employeeFilter = $('#historyEmployeeFilter').val();
+      const filtered = pastLeaveHistory.filter(function (a) { return !employeeFilter || String(a.employee_id) === employeeFilter; });
+
+      $('#historyEmptyState').toggleClass('d-none', filtered.length > 0);
+      $('#historyRows').html(filtered.slice(0, 30).map(function (a) {
+        return '<tr><td>' + a.employee_code + ' &mdash; ' + a.employee_name + '</td><td>' + a.leave_type_name +
+          '</td><td>' + a.from_date + ' &rarr; ' + a.to_date + '</td><td>' + a.days + '</td></tr>';
+      }).join(''));
+    }
+
+    function loadApplications() {
+      $.ajax({ url: '/api/v1/leave/applications', headers: authHeader })
+        .done(function (applications) {
+          allApplications = applications;
+          $('#statPendingHr').text(applications.filter(function (a) { return a.status === 'pending_hr'; }).length);
+          $('#statApproved').text(applications.filter(function (a) { return a.status === 'approved'; }).length);
+          $('#statRejected').text(applications.filter(function (a) { return a.status === 'rejected'; }).length);
+          renderApplications();
+        })
+        .fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to load leave requests.'); });
+    }
+
+    function renderApplications() {
+      const statusFilter = $('#statusFilter').val();
+      const filtered = allApplications.filter(function (a) { return !statusFilter || a.status === statusFilter; });
+      $('#emptyState').toggleClass('d-none', filtered.length > 0);
+
+      const rows = filtered.map(function (a) {
+        const actions = a.status === 'pending_hr'
+          ? '<button class="btn btn-sm btn-outline-success approve-app" data-id="' + a.id + '"><i class="bi bi-check-lg"></i></button> ' +
+            '<button class="btn btn-sm btn-outline-danger reject-app" data-id="' + a.id + '"><i class="bi bi-x-lg"></i></button>'
+          : '';
+        return '<tr>' +
+          '<td>' + a.employee_code + ' &mdash; ' + a.employee_name + '</td>' +
+          '<td>' + a.leave_type_name + '</td>' +
+          '<td>' + a.from_date + ' &rarr; ' + a.to_date + '</td>' +
+          '<td>' + a.days + '</td>' +
+          '<td>' + statusBadge(a.status) + '</td>' +
+          '<td class="text-end text-nowrap">' + actions + '</td>' +
+        '</tr>';
+      });
+      $('#applicationRows').html(rows.join(''));
+    }
+
+    $('#statusFilter').on('change', renderApplications);
+
+    $(document).on('click', '.approve-app', function () {
+      const id = $(this).data('id');
+      $.ajax({
+        url: '/api/v1/leave/applications/' + id + '/hr-action', method: 'POST', contentType: 'application/json',
+        headers: authHeader, data: JSON.stringify({ action: 'approve' })
+      }).done(function () { loadApplications(); loadCalendar(); showSuccess('Leave approved.'); })
+        .fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to approve.'); });
+    });
+
+    $(document).on('click', '.reject-app', function () {
+      const reason = prompt('Reason for rejecting this leave request:');
+      if (reason === null) return;
+      const id = $(this).data('id');
+      $.ajax({
+        url: '/api/v1/leave/applications/' + id + '/hr-action', method: 'POST', contentType: 'application/json',
+        headers: authHeader, data: JSON.stringify({ action: 'reject', comments: reason || null })
+      }).done(function () { loadApplications(); showSuccess('Leave rejected.'); })
+        .fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to reject.'); });
+    });
+
+    let currentBalances = [];
+
+    function loadBalances() {
+      const year = parseInt($('#balanceYear').val(), 10) || new Date().getFullYear();
+      $.ajax({ url: '/api/v1/leave/balances', data: { year: year }, headers: authHeader })
+        .done(function (balances) {
+          currentBalances = balances;
+          $('#balanceEmptyState').toggleClass('d-none', balances.length > 0);
+          $('#balanceRows').html(balances.map(function (b) {
+            return '<tr>' +
+              '<td>' + b.employee_code + ' &mdash; ' + b.employee_name + '</td>' +
+              '<td>' + b.leave_type_name + '</td>' +
+              '<td class="text-end">' + b.total_allocated + '</td>' +
+              '<td class="text-end">' + b.carried_forward + '</td>' +
+              '<td class="text-end">' + b.used + '</td>' +
+              '<td class="text-end fw-semibold">' + b.remaining + '</td>' +
+            '</tr>';
+          }).join(''));
+        })
+        .fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to load leave balances.'); });
+    }
+
+    $('#balanceYear').val(new Date().getFullYear());
+    $('#balanceYear').on('change', loadBalances);
+
+    function csvEscape(value) {
+      const str = String(value === undefined || value === null ? '' : value);
+      return /[",\n]/.test(str) ? '"' + str.replace(/"/g, '""') + '"' : str;
+    }
+
+    $('#downloadBalancesBtn').on('click', function () {
+      if (!currentBalances.length) { showError('No balance data to download.'); return; }
+      const header = ['Employee Code', 'Employee Name', 'Leave Type', 'Year', 'Allocated', 'Carried Forward', 'Used', 'Encashed', 'Lapsed', 'Remaining'];
+      const rows = currentBalances.map(function (b) {
+        return [b.employee_code, b.employee_name, b.leave_type_name, b.year, b.total_allocated, b.carried_forward, b.used, b.encashed, b.lapsed, b.remaining]
+          .map(csvEscape).join(',');
+      });
+      const csv = [header.join(','), ...rows].join('\r\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'leave_balances_' + $('#balanceYear').val() + '.csv';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    });
+
+    loadLeaveTypes();
+    loadApplications();
+    loadBalances();
+    $('#historyEmployeeFilter').on('change', function () { renderHistory(); });
+
+    loadCalendar();
+
+    $('#logoutLink').on('click', function (e) {
+      e.preventDefault();
+      sessionStorage.clear();
+      window.location.href = '/auth/login';
+    });
+  </script>
+</body>
+</html>

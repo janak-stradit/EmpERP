@@ -1,0 +1,594 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Stradit Workforce &mdash; Performance Management</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="/static/css/app.css" rel="stylesheet">
+  <style>
+    .pms-eyebrow {
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--emp-text-muted);
+      margin-bottom: 0.6rem;
+    }
+    .pms-avatar {
+      width: 2rem;
+      height: 2rem;
+      border-radius: 999px;
+      background: var(--emp-primary-light);
+      color: var(--emp-primary);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .pms-employee-cell {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+    .pms-setup-icon {
+      width: 2.75rem;
+      height: 2.75rem;
+      border-radius: var(--emp-radius-sm);
+      background: var(--emp-primary-light);
+      color: var(--emp-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      flex-shrink: 0;
+    }
+    .pms-stat-value {
+      font-size: 1.7rem;
+      font-weight: 700;
+      color: var(--emp-text);
+      line-height: 1.2;
+    }
+    .pms-cycle-empty {
+      border: 1px dashed var(--emp-border-strong);
+      border-radius: var(--emp-radius);
+      padding: 2rem 1.5rem;
+      text-align: center;
+      color: var(--emp-text-muted);
+    }
+    .pms-list-item {
+      padding: 0.65rem 0;
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar navbar-expand emp-navbar mb-4">
+    <div class="container">
+      <span class="navbar-brand"><i class="bi bi-buildings me-2"></i>Stradit Workforce &mdash; HR</span>
+      <div class="navbar-nav">
+        <a class="nav-link" href="/dashboard"><i class="bi bi-grid me-1"></i>Dashboard</a>
+        <a class="nav-link" href="#" id="logoutLink"><i class="bi bi-box-arrow-right me-1"></i>Logout</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="toast-container position-fixed top-0 end-0 p-3" id="toastContainer"></div>
+
+  <div class="container pb-5">
+    <a href="/dashboard" class="btn btn-sm btn-link ps-0 mb-2"><i class="bi bi-arrow-left me-1"></i>Back to Dashboard</a>
+
+    <div class="emp-page-header d-flex justify-content-between align-items-start flex-wrap gap-2">
+      <div>
+        <h1>Performance Management</h1>
+        <p>Run full 360&deg; reviews: competencies, reviewer assignment, completion tracking, and normalization.</p>
+      </div>
+      <div class="d-flex gap-2">
+        <button class="btn btn-outline-primary btn-sm" data-bs-toggle="offcanvas" data-bs-target="#competenciesPanel">
+          <i class="bi bi-list-check me-1"></i>Competencies
+        </button>
+        <button class="btn btn-outline-primary btn-sm" data-bs-toggle="offcanvas" data-bs-target="#scalesPanel">
+          <i class="bi bi-rulers me-1"></i>Rating Scales
+        </button>
+        <a class="btn btn-outline-secondary btn-sm" href="/hr/kra"><i class="bi bi-calendar-range me-1"></i>Manage Cycles</a>
+      </div>
+    </div>
+
+    <!-- Cycle picker -->
+    <div class="card mb-4">
+      <div class="card-body d-flex align-items-center gap-3 flex-wrap">
+        <div class="pms-setup-icon"><i class="bi bi-calendar2-check"></i></div>
+        <div class="flex-grow-1" style="min-width: 16rem;">
+          <label class="form-label small mb-0" for="cycleSelect">Active appraisal cycle</label>
+          <select class="form-select form-select-sm" id="cycleSelect"></select>
+        </div>
+      </div>
+    </div>
+
+    <div id="cycleEmptyState" class="pms-cycle-empty mb-4 d-none">
+      <i class="bi bi-calendar-x display-6 d-block mb-2"></i>
+      No appraisal cycles yet. <a href="/hr/kra">Create one from the KRA page</a> to start running performance reviews.
+    </div>
+
+    <div id="cycleContent">
+      <!-- Stat summary -->
+      <div class="row g-3 mb-4">
+        <div class="col-6 col-lg-3">
+          <div class="card text-center py-3">
+            <div class="pms-stat-value" id="statEmployees">0</div>
+            <div class="text-muted small">Employees in Cycle</div>
+          </div>
+        </div>
+        <div class="col-6 col-lg-3">
+          <div class="card text-center py-3">
+            <div class="pms-stat-value" id="statCompletionPct">0%</div>
+            <div class="text-muted small">Reviews Completed</div>
+          </div>
+        </div>
+        <div class="col-6 col-lg-3">
+          <div class="card text-center py-3">
+            <div class="pms-stat-value" id="statAvgScore">&mdash;</div>
+            <div class="text-muted small">Avg. Manager Score</div>
+          </div>
+        </div>
+        <div class="col-6 col-lg-3">
+          <div class="card text-center py-3">
+            <div class="pms-stat-value" id="statPendingPromotions">0</div>
+            <div class="text-muted small">Pending Promotions</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="pms-eyebrow">Setup</div>
+      <div class="row g-4 mb-4">
+        <div class="col-lg-6">
+          <div class="card h-100">
+            <div class="card-body">
+              <div class="d-flex align-items-start gap-3 mb-2">
+                <div class="pms-setup-icon"><i class="bi bi-person-plus"></i></div>
+                <div>
+                  <h5 class="card-title mb-1">Add Employee to Cycle</h5>
+                  <p class="text-muted small mb-0">Auto-creates self and (if assigned) manager review requests. Safe to run more than once.</p>
+                </div>
+              </div>
+              <form id="assignEmployeeForm" class="row g-2 mt-1">
+                <div class="col-9"><select class="form-select form-select-sm" id="assign_emp_employee_id" required></select></div>
+                <div class="col-3"><button type="submit" class="btn btn-primary btn-sm w-100"><i class="bi bi-check-lg"></i></button></div>
+              </form>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <div class="card h-100">
+            <div class="card-body">
+              <div class="d-flex align-items-start gap-3 mb-2">
+                <div class="pms-setup-icon"><i class="bi bi-people"></i></div>
+                <div>
+                  <h5 class="card-title mb-1">Assign Peer / Subordinate Reviewer</h5>
+                  <p class="text-muted small mb-0">Pick who reviews whom for the full 360&deg; picture.</p>
+                </div>
+              </div>
+              <form id="assignReviewerForm" class="row g-2 mt-1">
+                <div class="col-12"><select class="form-select form-select-sm" id="assign_rev_employee_id" required></select></div>
+                <div class="col-7"><select class="form-select form-select-sm" id="assign_rev_reviewer_id" required></select></div>
+                <div class="col-3">
+                  <select class="form-select form-select-sm" id="assign_rev_role" required>
+                    <option value="peer">Peer</option>
+                    <option value="subordinate">Subordinate</option>
+                  </select>
+                </div>
+                <div class="col-2"><button type="submit" class="btn btn-primary btn-sm w-100"><i class="bi bi-check-lg"></i></button></div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="pms-eyebrow">Progress</div>
+      <div class="card mb-4">
+        <div class="card-body">
+          <h5 class="card-title"><i class="bi bi-list-check"></i> Review Progress</h5>
+          <div class="table-responsive">
+            <table class="table table-hover align-middle">
+              <thead><tr><th>Employee</th><th>Completed</th><th>Total Requests</th><th style="width: 30%;">Progress</th></tr></thead>
+              <tbody id="completionRows"></tbody>
+            </table>
+          </div>
+          <div id="completionEmptyState" class="emp-empty-state d-none">
+            <i class="bi bi-list-check display-6 d-block mb-2"></i>
+            No reviewers assigned for this cycle yet.
+          </div>
+        </div>
+      </div>
+
+      <div class="card mb-4">
+        <div class="card-body">
+          <h5 class="card-title mb-3"><i class="bi bi-bar-chart"></i> Rating Normalization (Manager Scores)</h5>
+          <div class="row g-4">
+            <div class="col-lg-8">
+              <canvas id="bellCurveChart" height="180"></canvas>
+            </div>
+            <div class="col-lg-4">
+              <div class="card text-center h-100 d-flex flex-column justify-content-center py-4" style="background: var(--emp-primary-light); border: none;">
+                <div class="text-muted small mb-1">Company Average</div>
+                <div class="pms-stat-value" id="normAvgScore" style="font-size: 2.2rem;">&mdash;</div>
+                <div class="text-muted small mt-1" id="normEvaluatedCount">0 employees rated</div>
+              </div>
+            </div>
+          </div>
+          <div class="table-responsive mt-4">
+            <table class="table table-hover align-middle">
+              <thead><tr><th>Employee</th><th>Manager Average</th></tr></thead>
+              <tbody id="normalizationRows"></tbody>
+            </table>
+          </div>
+          <div id="normalizationEmptyState" class="emp-empty-state d-none">
+            <i class="bi bi-bar-chart display-6 d-block mb-2"></i>
+            No manager evaluations submitted for this cycle yet.
+          </div>
+        </div>
+      </div>
+
+      <div class="pms-eyebrow">Outcomes</div>
+      <div class="card">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+            <h5 class="card-title mb-0"><i class="bi bi-arrow-up-circle"></i> Promotion Recommendations</h5>
+            <select class="form-select form-select-sm" id="promoStatusFilter" style="width: auto;">
+              <option value="pending" selected>Pending</option>
+              <option value="">All statuses</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+            </select>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-hover align-middle">
+              <thead><tr><th>Employee</th><th>Cycle</th><th>Recommended By</th><th>Reason</th><th>Status</th><th class="text-end">Actions</th></tr></thead>
+              <tbody id="promoRows"></tbody>
+            </table>
+          </div>
+          <div id="promoEmptyState" class="emp-empty-state d-none">
+            <i class="bi bi-arrow-up-circle display-6 d-block mb-2"></i>
+            No promotion recommendations match this filter.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Competencies offcanvas -->
+  <div class="offcanvas offcanvas-end" tabindex="-1" id="competenciesPanel">
+    <div class="offcanvas-header">
+      <h5 class="offcanvas-title"><i class="bi bi-list-check me-1"></i>Competencies</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+    </div>
+    <div class="offcanvas-body">
+      <p class="text-muted small">These are the traits evaluators rate employees on during a 360&deg; review.</p>
+      <form id="competencyForm" class="mb-3">
+        <div class="row g-2">
+          <div class="col-12"><input type="text" class="form-control form-control-sm" id="newCompetencyName" placeholder="Competency name" required></div>
+          <div class="col-12"><input type="text" class="form-control form-control-sm" id="newCompetencyCategory" placeholder="Category (optional)"></div>
+          <div class="col-12"><textarea class="form-control form-control-sm" id="newCompetencyDescription" placeholder="Description (optional)" rows="2"></textarea></div>
+          <div class="col-12"><button type="submit" class="btn btn-primary btn-sm w-100"><i class="bi bi-plus-lg me-1"></i>Add Competency</button></div>
+        </div>
+      </form>
+      <ul class="list-group list-group-flush" id="competencyList"></ul>
+    </div>
+  </div>
+
+  <!-- Rating scales offcanvas -->
+  <div class="offcanvas offcanvas-end" tabindex="-1" id="scalesPanel">
+    <div class="offcanvas-header">
+      <h5 class="offcanvas-title"><i class="bi bi-rulers me-1"></i>Rating Scales</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+    </div>
+    <div class="offcanvas-body">
+      <p class="text-muted small">The first active scale is used to bound evaluation ratings and the normalization bands.</p>
+      <form id="scaleForm" class="mb-3">
+        <div class="row g-2">
+          <div class="col-12"><input type="text" class="form-control form-control-sm" id="newScaleName" placeholder="Scale name (e.g. 1-5 Standard)" required></div>
+          <div class="col-6"><input type="number" step="0.5" class="form-control form-control-sm" id="newScaleMin" placeholder="Min" value="1" required></div>
+          <div class="col-6"><input type="number" step="0.5" class="form-control form-control-sm" id="newScaleMax" placeholder="Max" value="5" required></div>
+          <div class="col-12"><button type="submit" class="btn btn-primary btn-sm w-100"><i class="bi bi-plus-lg me-1"></i>Add Rating Scale</button></div>
+        </div>
+      </form>
+      <ul class="list-group list-group-flush" id="scaleList"></ul>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <script nonce="{{ csp_nonce }}">
+    const token = sessionStorage.getItem('access_token');
+    if (!token) { window.location.href = '/auth/login'; }
+    const authHeader = { Authorization: 'Bearer ' + token };
+
+    let employees = [];
+    let bellCurveChart = null;
+
+    function showToast(message, variant) {
+      const bg = variant === 'success' ? 'text-bg-success' : 'text-bg-danger';
+      const icon = variant === 'success' ? 'bi-check-circle' : 'bi-exclamation-triangle';
+      const toastEl = $(
+        '<div class="toast align-items-center ' + bg + ' border-0" role="alert">' +
+          '<div class="d-flex">' +
+            '<div class="toast-body"><i class="bi ' + icon + ' me-2"></i>' + message + '</div>' +
+            '<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>' +
+          '</div>' +
+        '</div>'
+      );
+      $('#toastContainer').append(toastEl);
+      const toast = new bootstrap.Toast(toastEl[0], { delay: 4000 });
+      toast.show();
+      toastEl.on('hidden.bs.toast', function () { toastEl.remove(); });
+    }
+
+    function showError(message) { showToast(message, 'danger'); }
+    function showSuccess(message) { showToast(message, 'success'); }
+
+    function currentCycleId() { return $('#cycleSelect').val(); }
+
+    function initials(name) {
+      return (name || '?').trim().split(/\s+/).map(function (p) { return p[0]; }).slice(0, 2).join('').toUpperCase();
+    }
+
+    function employeeCell(code, name) {
+      return '<div class="pms-employee-cell"><span class="pms-avatar">' + initials(name) + '</span>' +
+        '<span>' + code + ' &mdash; ' + name + '</span></div>';
+    }
+
+    // ---- Cycles (reads only - manage from /hr/kra) ----
+    function loadCycles() {
+      $.ajax({ url: '/api/v1/kra/cycles', headers: authHeader }).done(function (cycles) {
+        $('#cycleEmptyState').toggleClass('d-none', cycles.length > 0);
+        $('#cycleContent').toggleClass('d-none', cycles.length === 0);
+        $('#cycleSelect').html(cycles.map(function (c) {
+          return '<option value="' + c.id + '">' + c.name + '</option>';
+        }).join(''));
+        if (cycles.length) refreshCycleData();
+      });
+    }
+
+    $('#cycleSelect').on('change', refreshCycleData);
+
+    function refreshCycleData() {
+      if (!currentCycleId()) return;
+      loadCompletion();
+      loadNormalization();
+      loadPromotions();
+    }
+
+    // ---- Employees (for assignment dropdowns) ----
+    function loadEmployees() {
+      $.ajax({ url: '/api/v1/employees', headers: authHeader }).done(function (list) {
+        employees = list;
+        const options = list.map(function (e) { return '<option value="' + e.id + '">' + e.employee_code + ' - ' + e.full_name + '</option>'; }).join('');
+        $('#assign_emp_employee_id').html(options);
+        $('#assign_rev_employee_id').html(options);
+        $('#assign_rev_reviewer_id').html(list.map(function (e) { return '<option value="' + e.user_id + '">' + e.employee_code + ' - ' + e.full_name + '</option>'; }).join(''));
+      });
+    }
+
+    $('#assignEmployeeForm').on('submit', function (e) {
+      e.preventDefault();
+      if (!currentCycleId()) { showError('Create an appraisal cycle first.'); return; }
+      $.ajax({
+        url: '/api/v1/pms/cycles/' + currentCycleId() + '/assign-employee', method: 'POST', contentType: 'application/json', headers: authHeader,
+        data: JSON.stringify({ employee_id: parseInt($('#assign_emp_employee_id').val(), 10) })
+      }).done(function () {
+        refreshCycleData();
+        showSuccess('Employee added to cycle (self/manager reviews created).');
+      }).fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to add employee.'); });
+    });
+
+    $('#assignReviewerForm').on('submit', function (e) {
+      e.preventDefault();
+      if (!currentCycleId()) { showError('Create an appraisal cycle first.'); return; }
+      $.ajax({
+        url: '/api/v1/pms/cycles/' + currentCycleId() + '/assign-reviewer', method: 'POST', contentType: 'application/json', headers: authHeader,
+        data: JSON.stringify({
+          employee_id: parseInt($('#assign_rev_employee_id').val(), 10),
+          reviewer_user_id: parseInt($('#assign_rev_reviewer_id').val(), 10),
+          reviewer_role: $('#assign_rev_role').val()
+        })
+      }).done(function () {
+        refreshCycleData();
+        showSuccess('Reviewer assigned.');
+      }).fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to assign reviewer.'); });
+    });
+
+    // ---- Completion tracking ----
+    function loadCompletion() {
+      $.ajax({ url: '/api/v1/pms/cycles/' + currentCycleId() + '/completion', headers: authHeader }).done(function (rows) {
+        $('#completionEmptyState').toggleClass('d-none', rows.length > 0);
+        $('#completionRows').html(rows.map(function (r) {
+          const pct = r.total_requests ? Math.round((r.completed_requests / r.total_requests) * 100) : 0;
+          return '<tr>' +
+            '<td>' + employeeCell(r.employee_code, r.employee_name) + '</td>' +
+            '<td>' + r.completed_requests + '</td>' +
+            '<td>' + r.total_requests + '</td>' +
+            '<td>' +
+              '<div class="d-flex align-items-center gap-2">' +
+                '<div class="progress flex-grow-1"><div class="progress-bar" style="width: ' + pct + '%"></div></div>' +
+                '<span class="text-muted small" style="width: 2.5rem;">' + pct + '%</span>' +
+              '</div>' +
+            '</td>' +
+          '</tr>';
+        }).join(''));
+
+        const totalEmployees = rows.length;
+        const totalRequests = rows.reduce(function (s, r) { return s + r.total_requests; }, 0);
+        const totalCompleted = rows.reduce(function (s, r) { return s + r.completed_requests; }, 0);
+        $('#statEmployees').text(totalEmployees);
+        $('#statCompletionPct').text(totalRequests ? Math.round((totalCompleted / totalRequests) * 100) + '%' : '0%');
+      }).fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to load completion tracking.'); });
+    }
+
+    // ---- Normalization / bell curve ----
+    function loadNormalization() {
+      $.ajax({ url: '/api/v1/pms/cycles/' + currentCycleId() + '/normalization', headers: authHeader }).done(function (data) {
+        $('#normalizationEmptyState').toggleClass('d-none', data.employees.length > 0);
+        $('#normalizationRows').html(data.employees.map(function (e) {
+          return '<tr><td>' + employeeCell(e.employee_code, e.employee_name) + '</td><td>' +
+            (e.manager_average !== null && e.manager_average !== undefined ? e.manager_average.toFixed(2) : '&mdash;') + '</td></tr>';
+        }).join(''));
+
+        const scored = data.employees.filter(function (e) { return e.manager_average !== null && e.manager_average !== undefined; });
+        const avg = scored.length ? scored.reduce(function (s, e) { return s + e.manager_average; }, 0) / scored.length : null;
+        $('#statAvgScore').text(avg !== null ? avg.toFixed(2) : '&mdash;');
+        $('#normAvgScore').text(avg !== null ? avg.toFixed(2) : '&mdash;');
+        $('#normEvaluatedCount').text(scored.length + ' employee' + (scored.length === 1 ? '' : 's') + ' rated');
+
+        const ctx = document.getElementById('bellCurveChart').getContext('2d');
+        const chartData = {
+          labels: data.buckets.map(function (b) { return b.label; }),
+          datasets: [{ label: 'Employees', data: data.buckets.map(function (b) { return b.count; }), backgroundColor: '#4285F4', borderRadius: 4 }]
+        };
+        if (bellCurveChart) {
+          bellCurveChart.data = chartData;
+          bellCurveChart.update();
+        } else {
+          bellCurveChart = new Chart(ctx, {
+            type: 'bar',
+            data: chartData,
+            options: {
+              scales: { y: { beginAtZero: true, ticks: { precision: 0 } }, x: { grid: { display: false } } },
+              plugins: { legend: { display: false } }
+            }
+          });
+        }
+      }).fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to load normalization data.'); });
+    }
+
+    // ---- Promotions ----
+    let allPromotions = [];
+
+    function loadPromotions() {
+      $.ajax({ url: '/api/v1/pms/promotions', data: { cycle_id: currentCycleId() }, headers: authHeader }).done(function (promos) {
+        allPromotions = promos;
+        $('#statPendingPromotions').text(promos.filter(function (p) { return p.status === 'pending'; }).length);
+        renderPromotions();
+      }).fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to load promotion recommendations.'); });
+    }
+
+    function renderPromotions() {
+      const statusFilter = $('#promoStatusFilter').val();
+      const filtered = allPromotions.filter(function (p) { return !statusFilter || p.status === statusFilter; });
+      $('#promoEmptyState').toggleClass('d-none', filtered.length > 0);
+      $('#promoRows').html(filtered.map(function (p) {
+        const actions = p.status === 'pending'
+          ? '<button class="btn btn-sm btn-outline-success approve-promo" data-id="' + p.id + '"><i class="bi bi-check-lg"></i></button> ' +
+            '<button class="btn btn-sm btn-outline-danger reject-promo" data-id="' + p.id + '"><i class="bi bi-x-lg"></i></button>'
+          : '';
+        return '<tr>' +
+          '<td>' + employeeCell(p.employee_code, p.employee_name) + '</td>' +
+          '<td>' + p.cycle_name + '</td>' +
+          '<td>' + p.recommended_by_name + '</td>' +
+          '<td class="small">' + (p.reason || '&mdash;') + '</td>' +
+          '<td><span class="badge emp-status emp-status-' + p.status + '">' + p.status + '</span></td>' +
+          '<td class="text-end text-nowrap">' + actions + '</td>' +
+        '</tr>';
+      }).join(''));
+    }
+
+    $('#promoStatusFilter').on('change', renderPromotions);
+
+    $(document).on('click', '.approve-promo', function () {
+      $.ajax({ url: '/api/v1/pms/promotions/' + $(this).data('id'), method: 'PUT', contentType: 'application/json', headers: authHeader, data: JSON.stringify({ status: 'approved' }) })
+        .done(function () { loadPromotions(); showSuccess('Promotion approved.'); })
+        .fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to approve.'); });
+    });
+
+    $(document).on('click', '.reject-promo', function () {
+      $.ajax({ url: '/api/v1/pms/promotions/' + $(this).data('id'), method: 'PUT', contentType: 'application/json', headers: authHeader, data: JSON.stringify({ status: 'rejected' }) })
+        .done(function () { loadPromotions(); showSuccess('Promotion rejected.'); })
+        .fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to reject.'); });
+    });
+
+    // ---- Competencies ----
+    function loadCompetencies() {
+      $.ajax({ url: '/api/v1/pms/competencies', headers: authHeader }).done(function (list) {
+        $('#competencyList').html(list.map(function (c) {
+          return '<li class="list-group-item pms-list-item d-flex justify-content-between align-items-center">' +
+            '<span>' + c.name + (c.category ? ' <span class="badge emp-status emp-status-not_started ms-1">' + c.category + '</span>' : '') +
+            (c.description ? '<div class="text-muted small mt-1">' + c.description + '</div>' : '') + '</span>' +
+            '<button class="btn btn-sm btn-outline-danger delete-competency" data-id="' + c.id + '"><i class="bi bi-trash"></i></button>' +
+          '</li>';
+        }).join('') || '<li class="list-group-item text-muted small">No competencies yet &mdash; add one above.</li>');
+      });
+    }
+
+    $('#competencyForm').on('submit', function (e) {
+      e.preventDefault();
+      $.ajax({
+        url: '/api/v1/pms/competencies', method: 'POST', contentType: 'application/json', headers: authHeader,
+        data: JSON.stringify({
+          name: $('#newCompetencyName').val(),
+          category: $('#newCompetencyCategory').val() || null,
+          description: $('#newCompetencyDescription').val() || null
+        })
+      }).done(function () {
+        $('#competencyForm')[0].reset();
+        loadCompetencies();
+        showSuccess('Competency added.');
+      }).fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to add competency.'); });
+    });
+
+    $(document).on('click', '.delete-competency', function () {
+      if (!confirm('Delete this competency?')) return;
+      $.ajax({ url: '/api/v1/pms/competencies/' + $(this).data('id'), method: 'DELETE', headers: authHeader })
+        .done(loadCompetencies)
+        .fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to delete competency.'); });
+    });
+
+    // ---- Rating scales ----
+    function loadScales() {
+      $.ajax({ url: '/api/v1/pms/rating-scales', headers: authHeader }).done(function (list) {
+        $('#scaleList').html(list.map(function (s) {
+          return '<li class="list-group-item pms-list-item d-flex justify-content-between align-items-center">' +
+            '<span>' + s.name + ' <span class="badge emp-status emp-status-active ms-1">' + s.min_score + '-' + s.max_score + '</span></span>' +
+            '<button class="btn btn-sm btn-outline-danger delete-scale" data-id="' + s.id + '"><i class="bi bi-trash"></i></button>' +
+          '</li>';
+        }).join('') || '<li class="list-group-item text-muted small">No rating scales yet &mdash; add one above.</li>');
+      });
+    }
+
+    $('#scaleForm').on('submit', function (e) {
+      e.preventDefault();
+      $.ajax({
+        url: '/api/v1/pms/rating-scales', method: 'POST', contentType: 'application/json', headers: authHeader,
+        data: JSON.stringify({
+          name: $('#newScaleName').val(),
+          min_score: parseFloat($('#newScaleMin').val()),
+          max_score: parseFloat($('#newScaleMax').val())
+        })
+      }).done(function () {
+        $('#scaleForm')[0].reset();
+        loadScales();
+        showSuccess('Rating scale added.');
+      }).fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to add rating scale.'); });
+    });
+
+    $(document).on('click', '.delete-scale', function () {
+      if (!confirm('Delete this rating scale?')) return;
+      $.ajax({ url: '/api/v1/pms/rating-scales/' + $(this).data('id'), method: 'DELETE', headers: authHeader })
+        .done(loadScales)
+        .fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to delete rating scale.'); });
+    });
+
+    loadEmployees();
+    loadCycles();
+    loadCompetencies();
+    loadScales();
+
+    $('#logoutLink').on('click', function (e) {
+      e.preventDefault();
+      sessionStorage.clear();
+      window.location.href = '/auth/login';
+    });
+  </script>
+</body>
+</html>

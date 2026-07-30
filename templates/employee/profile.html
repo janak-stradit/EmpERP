@@ -1,0 +1,514 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Stradit Workforce &mdash; My Profile</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="/static/css/app.css" rel="stylesheet">
+</head>
+<body>
+  <nav class="navbar navbar-expand emp-navbar mb-4">
+    <div class="container">
+      <span class="navbar-brand"><i class="bi bi-buildings me-2"></i>Stradit Workforce &mdash; My Workspace</span>
+      <div class="navbar-nav">
+        <a class="nav-link" href="/dashboard"><i class="bi bi-grid me-1"></i>Dashboard</a>
+        <a class="nav-link" href="#" id="logoutLink"><i class="bi bi-box-arrow-right me-1"></i>Logout</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container pb-5">
+    <a href="/dashboard" class="btn btn-sm btn-link ps-0 mb-2"><i class="bi bi-arrow-left me-1"></i>Back to Dashboard</a>
+
+    <div class="emp-page-header">
+      <h1>My Profile</h1>
+      <p>Keep your personal, contact, and payroll information up to date.</p>
+    </div>
+
+    <div class="toast-container position-fixed top-0 end-0 p-3" id="toastContainer"></div>
+
+    <div class="card mb-4">
+      <div class="card-body">
+        <div class="d-flex flex-wrap align-items-center gap-4">
+          <div class="position-relative">
+            <img id="avatarImg" class="emp-avatar d-none" alt="Profile photo">
+            <div id="avatarPlaceholder" class="emp-avatar-placeholder"><i class="bi bi-person"></i></div>
+          </div>
+          <div class="flex-grow-1" style="min-width: 240px;">
+            <div id="photoDropZone" class="emp-dropzone">
+              <i class="bi bi-cloud-arrow-up d-block mb-1" style="font-size: 1.5rem;"></i>
+              <div class="small">Drag &amp; drop a photo here, or click to browse</div>
+              <div class="text-muted" style="font-size: 0.75rem;">JPG or PNG, up to 5 MB</div>
+            </div>
+            <input type="file" id="photoInput" accept="image/jpeg,image/png" class="d-none">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mb-4">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h5 class="card-title mb-0"><i class="bi bi-clipboard-check"></i> Profile Completion</h5>
+          <span class="fw-semibold" id="completionPercentText">0%</span>
+        </div>
+        <div class="progress mb-2">
+          <div class="progress-bar" id="completionProgressBar" style="width: 0%"></div>
+        </div>
+        <div id="completionMessage" class="small text-muted"></div>
+        <div id="completionMissingList" class="small mt-2"></div>
+      </div>
+    </div>
+
+    <div class="card mb-4">
+      <div class="card-body">
+        <h5 class="card-title"><i class="bi bi-briefcase"></i> Employment Details</h5>
+        <p class="text-muted small mb-3">Managed by HR &mdash; contact HR to request changes here.</p>
+        <div class="row g-3">
+          <div class="col-md-3"><div class="text-muted small">Employee Code</div><div id="view_employee_code" class="fw-semibold">&mdash;</div></div>
+          <div class="col-md-3"><div class="text-muted small">Work Email</div><div id="view_email" class="fw-semibold">&mdash;</div></div>
+          <div class="col-md-3"><div class="text-muted small">Department</div><div id="view_department" class="fw-semibold">&mdash;</div></div>
+          <div class="col-md-3"><div class="text-muted small">Designation</div><div id="view_designation" class="fw-semibold">&mdash;</div></div>
+          <div class="col-md-3"><div class="text-muted small">Joining Date</div><div id="view_joining_date" class="fw-semibold">&mdash;</div></div>
+          <div class="col-md-3"><div class="text-muted small">Employment Status</div><div id="view_status">&mdash;</div></div>
+        </div>
+      </div>
+    </div>
+
+    <form id="profileForm" novalidate>
+      <div class="card mb-4">
+        <div class="card-body">
+          <h5 class="card-title"><i class="bi bi-person-lines-fill"></i> Personal &amp; Contact Information</h5>
+          <div class="row g-3 mt-1">
+            <div class="col-md-4">
+              <label class="form-label">Phone</label>
+              <div class="input-group">
+                <select class="form-select" id="phone_code" style="max-width: 100px;">
+                  <option value="+91">+91</option>
+                  <option value="+1">+1</option>
+                  <option value="+44">+44</option>
+                  <option value="+61">+61</option>
+                  <option value="+971">+971</option>
+                  <option value="+65">+65</option>
+                  <option value="+49">+49</option>
+                  <option value="+33">+33</option>
+                  <option value="+81">+81</option>
+                  <option value="+86">+86</option>
+                </select>
+                <input type="tel" class="form-control" id="phone_number" placeholder="9876543210">
+              </div>
+              <div class="invalid-feedback d-block small" id="phone_error"></div>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Personal email</label>
+              <input type="email" class="form-control" id="personal_email">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Date of birth</label>
+              <input type="date" class="form-control" id="date_of_birth">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Gender</label>
+              <select class="form-select" id="gender">
+                <option value="">-- select --</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+                <option value="non_binary">Non-binary</option>
+                <option value="undisclosed">Prefer not to say</option>
+              </select>
+            </div>
+            <div class="col-md-8">
+              <label class="form-label">Address</label>
+              <textarea class="form-control" id="address" rows="3" placeholder="House/flat no., street, city, state, postal code"></textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card mb-4">
+        <div class="card-body">
+          <h5 class="card-title"><i class="bi bi-telephone-plus"></i> Emergency Contact</h5>
+          <div class="row g-3 mt-1">
+            <div class="col-md-4">
+              <label class="form-label">Contact name</label>
+              <input type="text" class="form-control" id="emergency_contact_name">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Contact phone</label>
+              <div class="input-group">
+                <select class="form-select" id="emergency_phone_code" style="max-width: 100px;">
+                  <option value="+91">+91</option>
+                  <option value="+1">+1</option>
+                  <option value="+44">+44</option>
+                  <option value="+61">+61</option>
+                  <option value="+971">+971</option>
+                  <option value="+65">+65</option>
+                  <option value="+49">+49</option>
+                  <option value="+33">+33</option>
+                  <option value="+81">+81</option>
+                  <option value="+86">+86</option>
+                </select>
+                <input type="tel" class="form-control" id="emergency_phone_number" placeholder="9876543210">
+              </div>
+              <div class="invalid-feedback d-block small" id="emergency_phone_error"></div>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Relation</label>
+              <input type="text" class="form-control" id="emergency_contact_relation" placeholder="e.g. Spouse, Parent, Sibling">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card mb-4">
+        <div class="card-body">
+          <h5 class="card-title"><i class="bi bi-bank"></i> Bank Details</h5>
+          <p class="text-muted small">Used for salary processing. Keep this accurate and up to date.</p>
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">Account holder name</label>
+              <input type="text" class="form-control" id="bank_account_holder_name">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Account number</label>
+              <input type="text" class="form-control" id="bank_account_number" inputmode="numeric">
+              <div class="invalid-feedback d-block small" id="bank_account_number_error"></div>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Confirm account number</label>
+              <input type="text" class="form-control" id="bank_account_number_confirm" inputmode="numeric">
+              <div class="invalid-feedback d-block small" id="bank_account_number_confirm_error"></div>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">IFSC code</label>
+              <input type="text" class="form-control" id="bank_ifsc" style="text-transform: uppercase;">
+              <div class="invalid-feedback d-block small" id="bank_ifsc_error"></div>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Bank name</label>
+              <input type="text" class="form-control" id="bank_name">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Branch name</label>
+              <input type="text" class="form-control" id="bank_branch_name">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Account type</label>
+              <select class="form-select" id="bank_account_type">
+                <option value="">-- select --</option>
+                <option value="savings">Savings</option>
+                <option value="current">Current</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Save Changes</button>
+    </form>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script nonce="{{ csp_nonce }}">
+    const token = sessionStorage.getItem('access_token');
+    if (!token) { window.location.href = '/auth/login'; }
+    const authHeader = { Authorization: 'Bearer ' + token };
+
+    const PHONE_PATTERN = /^\d{6,14}$/;
+    const ACCOUNT_NUMBER_PATTERN = /^\d{9,18}$/;
+    const IFSC_PATTERN = /^[A-Z]{4}0[A-Z0-9]{6}$/;
+
+    let currentEmployeeId = null;
+
+    function showToast(message, variant) {
+      const bg = variant === 'success' ? 'text-bg-success' : 'text-bg-danger';
+      const icon = variant === 'success' ? 'bi-check-circle' : 'bi-exclamation-triangle';
+      const toastEl = $(
+        '<div class="toast align-items-center ' + bg + ' border-0" role="alert">' +
+          '<div class="d-flex">' +
+            '<div class="toast-body"><i class="bi ' + icon + ' me-2"></i>' + message + '</div>' +
+            '<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>' +
+          '</div>' +
+        '</div>'
+      );
+      $('#toastContainer').append(toastEl);
+      const toast = new bootstrap.Toast(toastEl[0], { delay: 4000 });
+      toast.show();
+      toastEl.on('hidden.bs.toast', function () { toastEl.remove(); });
+    }
+
+    function showError(message) { showToast(message, 'danger'); }
+    function showSuccess(message) { showToast(message, 'success'); }
+
+    function statusBadge(value) {
+      return '<span class="badge emp-status emp-status-' + value + '">' + value + '</span>';
+    }
+
+    function nameById(list, id) {
+      const match = list.find(function (item) { return item.id === id; });
+      return match ? match.name : '&mdash;';
+    }
+
+    function splitPhone(value) {
+      if (!value) return { code: '+91', number: '' };
+      const match = value.match(/^(\+\d{1,4})\s?(.*)$/);
+      if (match) return { code: match[1], number: match[2] };
+      return { code: '+91', number: value };
+    }
+
+    function combinePhone(code, number) {
+      const trimmed = (number || '').trim();
+      return trimmed ? code + ' ' + trimmed : null;
+    }
+
+    // ---- Photo ----
+    function loadPhoto(employeeId, hasPhoto) {
+      if (!hasPhoto) {
+        $('#avatarImg').addClass('d-none');
+        $('#avatarPlaceholder').removeClass('d-none');
+        return;
+      }
+      fetch('/api/v1/employees/' + employeeId + '/photo', { headers: authHeader })
+        .then(function (r) { if (!r.ok) throw new Error('no photo'); return r.blob(); })
+        .then(function (blob) {
+          $('#avatarImg').attr('src', URL.createObjectURL(blob)).removeClass('d-none');
+          $('#avatarPlaceholder').addClass('d-none');
+        })
+        .catch(function () {
+          $('#avatarImg').addClass('d-none');
+          $('#avatarPlaceholder').removeClass('d-none');
+        });
+    }
+
+    function handlePhotoFile(file) {
+      if (!['image/jpeg', 'image/png'].includes(file.type)) {
+        showError('Only JPG or PNG images are allowed.');
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        showError('Photo must be under 5 MB.');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        $('#avatarImg').attr('src', e.target.result).removeClass('d-none');
+        $('#avatarPlaceholder').addClass('d-none');
+      };
+      reader.readAsDataURL(file);
+
+      const formData = new FormData();
+      formData.append('file', file);
+      $.ajax({
+        url: '/api/v1/employees/me/photo',
+        method: 'POST',
+        headers: authHeader,
+        data: formData,
+        processData: false,
+        contentType: false
+      }).done(function () {
+        showSuccess('Profile photo updated.');
+      }).fail(function (xhr) {
+        showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Photo upload failed.');
+      });
+    }
+
+    const dropZone = document.getElementById('photoDropZone');
+    ['dragenter', 'dragover'].forEach(function (evt) {
+      dropZone.addEventListener(evt, function (e) { e.preventDefault(); dropZone.classList.add('dragover'); });
+    });
+    ['dragleave', 'drop'].forEach(function (evt) {
+      dropZone.addEventListener(evt, function (e) { e.preventDefault(); dropZone.classList.remove('dragover'); });
+    });
+    dropZone.addEventListener('drop', function (e) {
+      const file = e.dataTransfer.files[0];
+      if (file) handlePhotoFile(file);
+    });
+    dropZone.addEventListener('click', function () { document.getElementById('photoInput').click(); });
+    $('#photoInput').on('change', function (e) {
+      const file = e.target.files[0];
+      if (file) handlePhotoFile(file);
+    });
+
+    // ---- Profile form ----
+    function populateForm(profile, departments, designations) {
+      currentEmployeeId = profile.id;
+      $('#view_employee_code').text(profile.employee_code);
+      $('#view_email').text(profile.email);
+      $('#view_department').html(nameById(departments, profile.department_id));
+      $('#view_designation').html(nameById(designations, profile.designation_id));
+      $('#view_joining_date').text(profile.joining_date);
+      $('#view_status').html(statusBadge(profile.status));
+
+      const phone = splitPhone(profile.phone);
+      $('#phone_code').val(phone.code);
+      $('#phone_number').val(phone.number);
+
+      const emergencyPhone = splitPhone(profile.emergency_contact_phone);
+      $('#emergency_phone_code').val(emergencyPhone.code);
+      $('#emergency_phone_number').val(emergencyPhone.number);
+
+      $('#personal_email').val(profile.personal_email || '');
+      $('#date_of_birth').val(profile.date_of_birth || '');
+      $('#gender').val(profile.gender || '');
+      $('#address').val(profile.address || '');
+      $('#emergency_contact_name').val(profile.emergency_contact_name || '');
+      $('#emergency_contact_relation').val(profile.emergency_contact_relation || '');
+      $('#bank_account_holder_name').val(profile.bank_account_holder_name || '');
+      $('#bank_account_number').val(profile.bank_account_number || '');
+      $('#bank_account_number_confirm').val(profile.bank_account_number || '');
+      $('#bank_ifsc').val(profile.bank_ifsc || '');
+      $('#bank_name').val(profile.bank_name || '');
+      $('#bank_branch_name').val(profile.bank_branch_name || '');
+      $('#bank_account_type').val(profile.bank_account_type || '');
+
+      loadPhoto(profile.id, profile.has_profile_photo);
+      renderCompletion(profile);
+    }
+
+    const COMPLETION_FIELDS = [
+      { key: 'phone', label: 'Phone number' },
+      { key: 'personal_email', label: 'Personal email' },
+      { key: 'date_of_birth', label: 'Date of birth' },
+      { key: 'gender', label: 'Gender' },
+      { key: 'address', label: 'Address' },
+      { key: 'emergency_contact_name', label: 'Emergency contact name' },
+      { key: 'emergency_contact_phone', label: 'Emergency contact phone' },
+      { key: 'emergency_contact_relation', label: 'Emergency contact relation' },
+      { key: 'bank_account_holder_name', label: 'Bank account holder name' },
+      { key: 'bank_account_number', label: 'Bank account number' },
+      { key: 'bank_ifsc', label: 'Bank IFSC code' },
+      { key: 'bank_name', label: 'Bank name' },
+      { key: 'bank_branch_name', label: 'Bank branch name' },
+      { key: 'bank_account_type', label: 'Bank account type' },
+      { key: 'has_profile_photo', label: 'Profile photo' }
+    ];
+
+    function renderCompletion(profile) {
+      const percent = profile.profile_completion_percent;
+      $('#completionPercentText').text(percent + '%');
+      $('#completionProgressBar').css('width', percent + '%');
+      $('#completionProgressBar').toggleClass('bg-success', percent === 100);
+
+      const missing = COMPLETION_FIELDS.filter(function (f) { return !profile[f.key]; });
+
+      if (percent === 100) {
+        $('#completionMessage').html('<i class="bi bi-check-circle text-success me-1"></i>Your profile is complete. All modules are unlocked.');
+        $('#completionMissingList').html('');
+      } else {
+        $('#completionMessage').text('Complete your profile to unlock other modules on your dashboard.');
+        $('#completionMissingList').html(
+          '<strong>Missing:</strong> ' + missing.map(function (f) { return f.label; }).join(', ')
+        );
+      }
+    }
+
+    function loadProfile() {
+      $.when(
+        $.ajax({ url: '/api/v1/employees/me', headers: authHeader }),
+        $.ajax({ url: '/api/v1/departments', headers: authHeader }),
+        $.ajax({ url: '/api/v1/designations', headers: authHeader })
+      ).done(function (profileResp, deptResp, desigResp) {
+        populateForm(profileResp[0], deptResp[0], desigResp[0]);
+      }).fail(function (xhr) {
+        showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to load profile.');
+      });
+    }
+
+    function clearFieldErrors() {
+      $('.invalid-feedback').text('');
+      $('.form-control, .form-select').removeClass('is-invalid');
+    }
+
+    function setFieldError(fieldId, errorId, message) {
+      $('#' + fieldId).addClass('is-invalid');
+      $('#' + errorId).text(message);
+    }
+
+    function validateForm() {
+      clearFieldErrors();
+      let valid = true;
+
+      const phoneNumber = $('#phone_number').val().trim();
+      if (phoneNumber && !PHONE_PATTERN.test(phoneNumber)) {
+        setFieldError('phone_number', 'phone_error', 'Enter 6-14 digits (no spaces or symbols).');
+        valid = false;
+      }
+
+      const emergencyPhoneNumber = $('#emergency_phone_number').val().trim();
+      if (emergencyPhoneNumber && !PHONE_PATTERN.test(emergencyPhoneNumber)) {
+        setFieldError('emergency_phone_number', 'emergency_phone_error', 'Enter 6-14 digits (no spaces or symbols).');
+        valid = false;
+      }
+
+      const accountNumber = $('#bank_account_number').val().trim();
+      if (accountNumber && !ACCOUNT_NUMBER_PATTERN.test(accountNumber)) {
+        setFieldError('bank_account_number', 'bank_account_number_error', 'Account number must be 9-18 digits.');
+        valid = false;
+      }
+
+      const confirmNumber = $('#bank_account_number_confirm').val().trim();
+      if (accountNumber && confirmNumber !== accountNumber) {
+        setFieldError('bank_account_number_confirm', 'bank_account_number_confirm_error', 'Account numbers do not match.');
+        valid = false;
+      }
+
+      const ifsc = $('#bank_ifsc').val().trim().toUpperCase();
+      if (ifsc && !IFSC_PATTERN.test(ifsc)) {
+        setFieldError('bank_ifsc', 'bank_ifsc_error', 'Format: 4 letters, a zero, then 6 letters/digits (e.g. HDFC0001234).');
+        valid = false;
+      }
+
+      return valid;
+    }
+
+    $('#profileForm').on('submit', function (e) {
+      e.preventDefault();
+      if (!validateForm()) {
+        showError('Please fix the highlighted fields.');
+        return;
+      }
+
+      const payload = {
+        phone: combinePhone($('#phone_code').val(), $('#phone_number').val()),
+        personal_email: $('#personal_email').val() || null,
+        date_of_birth: $('#date_of_birth').val() || null,
+        gender: $('#gender').val() || null,
+        address: $('#address').val() || null,
+        emergency_contact_name: $('#emergency_contact_name').val() || null,
+        emergency_contact_phone: combinePhone($('#emergency_phone_code').val(), $('#emergency_phone_number').val()),
+        emergency_contact_relation: $('#emergency_contact_relation').val() || null,
+        bank_account_holder_name: $('#bank_account_holder_name').val() || null,
+        bank_account_number: $('#bank_account_number').val() || null,
+        bank_ifsc: $('#bank_ifsc').val().toUpperCase() || null,
+        bank_name: $('#bank_name').val() || null,
+        bank_branch_name: $('#bank_branch_name').val() || null,
+        bank_account_type: $('#bank_account_type').val() || null
+      };
+      $.ajax({
+        url: '/api/v1/employees/me',
+        method: 'PUT',
+        contentType: 'application/json',
+        headers: authHeader,
+        data: JSON.stringify(payload)
+      }).done(function () {
+        showSuccess('Profile updated successfully.');
+        loadProfile();
+      }).fail(function (xhr) {
+        showError((xhr.responseJSON && JSON.stringify(xhr.responseJSON.detail)) || 'Failed to update profile.');
+      });
+    });
+
+    loadProfile();
+
+    $('#logoutLink').on('click', function (e) {
+      e.preventDefault();
+      sessionStorage.clear();
+      window.location.href = '/auth/login';
+    });
+  </script>
+</body>
+</html>

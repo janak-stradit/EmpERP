@@ -1,0 +1,502 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Stradit Workforce &mdash; Team Approvals</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="/static/css/app.css" rel="stylesheet">
+</head>
+<body>
+  <nav class="navbar navbar-expand emp-navbar mb-4">
+    <div class="container">
+      <span class="navbar-brand"><i class="bi bi-buildings me-2"></i>Stradit Workforce</span>
+      <div class="navbar-nav">
+        <a class="nav-link" href="/dashboard"><i class="bi bi-grid me-1"></i>Dashboard</a>
+        <a class="nav-link" href="#" id="logoutLink"><i class="bi bi-box-arrow-right me-1"></i>Logout</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="toast-container position-fixed top-0 end-0 p-3" id="toastContainer"></div>
+
+  <div class="container pb-5">
+    <a href="/dashboard" class="btn btn-sm btn-link ps-0 mb-2"><i class="bi bi-arrow-left me-1"></i>Back to Dashboard</a>
+
+    <div class="emp-page-header">
+      <h1>Team Approvals</h1>
+      <p>Review and approve leave requests from your direct reports.</p>
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+          <h5 class="card-title mb-0"><i class="bi bi-calendar-week"></i> Team Leave Requests</h5>
+          <select class="form-select form-select-sm" id="statusFilter" style="width: auto;">
+            <option value="pending_manager">Awaiting my approval</option>
+            <option value="">All statuses</option>
+            <option value="pending_hr">Pending HR</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover align-middle">
+            <thead>
+              <tr>
+                <th>Employee</th><th>Type</th><th>Dates</th><th>Days</th><th>Reason</th>
+                <th>Status</th><th class="text-end">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="applicationRows"></tbody>
+          </table>
+        </div>
+        <div id="emptyState" class="emp-empty-state d-none">
+          <i class="bi bi-calendar-x display-6 d-block mb-2"></i>
+          No leave requests match this filter.
+        </div>
+      </div>
+    </div>
+
+    <div class="card mt-4">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+          <h5 class="card-title mb-0"><i class="bi bi-wrench-adjustable"></i> Attendance Correction Requests</h5>
+          <select class="form-select form-select-sm" id="regStatusFilter" style="width: auto;">
+            <option value="pending" selected>Pending</option>
+            <option value="">All statuses</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+          </select>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover align-middle">
+            <thead>
+              <tr><th>Employee</th><th>Date</th><th>Requested In</th><th>Requested Out</th><th>Reason</th><th>Status</th><th class="text-end">Actions</th></tr>
+            </thead>
+            <tbody id="regularizationRows"></tbody>
+          </table>
+        </div>
+        <div id="regEmptyState" class="emp-empty-state d-none">
+          <i class="bi bi-inbox display-6 d-block mb-2"></i>
+          No correction requests match this filter.
+        </div>
+      </div>
+    </div>
+
+    <div class="card mt-4">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+          <h5 class="card-title mb-0"><i class="bi bi-bullseye"></i> Team KRA Reviews</h5>
+          <select class="form-select form-select-sm" id="kraStatusFilter" style="width: auto;">
+            <option value="submitted" selected>Awaiting my review</option>
+            <option value="">All statuses</option>
+            <option value="reviewed">Reviewed (with HR)</option>
+            <option value="approved">Approved</option>
+          </select>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover align-middle">
+            <thead>
+              <tr><th>Employee</th><th>Cycle</th><th>Template</th><th>Status</th><th class="text-end">Actions</th></tr>
+            </thead>
+            <tbody id="kraRows"></tbody>
+          </table>
+        </div>
+        <div id="kraEmptyState" class="emp-empty-state d-none">
+          <i class="bi bi-bullseye display-6 d-block mb-2"></i>
+          No KRAs match this filter.
+        </div>
+      </div>
+    </div>
+
+    <div class="card mt-4">
+      <div class="card-body">
+        <h5 class="card-title mb-3"><i class="bi bi-graph-up-arrow"></i> Performance Reviews</h5>
+        <div class="table-responsive">
+          <table class="table table-hover align-middle">
+            <thead>
+              <tr><th>Employee</th><th>Cycle</th><th>Status</th><th class="text-end">Actions</th></tr>
+            </thead>
+            <tbody id="pmsRows"></tbody>
+          </table>
+        </div>
+        <div id="pmsEmptyState" class="emp-empty-state d-none">
+          <i class="bi bi-graph-up-arrow display-6 d-block mb-2"></i>
+          No manager evaluations assigned to you right now.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Performance evaluation offcanvas -->
+  <div class="offcanvas offcanvas-end" tabindex="-1" id="pmsPanel" style="width: 32rem; max-width: 95vw;">
+    <div class="offcanvas-header">
+      <h5 class="offcanvas-title" id="pmsPanelTitle"><i class="bi bi-pencil-square me-1"></i>Evaluation</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+    </div>
+    <div class="offcanvas-body">
+      <div id="pmsEvalItems"></div>
+      <button type="button" class="btn btn-primary w-100 mt-2" id="submitPmsEvalBtn">
+        <i class="bi bi-send me-1"></i>Submit Evaluation
+      </button>
+    </div>
+  </div>
+
+  <!-- KRA review offcanvas -->
+  <div class="offcanvas offcanvas-end" tabindex="-1" id="kraPanel" style="width: 40rem; max-width: 95vw;">
+    <div class="offcanvas-header">
+      <h5 class="offcanvas-title" id="kraPanelTitle"><i class="bi bi-bullseye me-1"></i>KRA Review</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+    </div>
+    <div class="offcanvas-body">
+      <div id="kraItems"></div>
+      <button type="button" class="btn btn-primary w-100 mt-2" id="completeReviewBtn">
+        <i class="bi bi-check-circle me-1"></i>Complete Review
+      </button>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script nonce="{{ csp_nonce }}">
+    const token = sessionStorage.getItem('access_token');
+    if (!token) { window.location.href = '/auth/login'; }
+    const authHeader = { Authorization: 'Bearer ' + token };
+
+    let allApplications = [];
+
+    function showToast(message, variant) {
+      const bg = variant === 'success' ? 'text-bg-success' : 'text-bg-danger';
+      const icon = variant === 'success' ? 'bi-check-circle' : 'bi-exclamation-triangle';
+      const toastEl = $(
+        '<div class="toast align-items-center ' + bg + ' border-0" role="alert">' +
+          '<div class="d-flex">' +
+            '<div class="toast-body"><i class="bi ' + icon + ' me-2"></i>' + message + '</div>' +
+            '<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>' +
+          '</div>' +
+        '</div>'
+      );
+      $('#toastContainer').append(toastEl);
+      const toast = new bootstrap.Toast(toastEl[0], { delay: 4000 });
+      toast.show();
+      toastEl.on('hidden.bs.toast', function () { toastEl.remove(); });
+    }
+
+    function showError(message) { showToast(message, 'danger'); }
+    function showSuccess(message) { showToast(message, 'success'); }
+
+    function statusLabel(status) {
+      const labels = { pending_manager: 'Pending Manager', pending_hr: 'Pending HR', approved: 'Approved', rejected: 'Rejected', cancelled: 'Cancelled' };
+      return labels[status] || status;
+    }
+
+    function statusBadge(status) {
+      return '<span class="badge emp-status emp-status-' + status + '">' + statusLabel(status) + '</span>';
+    }
+
+    function loadApplications() {
+      $.ajax({ url: '/api/v1/leave/applications/team', headers: authHeader })
+        .done(function (applications) {
+          allApplications = applications;
+          renderApplications();
+        })
+        .fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to load team requests.'); });
+    }
+
+    function renderApplications() {
+      const statusFilter = $('#statusFilter').val();
+      const filtered = allApplications.filter(function (a) { return !statusFilter || a.status === statusFilter; });
+      $('#emptyState').toggleClass('d-none', filtered.length > 0);
+
+      const rows = filtered.map(function (a) {
+        const actions = a.status === 'pending_manager'
+          ? '<button class="btn btn-sm btn-outline-success approve-app" data-id="' + a.id + '"><i class="bi bi-check-lg"></i></button> ' +
+            '<button class="btn btn-sm btn-outline-danger reject-app" data-id="' + a.id + '"><i class="bi bi-x-lg"></i></button>'
+          : '';
+        return '<tr>' +
+          '<td>' + a.employee_code + ' &mdash; ' + a.employee_name + '</td>' +
+          '<td>' + a.leave_type_name + '</td>' +
+          '<td>' + a.from_date + ' &rarr; ' + a.to_date + '</td>' +
+          '<td>' + a.days + '</td>' +
+          '<td class="small">' + (a.reason || '&mdash;') + '</td>' +
+          '<td>' + statusBadge(a.status) + '</td>' +
+          '<td class="text-end text-nowrap">' + actions + '</td>' +
+        '</tr>';
+      });
+      $('#applicationRows').html(rows.join(''));
+    }
+
+    $('#statusFilter').on('change', renderApplications);
+
+    $(document).on('click', '.approve-app', function () {
+      const id = $(this).data('id');
+      $.ajax({
+        url: '/api/v1/leave/applications/' + id + '/manager-action', method: 'POST', contentType: 'application/json',
+        headers: authHeader, data: JSON.stringify({ action: 'approve' })
+      }).done(function () { loadApplications(); showSuccess('Approved and sent to HR.'); })
+        .fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to approve.'); });
+    });
+
+    $(document).on('click', '.reject-app', function () {
+      const reason = prompt('Reason for rejecting this leave request:');
+      if (reason === null) return;
+      const id = $(this).data('id');
+      $.ajax({
+        url: '/api/v1/leave/applications/' + id + '/manager-action', method: 'POST', contentType: 'application/json',
+        headers: authHeader, data: JSON.stringify({ action: 'reject', comments: reason || null })
+      }).done(function () { loadApplications(); showSuccess('Leave request rejected.'); })
+        .fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to reject.'); });
+    });
+
+    let allRegularizations = [];
+
+    function formatDateTime(isoString) {
+      if (!isoString) return '&mdash;';
+      return new Date(isoString).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+    }
+
+    function loadRegularizations() {
+      $.ajax({ url: '/api/v1/attendance/regularizations', headers: authHeader })
+        .done(function (regs) {
+          allRegularizations = regs;
+          renderRegularizations();
+        })
+        .fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to load correction requests.'); });
+    }
+
+    function renderRegularizations() {
+      const statusFilter = $('#regStatusFilter').val();
+      const filtered = allRegularizations.filter(function (r) { return !statusFilter || r.status === statusFilter; });
+      $('#regEmptyState').toggleClass('d-none', filtered.length > 0);
+
+      $('#regularizationRows').html(filtered.map(function (r) {
+        const actions = r.status === 'pending'
+          ? '<button class="btn btn-sm btn-outline-success approve-reg" data-id="' + r.id + '"><i class="bi bi-check-lg"></i></button> ' +
+            '<button class="btn btn-sm btn-outline-danger reject-reg" data-id="' + r.id + '"><i class="bi bi-x-lg"></i></button>'
+          : '';
+        return '<tr>' +
+          '<td>' + r.employee_code + ' &mdash; ' + r.employee_name + '</td>' +
+          '<td>' + r.date + '</td>' +
+          '<td>' + formatDateTime(r.requested_clock_in) + '</td>' +
+          '<td>' + formatDateTime(r.requested_clock_out) + '</td>' +
+          '<td class="small">' + r.reason + '</td>' +
+          '<td>' + statusBadge(r.status) + '</td>' +
+          '<td class="text-end text-nowrap">' + actions + '</td>' +
+        '</tr>';
+      }).join(''));
+    }
+
+    $('#regStatusFilter').on('change', renderRegularizations);
+
+    $(document).on('click', '.approve-reg', function () {
+      const id = $(this).data('id');
+      $.ajax({
+        url: '/api/v1/attendance/regularizations/' + id + '/action', method: 'POST', contentType: 'application/json',
+        headers: authHeader, data: JSON.stringify({ action: 'approve' })
+      }).done(function () { loadRegularizations(); showSuccess('Approved and attendance updated.'); })
+        .fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to approve.'); });
+    });
+
+    $(document).on('click', '.reject-reg', function () {
+      const id = $(this).data('id');
+      $.ajax({
+        url: '/api/v1/attendance/regularizations/' + id + '/action', method: 'POST', contentType: 'application/json',
+        headers: authHeader, data: JSON.stringify({ action: 'reject' })
+      }).done(function () { loadRegularizations(); showSuccess('Request rejected.'); })
+        .fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to reject.'); });
+    });
+
+    let allKras = [];
+    let activeKraId = null;
+
+    function kraStatusLabel(status) {
+      const labels = { draft: 'Draft', submitted: 'Awaiting my review', reviewed: 'Reviewed (with HR)', approved: 'Approved' };
+      return labels[status] || status;
+    }
+
+    function loadKras() {
+      $.ajax({ url: '/api/v1/kra/team', headers: authHeader })
+        .done(function (kras) {
+          allKras = kras;
+          renderKras();
+        })
+        .fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to load team KRAs.'); });
+    }
+
+    function renderKras() {
+      const statusFilter = $('#kraStatusFilter').val();
+      const filtered = allKras.filter(function (k) { return !statusFilter || k.status === statusFilter; });
+      $('#kraEmptyState').toggleClass('d-none', filtered.length > 0);
+
+      $('#kraRows').html(filtered.map(function (k) {
+        const actions = k.status === 'submitted'
+          ? '<button class="btn btn-sm btn-outline-primary review-kra" data-id="' + k.id + '"><i class="bi bi-pencil-square"></i> Review</button>'
+          : '<button class="btn btn-sm btn-outline-secondary review-kra" data-id="' + k.id + '"><i class="bi bi-eye"></i> View</button>';
+        return '<tr>' +
+          '<td>' + k.employee_code + ' &mdash; ' + k.employee_name + '</td>' +
+          '<td>' + k.cycle_name + '</td>' +
+          '<td>' + k.template_name + '</td>' +
+          '<td><span class="badge emp-status">' + kraStatusLabel(k.status) + '</span></td>' +
+          '<td class="text-end text-nowrap">' + actions + '</td>' +
+        '</tr>';
+      }).join(''));
+    }
+
+    $('#kraStatusFilter').on('change', renderKras);
+
+    $(document).on('click', '.review-kra', function () {
+      const id = $(this).data('id');
+      $.ajax({ url: '/api/v1/kra/' + id, headers: authHeader }).done(function (kra) {
+        activeKraId = kra.id;
+        const editable = kra.status === 'submitted';
+        $('#kraPanelTitle').html('<i class="bi bi-bullseye me-1"></i>' + kra.employee_name + ' &mdash; ' + kra.cycle_name);
+        $('#kraItems').html(kra.items.map(function (item) {
+          const selfBlock = (item.employee_rating !== null && item.employee_rating !== undefined)
+            ? '<div class="small text-muted mt-1">Self rating: <strong>' + item.employee_rating + '</strong>' +
+                (item.employee_comment ? ' &mdash; ' + item.employee_comment : '') + '</div>'
+            : '<div class="small text-muted mt-1">No self rating yet.</div>';
+          return '<div class="card mb-3"><div class="card-body">' +
+            '<h6 class="mb-1">' + item.title + ' <span class="text-muted small">(' + item.weightage + '%)</span></h6>' +
+            (item.target ? '<p class="small mb-2"><strong>Target:</strong> ' + item.target + '</p>' : '') +
+            selfBlock +
+            '<div class="row g-2 mt-1">' +
+              '<div class="col-4">' +
+                '<label class="form-label small mb-0">Manager rating (1-5)</label>' +
+                '<input type="number" min="1" max="5" step="0.5" class="form-control form-control-sm kra-mgr-rating" data-item-id="' + item.id + '" value="' + (item.manager_rating !== null && item.manager_rating !== undefined ? item.manager_rating : '') + '" ' + (editable ? '' : 'disabled') + '>' +
+              '</div>' +
+              '<div class="col-8">' +
+                '<label class="form-label small mb-0">Comment</label>' +
+                '<input type="text" class="form-control form-control-sm kra-mgr-comment" data-item-id="' + item.id + '" value="' + (item.manager_comment || '').replace(/"/g, '&quot;') + '" ' + (editable ? '' : 'disabled') + '>' +
+              '</div>' +
+            '</div>' +
+          '</div></div>';
+        }).join(''));
+        $('#completeReviewBtn').toggleClass('d-none', !editable);
+        new bootstrap.Offcanvas('#kraPanel').show();
+      }).fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to load KRA.'); });
+    });
+
+    $('#completeReviewBtn').on('click', function () {
+      const items = [];
+      $('.kra-mgr-rating').each(function () {
+        const rating = parseFloat($(this).val());
+        if (!isNaN(rating)) {
+          items.push({
+            item_id: parseInt($(this).data('item-id'), 10),
+            rating: rating,
+            comment: $('.kra-mgr-comment[data-item-id="' + $(this).data('item-id') + '"]').val() || null
+          });
+        }
+      });
+      if (items.length === 0) { showError('Rate at least one item before completing the review.'); return; }
+      $.ajax({
+        url: '/api/v1/kra/' + activeKraId + '/manager-rating', method: 'PUT', contentType: 'application/json',
+        headers: authHeader, data: JSON.stringify({ items: items })
+      }).done(function () {
+        $.ajax({ url: '/api/v1/kra/' + activeKraId + '/complete-review', method: 'POST', headers: authHeader })
+          .done(function () {
+            bootstrap.Offcanvas.getInstance(document.getElementById('kraPanel')).hide();
+            loadKras();
+            showSuccess('Review completed and sent to HR.');
+          })
+          .fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to complete review. Rate every item.'); });
+      }).fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to save ratings.'); });
+    });
+
+    // ---- Performance reviews (manager-role PMS review requests) ----
+    let pmsCompetencies = [];
+    let pmsRatingScale = null;
+    let activePmsRequest = null;
+
+    function loadPmsPrereqs() {
+      return $.when(
+        $.ajax({ url: '/api/v1/pms/competencies', headers: authHeader }).done(function (list) { pmsCompetencies = list; }),
+        $.ajax({ url: '/api/v1/pms/rating-scales', headers: authHeader }).done(function (scales) { pmsRatingScale = scales.length ? scales[0] : null; })
+      );
+    }
+
+    function loadPmsRequests() {
+      $.ajax({ url: '/api/v1/pms/requests/me', headers: authHeader }).done(function (requests) {
+        const managerRequests = requests.filter(function (r) { return r.reviewer_role === 'manager'; });
+        $('#pmsEmptyState').toggleClass('d-none', managerRequests.length > 0);
+        $('#pmsRows').html(managerRequests.map(function (r) {
+          const actions = r.status === 'pending'
+            ? '<button class="btn btn-sm btn-outline-primary evaluate-pms" data-id="' + r.id + '" data-employee="' + r.employee_name.replace(/"/g, '&quot;') + '"><i class="bi bi-pencil-square"></i> Evaluate</button> ' +
+              '<button class="btn btn-sm btn-outline-secondary recommend-promotion" data-employee-id="' + r.employee_id + '" data-cycle-id="' + r.cycle_id + '" data-employee="' + r.employee_name.replace(/"/g, '&quot;') + '"><i class="bi bi-arrow-up-circle"></i> Recommend Promotion</button>'
+            : '<span class="text-muted small">Submitted</span>';
+          return '<tr>' +
+            '<td>' + r.employee_code + ' &mdash; ' + r.employee_name + '</td>' +
+            '<td>' + r.cycle_name + '</td>' +
+            '<td><span class="badge ' + (r.status === 'pending' ? 'bg-warning text-dark' : 'bg-success') + '">' + r.status + '</span></td>' +
+            '<td class="text-end text-nowrap">' + actions + '</td>' +
+          '</tr>';
+        }).join(''));
+      }).fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to load performance reviews.'); });
+    }
+
+    $(document).on('click', '.evaluate-pms', function () {
+      activePmsRequest = $(this).data('id');
+      $('#pmsPanelTitle').html('<i class="bi bi-pencil-square me-1"></i>Evaluate ' + $(this).data('employee'));
+      const scaleHint = pmsRatingScale ? ' (' + pmsRatingScale.min_score + '-' + pmsRatingScale.max_score + ')' : '';
+      $('#pmsEvalItems').html(pmsCompetencies.map(function (c) {
+        return '<div class="mb-3">' +
+          '<label class="form-label small mb-0">' + c.name + scaleHint + '</label>' +
+          '<div class="row g-2">' +
+            '<div class="col-3"><input type="number" step="0.5" class="form-control form-control-sm pms-eval-rating" data-competency-id="' + c.id + '"' +
+              (pmsRatingScale ? ' min="' + pmsRatingScale.min_score + '" max="' + pmsRatingScale.max_score + '"' : '') + '></div>' +
+            '<div class="col-9"><input type="text" class="form-control form-control-sm pms-eval-comment" data-competency-id="' + c.id + '" placeholder="Comment (optional)"></div>' +
+          '</div>' +
+        '</div>';
+      }).join('') || '<p class="text-muted small">No competencies configured yet. Contact HR.</p>');
+      new bootstrap.Offcanvas('#pmsPanel').show();
+    });
+
+    $('#submitPmsEvalBtn').on('click', function () {
+      const items = [];
+      $('.pms-eval-rating').each(function () {
+        const rating = parseFloat($(this).val());
+        if (!isNaN(rating)) {
+          items.push({
+            competency_id: parseInt($(this).data('competency-id'), 10),
+            rating: rating,
+            comment: $('.pms-eval-comment[data-competency-id="' + $(this).data('competency-id') + '"]').val() || null
+          });
+        }
+      });
+      if (items.length === 0) { showError('Rate at least one competency.'); return; }
+      $.ajax({
+        url: '/api/v1/pms/evaluations', method: 'POST', contentType: 'application/json', headers: authHeader,
+        data: JSON.stringify({ review_request_id: activePmsRequest, items: items })
+      }).done(function () {
+        bootstrap.Offcanvas.getInstance(document.getElementById('pmsPanel')).hide();
+        loadPmsRequests();
+        showSuccess('Evaluation submitted.');
+      }).fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to submit evaluation.'); });
+    });
+
+    $(document).on('click', '.recommend-promotion', function () {
+      const reason = prompt('Reason for recommending ' + $(this).data('employee') + ' for promotion:');
+      if (reason === null) return;
+      $.ajax({
+        url: '/api/v1/pms/promotions', method: 'POST', contentType: 'application/json', headers: authHeader,
+        data: JSON.stringify({ employee_id: $(this).data('employee-id'), cycle_id: $(this).data('cycle-id'), reason: reason || null })
+      }).done(function () { showSuccess('Promotion recommendation submitted to HR.'); })
+        .fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to submit recommendation.'); });
+    });
+
+    loadApplications();
+    loadRegularizations();
+    loadKras();
+    loadPmsPrereqs().done(loadPmsRequests);
+
+    $('#logoutLink').on('click', function (e) {
+      e.preventDefault();
+      sessionStorage.clear();
+      window.location.href = '/auth/login';
+    });
+  </script>
+</body>
+</html>

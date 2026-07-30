@@ -1,0 +1,440 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Stradit Workforce &mdash; KRA Management</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="/static/css/app.css" rel="stylesheet">
+</head>
+<body>
+  <nav class="navbar navbar-expand emp-navbar mb-4">
+    <div class="container">
+      <span class="navbar-brand"><i class="bi bi-buildings me-2"></i>Stradit Workforce &mdash; HR</span>
+      <div class="navbar-nav">
+        <a class="nav-link" href="/dashboard"><i class="bi bi-grid me-1"></i>Dashboard</a>
+        <a class="nav-link" href="#" id="logoutLink"><i class="bi bi-box-arrow-right me-1"></i>Logout</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="toast-container position-fixed top-0 end-0 p-3" id="toastContainer"></div>
+
+  <div class="container pb-5">
+    <a href="/dashboard" class="btn btn-sm btn-link ps-0 mb-2"><i class="bi bi-arrow-left me-1"></i>Back to Dashboard</a>
+
+    <div class="emp-page-header d-flex justify-content-between align-items-start flex-wrap gap-2">
+      <div>
+        <h1>KRA Management</h1>
+        <p>Manage appraisal cycles, KRA templates, assignments, and final approvals.</p>
+      </div>
+      <div class="d-flex gap-2">
+        <button class="btn btn-outline-primary btn-sm" data-bs-toggle="offcanvas" data-bs-target="#cyclesPanel">
+          <i class="bi bi-calendar-range me-1"></i>Appraisal Cycles
+        </button>
+        <button class="btn btn-outline-primary btn-sm" data-bs-toggle="offcanvas" data-bs-target="#templatesPanel">
+          <i class="bi bi-list-check me-1"></i>Manage Templates
+        </button>
+      </div>
+    </div>
+
+    <div class="card mb-4">
+      <div class="card-body">
+        <h5 class="card-title"><i class="bi bi-person-plus"></i> Assign KRA</h5>
+        <p class="text-muted small">Copies a template's items into a new KRA for the chosen employee and cycle. Template weightages must sum to 100%.</p>
+        <form id="assignForm" class="row g-2">
+          <div class="col-md-4">
+            <select class="form-select form-select-sm" id="assign_employee_id" required></select>
+          </div>
+          <div class="col-md-3">
+            <select class="form-select form-select-sm" id="assign_cycle_id" required></select>
+          </div>
+          <div class="col-md-4">
+            <select class="form-select form-select-sm" id="assign_template_id" required></select>
+          </div>
+          <div class="col-md-1">
+            <button type="submit" class="btn btn-primary btn-sm w-100"><i class="bi bi-check-lg"></i></button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+          <h5 class="card-title mb-0"><i class="bi bi-list-ul"></i> Company KRAs</h5>
+          <select class="form-select form-select-sm" id="statusFilter" style="width: auto;">
+            <option value="">All statuses</option>
+            <option value="draft">Draft</option>
+            <option value="submitted">Submitted</option>
+            <option value="reviewed" selected>Awaiting HR approval</option>
+            <option value="approved">Approved</option>
+          </select>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover align-middle">
+            <thead>
+              <tr><th>Employee</th><th>Cycle</th><th>Template</th><th>Status</th><th>Score</th><th class="text-end">Actions</th></tr>
+            </thead>
+            <tbody id="kraRows"></tbody>
+          </table>
+        </div>
+        <div id="emptyState" class="emp-empty-state d-none">
+          <i class="bi bi-inbox display-6 d-block mb-2"></i>
+          No KRAs match this filter.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cycles offcanvas -->
+  <div class="offcanvas offcanvas-end" tabindex="-1" id="cyclesPanel">
+    <div class="offcanvas-header">
+      <h5 class="offcanvas-title"><i class="bi bi-calendar-range me-1"></i>Appraisal Cycles</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+    </div>
+    <div class="offcanvas-body">
+      <form id="cycleForm" class="mb-3">
+        <div class="row g-2">
+          <div class="col-12">
+            <input type="text" class="form-control form-control-sm" id="newCycleName" placeholder="Name (e.g. 2026 Annual Review)" required>
+          </div>
+          <div class="col-6">
+            <label class="form-label small mb-0">Start date</label>
+            <input type="date" class="form-control form-control-sm" id="newCycleStart" required>
+          </div>
+          <div class="col-6">
+            <label class="form-label small mb-0">End date</label>
+            <input type="date" class="form-control form-control-sm" id="newCycleEnd" required>
+          </div>
+          <div class="col-12">
+            <button type="submit" class="btn btn-primary btn-sm w-100"><i class="bi bi-plus-lg me-1"></i>Add Cycle</button>
+          </div>
+        </div>
+      </form>
+      <ul class="list-group list-group-flush" id="cycleList"></ul>
+    </div>
+  </div>
+
+  <!-- Templates offcanvas -->
+  <div class="offcanvas offcanvas-end" tabindex="-1" id="templatesPanel" style="width: 32rem; max-width: 95vw;">
+    <div class="offcanvas-header">
+      <h5 class="offcanvas-title"><i class="bi bi-list-check me-1"></i>KRA Templates</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+    </div>
+    <div class="offcanvas-body">
+      <div id="templateListView">
+        <form id="templateForm" class="mb-3">
+          <div class="row g-2">
+            <div class="col-12">
+              <input type="text" class="form-control form-control-sm" id="newTemplateName" placeholder="Template name" required>
+            </div>
+            <div class="col-12">
+              <input type="text" class="form-control form-control-sm" id="newTemplateDescription" placeholder="Description (optional)">
+            </div>
+            <div class="col-12">
+              <button type="submit" class="btn btn-primary btn-sm w-100"><i class="bi bi-plus-lg me-1"></i>Add Template</button>
+            </div>
+          </div>
+        </form>
+        <ul class="list-group list-group-flush" id="templateList"></ul>
+      </div>
+
+      <div id="templateDetailView" class="d-none">
+        <button type="button" class="btn btn-sm btn-outline-secondary mb-3" id="backToTemplateList">
+          <i class="bi bi-arrow-left me-1"></i>Back to templates
+        </button>
+        <h6 id="templateDetailName"></h6>
+        <div class="mb-2">
+          <span class="badge" id="weightageTotalBadge"></span>
+        </div>
+        <ul class="list-group list-group-flush mb-3" id="templateItemList"></ul>
+        <form id="templateItemForm">
+          <div class="row g-2">
+            <div class="col-7">
+              <input type="text" class="form-control form-control-sm" id="newItemTitle" placeholder="Item title" required>
+            </div>
+            <div class="col-3">
+              <input type="number" class="form-control form-control-sm" id="newItemWeightage" placeholder="%" min="0" max="100" step="0.5" required>
+            </div>
+            <div class="col-2">
+              <button type="submit" class="btn btn-primary btn-sm w-100"><i class="bi bi-plus-lg"></i></button>
+            </div>
+            <div class="col-12">
+              <textarea class="form-control form-control-sm" id="newItemCriteria" placeholder="Measurement criteria / target (optional)" rows="2"></textarea>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- KRA detail offcanvas -->
+  <div class="offcanvas offcanvas-end" tabindex="-1" id="kraPanel" style="width: 40rem; max-width: 95vw;">
+    <div class="offcanvas-header">
+      <h5 class="offcanvas-title" id="kraPanelTitle"><i class="bi bi-bullseye me-1"></i>KRA</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+    </div>
+    <div class="offcanvas-body">
+      <div id="kraPanelItems"></div>
+      <button type="button" class="btn btn-success w-100 mt-2 d-none" id="approveKraBtn">
+        <i class="bi bi-check-circle me-1"></i>Approve
+      </button>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script nonce="{{ csp_nonce }}">
+    const token = sessionStorage.getItem('access_token');
+    if (!token) { window.location.href = '/auth/login'; }
+    const authHeader = { Authorization: 'Bearer ' + token };
+
+    function showToast(message, variant) {
+      const bg = variant === 'success' ? 'text-bg-success' : 'text-bg-danger';
+      const icon = variant === 'success' ? 'bi-check-circle' : 'bi-exclamation-triangle';
+      const toastEl = $(
+        '<div class="toast align-items-center ' + bg + ' border-0" role="alert">' +
+          '<div class="d-flex">' +
+            '<div class="toast-body"><i class="bi ' + icon + ' me-2"></i>' + message + '</div>' +
+            '<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>' +
+          '</div>' +
+        '</div>'
+      );
+      $('#toastContainer').append(toastEl);
+      const toast = new bootstrap.Toast(toastEl[0], { delay: 4000 });
+      toast.show();
+      toastEl.on('hidden.bs.toast', function () { toastEl.remove(); });
+    }
+
+    function showError(message) { showToast(message, 'danger'); }
+    function showSuccess(message) { showToast(message, 'success'); }
+
+    function statusLabel(status) {
+      const labels = { draft: 'Draft', submitted: 'Submitted', reviewed: 'Awaiting HR approval', approved: 'Approved' };
+      return labels[status] || status;
+    }
+
+    // ---- Employees (for assignment) ----
+    function loadEmployees() {
+      $.ajax({ url: '/api/v1/employees', headers: authHeader }).done(function (employees) {
+        $('#assign_employee_id').html(employees.map(function (e) {
+          return '<option value="' + e.id + '">' + e.employee_code + ' - ' + e.full_name + '</option>';
+        }).join(''));
+      });
+    }
+
+    // ---- Cycles ----
+    function loadCycles() {
+      $.ajax({ url: '/api/v1/kra/cycles', headers: authHeader }).done(function (cycles) {
+        $('#assign_cycle_id').html(cycles.map(function (c) {
+          return '<option value="' + c.id + '">' + c.name + '</option>';
+        }).join(''));
+        $('#cycleList').html(cycles.map(function (c) {
+          return '<li class="list-group-item py-2">' +
+            '<div class="d-flex justify-content-between"><strong>' + c.name + '</strong><span class="badge emp-status">' + c.status + '</span></div>' +
+            '<div class="text-muted small">' + c.start_date + ' &rarr; ' + c.end_date + '</div>' +
+          '</li>';
+        }).join('') || '<li class="list-group-item text-muted small">No cycles yet.</li>');
+      });
+    }
+
+    $('#cycleForm').on('submit', function (e) {
+      e.preventDefault();
+      $.ajax({
+        url: '/api/v1/kra/cycles', method: 'POST', contentType: 'application/json', headers: authHeader,
+        data: JSON.stringify({
+          name: $('#newCycleName').val(),
+          start_date: $('#newCycleStart').val(),
+          end_date: $('#newCycleEnd').val()
+        })
+      }).done(function () {
+        $('#cycleForm')[0].reset();
+        loadCycles();
+        showSuccess('Appraisal cycle added.');
+      }).fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to add cycle.'); });
+    });
+
+    // ---- Templates ----
+    let activeTemplateId = null;
+
+    function loadTemplates() {
+      $.ajax({ url: '/api/v1/kra/templates', headers: authHeader }).done(function (templates) {
+        $('#assign_template_id').html(templates.map(function (t) {
+          return '<option value="' + t.id + '">' + t.name + '</option>';
+        }).join(''));
+        $('#templateList').html(templates.map(function (t) {
+          return '<li class="list-group-item d-flex justify-content-between align-items-center py-2">' +
+            '<span>' + t.name + '</span>' +
+            '<span>' +
+              '<button class="btn btn-sm btn-outline-primary manage-template" data-id="' + t.id + '" data-name="' + t.name.replace(/"/g, '&quot;') + '"><i class="bi bi-pencil"></i></button> ' +
+              '<button class="btn btn-sm btn-outline-danger delete-template" data-id="' + t.id + '"><i class="bi bi-trash"></i></button>' +
+            '</span>' +
+          '</li>';
+        }).join('') || '<li class="list-group-item text-muted small">No templates yet.</li>');
+      });
+    }
+
+    $('#templateForm').on('submit', function (e) {
+      e.preventDefault();
+      $.ajax({
+        url: '/api/v1/kra/templates', method: 'POST', contentType: 'application/json', headers: authHeader,
+        data: JSON.stringify({ name: $('#newTemplateName').val(), description: $('#newTemplateDescription').val() || null })
+      }).done(function () {
+        $('#templateForm')[0].reset();
+        loadTemplates();
+        showSuccess('Template added.');
+      }).fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to add template.'); });
+    });
+
+    $(document).on('click', '.delete-template', function () {
+      if (!confirm('Delete this template?')) return;
+      $.ajax({ url: '/api/v1/kra/templates/' + $(this).data('id'), method: 'DELETE', headers: authHeader })
+        .done(loadTemplates)
+        .fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to delete template.'); });
+    });
+
+    function renderTemplateDetail(template) {
+      activeTemplateId = template.id;
+      $('#templateDetailName').text(template.name);
+      const total = template.items.reduce(function (sum, i) { return sum + i.default_weightage; }, 0);
+      $('#weightageTotalBadge')
+        .text('Total weightage: ' + total + '%')
+        .attr('class', 'badge ' + (Math.abs(total - 100) < 0.01 ? 'bg-success' : 'bg-warning text-dark'));
+      $('#templateItemList').html(template.items.map(function (i) {
+        return '<li class="list-group-item d-flex justify-content-between align-items-center py-2">' +
+          '<span>' + i.title + ' <span class="text-muted small">(' + i.default_weightage + '%)</span></span>' +
+          '<button class="btn btn-sm btn-outline-danger delete-item" data-item-id="' + i.id + '"><i class="bi bi-trash"></i></button>' +
+        '</li>';
+      }).join('') || '<li class="list-group-item text-muted small">No items yet.</li>');
+      $('#templateListView').addClass('d-none');
+      $('#templateDetailView').removeClass('d-none');
+    }
+
+    $(document).on('click', '.manage-template', function () {
+      const id = $(this).data('id');
+      $.ajax({ url: '/api/v1/kra/templates/' + id, headers: authHeader })
+        .done(renderTemplateDetail)
+        .fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to load template.'); });
+    });
+
+    $('#backToTemplateList').on('click', function () {
+      $('#templateDetailView').addClass('d-none');
+      $('#templateListView').removeClass('d-none');
+      loadTemplates();
+    });
+
+    $('#templateItemForm').on('submit', function (e) {
+      e.preventDefault();
+      $.ajax({
+        url: '/api/v1/kra/templates/' + activeTemplateId + '/items', method: 'POST', contentType: 'application/json', headers: authHeader,
+        data: JSON.stringify({
+          title: $('#newItemTitle').val(),
+          default_weightage: parseFloat($('#newItemWeightage').val()) || 0,
+          measurement_criteria: $('#newItemCriteria').val() || null
+        })
+      }).done(function (template) {
+        $('#templateItemForm')[0].reset();
+        renderTemplateDetail(template);
+      }).fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to add item.'); });
+    });
+
+    $(document).on('click', '.delete-item', function () {
+      const itemId = $(this).data('item-id');
+      $.ajax({ url: '/api/v1/kra/templates/' + activeTemplateId + '/items/' + itemId, method: 'DELETE', headers: authHeader })
+        .done(renderTemplateDetail)
+        .fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to delete item.'); });
+    });
+
+    // ---- Assignment ----
+    $('#assignForm').on('submit', function (e) {
+      e.preventDefault();
+      $.ajax({
+        url: '/api/v1/kra/assign', method: 'POST', contentType: 'application/json', headers: authHeader,
+        data: JSON.stringify({
+          employee_id: parseInt($('#assign_employee_id').val(), 10),
+          cycle_id: parseInt($('#assign_cycle_id').val(), 10),
+          template_id: parseInt($('#assign_template_id').val(), 10)
+        })
+      }).done(function () {
+        loadKras();
+        showSuccess('KRA assigned.');
+      }).fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to assign KRA.'); });
+    });
+
+    // ---- Company KRA list ----
+    let allKras = [];
+
+    function loadKras() {
+      $.ajax({ url: '/api/v1/kra', headers: authHeader }).done(function (kras) {
+        allKras = kras;
+        renderKras();
+      }).fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to load KRAs.'); });
+    }
+
+    function renderKras() {
+      const statusFilter = $('#statusFilter').val();
+      const filtered = allKras.filter(function (k) { return !statusFilter || k.status === statusFilter; });
+      $('#emptyState').toggleClass('d-none', filtered.length > 0);
+
+      $('#kraRows').html(filtered.map(function (k) {
+        const score = k.overall_score !== null && k.overall_score !== undefined ? k.overall_score.toFixed(2) : '&mdash;';
+        return '<tr>' +
+          '<td>' + k.employee_code + ' &mdash; ' + k.employee_name + '</td>' +
+          '<td>' + k.cycle_name + '</td>' +
+          '<td>' + k.template_name + '</td>' +
+          '<td><span class="badge emp-status">' + statusLabel(k.status) + '</span></td>' +
+          '<td>' + score + '</td>' +
+          '<td class="text-end text-nowrap"><button class="btn btn-sm btn-outline-primary view-kra" data-id="' + k.id + '"><i class="bi bi-eye"></i></button></td>' +
+        '</tr>';
+      }).join(''));
+    }
+
+    $('#statusFilter').on('change', renderKras);
+
+    let activeKraId = null;
+
+    $(document).on('click', '.view-kra', function () {
+      const id = $(this).data('id');
+      $.ajax({ url: '/api/v1/kra/' + id, headers: authHeader }).done(function (kra) {
+        activeKraId = kra.id;
+        $('#kraPanelTitle').html('<i class="bi bi-bullseye me-1"></i>' + kra.employee_name + ' &mdash; ' + kra.cycle_name);
+        $('#kraPanelItems').html(kra.items.map(function (item) {
+          return '<div class="card mb-3"><div class="card-body">' +
+            '<h6 class="mb-1">' + item.title + ' <span class="text-muted small">(' + item.weightage + '%)</span></h6>' +
+            '<div class="small text-muted">Self: ' + (item.employee_rating !== null && item.employee_rating !== undefined ? item.employee_rating : '&mdash;') +
+              (item.employee_comment ? ' &mdash; ' + item.employee_comment : '') + '</div>' +
+            '<div class="small text-muted">Manager: ' + (item.manager_rating !== null && item.manager_rating !== undefined ? item.manager_rating : '&mdash;') +
+              (item.manager_comment ? ' &mdash; ' + item.manager_comment : '') + '</div>' +
+            '<div class="small fw-semibold mt-1">Score: ' + (item.score !== null && item.score !== undefined ? item.score.toFixed(2) : '&mdash;') + '</div>' +
+          '</div></div>';
+        }).join(''));
+        $('#approveKraBtn').toggleClass('d-none', kra.status !== 'reviewed');
+        new bootstrap.Offcanvas('#kraPanel').show();
+      }).fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to load KRA.'); });
+    });
+
+    $('#approveKraBtn').on('click', function () {
+      $.ajax({ url: '/api/v1/kra/' + activeKraId + '/approve', method: 'POST', headers: authHeader })
+        .done(function () {
+          bootstrap.Offcanvas.getInstance(document.getElementById('kraPanel')).hide();
+          loadKras();
+          showSuccess('KRA approved.');
+        })
+        .fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to approve KRA.'); });
+    });
+
+    loadEmployees();
+    loadCycles();
+    loadTemplates();
+    loadKras();
+
+    $('#logoutLink').on('click', function (e) {
+      e.preventDefault();
+      sessionStorage.clear();
+      window.location.href = '/auth/login';
+    });
+  </script>
+</body>
+</html>
