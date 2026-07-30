@@ -14,6 +14,7 @@ from app.api.v1.documents import router as documents_router
 from app.api.v1.employees import router as employees_router
 from app.api.v1.kra import router as kra_router
 from app.api.v1.leave import router as leave_router
+from app.api.v1.notifications import router as notifications_router
 from app.api.v1.onboarding import router as onboarding_router
 from app.api.v1.pms import router as pms_router
 from app.core.config import get_settings
@@ -138,6 +139,16 @@ def employee_kra_page(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(request, "employee/kra.html", {"csp_nonce": request.state.csp_nonce})
 
 
+@app.get("/health", tags=["system"])
+def health_check():
+    return {"status": "healthy", "service": "Stradit Workforce ERP"}
+
+
+@app.get("/", response_class=HTMLResponse, tags=["system"])
+def root_page(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(request, "hr/kra.html", {"csp_nonce": request.state.csp_nonce})
+
+
 @app.get("/hr/kra", response_class=HTMLResponse, tags=["system"])
 def hr_kra_page(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(request, "hr/kra.html", {"csp_nonce": request.state.csp_nonce})
@@ -163,3 +174,4 @@ app.include_router(leave_router, prefix="/api/v1")
 app.include_router(attendance_router, prefix="/api/v1")
 app.include_router(kra_router, prefix="/api/v1")
 app.include_router(pms_router, prefix="/api/v1")
+app.include_router(notifications_router, prefix="/api/v1")

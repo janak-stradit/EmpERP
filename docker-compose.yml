@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: emperp_app
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql+psycopg://emperp_user:emperp_password@db:5432/emperp_db
+      - SECRET_KEY=${SECRET_KEY:-super-secret-jwt-key-replace-in-production}
+      - ENVIRONMENT=production
+      - CORS_ORIGINS=*
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - app_uploads:/app/uploads
+
+  db:
+    image: postgres:16-alpine
+    container_name: emperp_db
+    restart: always
+    environment:
+      - POSTGRES_USER=emperp_user
+      - POSTGRES_PASSWORD=emperp_password
+      - POSTGRES_DB=emperp_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U emperp_user -d emperp_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  app_uploads:

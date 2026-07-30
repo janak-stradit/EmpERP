@@ -9,6 +9,7 @@ from app.api.deps import HR_WRITE_ROLES, get_client_ip, get_current_user, get_db
 from app.core.audit import log_audit
 from app.core.email import send_email
 from app.core.files import save_leave_attachment
+from app.core.notifications import hr_user_ids, notify, notify_many
 from app.models.employee import Employee
 from app.models.leave import (
     LeaveApplication,
@@ -19,6 +20,7 @@ from app.models.leave import (
     LeaveType,
 )
 from app.models.mixins import utcnow
+from app.models.notification import NotificationCategory
 from app.models.user import User, UserRole
 from app.schemas.leave import (
     AdjustBalanceRequest,
@@ -430,6 +432,12 @@ def apply_for_leave(
             subject="Leave request awaiting your approval",
             body=f"{current_user.full_name} applied for {days} day(s) of {leave_type.name} leave ({from_date} to {to_date}).",
         )
+        notify(
+            db, user_id=manager_user.id, category=NotificationCategory.LEAVE,
+            title="Leave request awaiting your approval",
+            body=f"{current_user.full_name} applied for {days} day(s) of {leave_type.name} leave.",
+            link="/manager/team-leave",
+        )
     else:
         hr_recipients = db.scalars(
             select(User).where(
@@ -443,6 +451,12 @@ def apply_for_leave(
                 subject="Leave request awaiting your approval",
                 body=f"{current_user.full_name} applied for {days} day(s) of {leave_type.name} leave ({from_date} to {to_date}).",
             )
+        notify_many(
+            db, user_ids=hr_user_ids(db, current_user.company_id), category=NotificationCategory.LEAVE,
+            title="Leave request awaiting HR approval",
+            body=f"{current_user.full_name} applied for {days} day(s) of {leave_type.name} leave.",
+            link="/hr/leave",
+        )
 
     return _to_application_detail(db, application)
 
@@ -599,6 +613,17 @@ def manager_action(
         entity_id=application.id, ip_address=get_client_ip(request),
     )
     send_email(to=employee_user.email, subject=email_subject, body=email_body)
+    notify(
+        db, user_id=employee_user.id, category=NotificationCategory.LEAVE,
+        title=email_subject, body=email_body, link="/employee/leave",
+    )
+    if payload.action == "approve":
+        notify_many(
+            db, user_ids=hr_user_ids(db, current_user.company_id), category=NotificationCategory.LEAVE,
+            title="Leave request awaiting HR approval",
+            body=f"{employee_user.full_name}'s leave request was approved by their manager and now needs HR approval.",
+            link="/hr/leave",
+        )
 
     return _to_application_detail(db, application)
 
@@ -659,6 +684,10 @@ def hr_action(
         entity_id=application.id, ip_address=get_client_ip(request),
     )
     send_email(to=employee_user.email, subject=email_subject, body=email_body)
+    notify(
+        db, user_id=employee_user.id, category=NotificationCategory.LEAVE,
+        title=email_subject, body=email_body, link="/employee/leave",
+    )
 
     return _to_application_detail(db, application)
 

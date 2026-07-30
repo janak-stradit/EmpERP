@@ -7,8 +7,10 @@ from sqlalchemy.orm import Session
 from app.api.deps import HR_WRITE_ROLES, get_client_ip, get_current_user, get_db, require_role
 from app.core.audit import log_audit
 from app.core.email import send_email
+from app.core.notifications import hr_user_ids, notify, notify_many
 from app.models.employee import Employee
 from app.models.mixins import utcnow
+from app.models.notification import NotificationCategory
 from app.models.onboarding import (
     EmployeeOnboarding,
     EmployeeOnboardingTask,
@@ -307,6 +309,11 @@ def assign_onboarding(
         subject="Onboarding checklist assigned",
         body=f"Your onboarding checklist '{template.name}' has {len(template_tasks)} task(s) to complete.",
     )
+    notify(
+        db, user_id=employee_user.id, category=NotificationCategory.ONBOARDING,
+        title="Onboarding checklist assigned",
+        body=f"'{template.name}' has {len(template_tasks)} task(s) to complete.",
+    )
     return _to_response(db, onboarding)
 
 
@@ -393,6 +400,16 @@ def update_task_status(
             to=employee_user.email,
             subject="Onboarding completed",
             body="All onboarding tasks have been completed. Welcome aboard!",
+        )
+        notify(
+            db, user_id=employee_user.id, category=NotificationCategory.ONBOARDING,
+            title="Onboarding completed", body="All onboarding tasks have been completed. Welcome aboard!",
+        )
+        notify_many(
+            db, user_ids=hr_user_ids(db, current_user.company_id), category=NotificationCategory.ONBOARDING,
+            title="Onboarding completed",
+            body=f"{employee_user.full_name} has completed their onboarding checklist.",
+            link="/hr/onboarding",
         )
 
     task = db.get(OnboardingTask, eot.task_id)

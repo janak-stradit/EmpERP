@@ -190,9 +190,9 @@ window.EmpUX = (function () {
   }
 
   /**
-   * Setup global keyboard shortcuts
+   * Setup global keyboard shortcuts and mobile navbar toggler
    */
-  function initKeyboardShortcuts() {
+  function initGlobalListeners() {
     document.addEventListener('keydown', function (e) {
       // Ignore if user is inside an input, textarea, or contenteditable
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName) || document.activeElement.isContentEditable) {
@@ -209,13 +209,24 @@ window.EmpUX = (function () {
         }
       }
     });
+
+    // Mobile Navbar Toggler Listener
+    document.addEventListener('click', function (e) {
+      const toggler = e.target.closest('#empNavToggler');
+      if (toggler) {
+        const collapse = document.getElementById('empNavCollapse');
+        if (collapse) {
+          collapse.classList.toggle('show');
+        }
+      }
+    });
   }
 
-  // Initialize shortcuts when DOM is ready
+  // Initialize global listeners when DOM is ready
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initKeyboardShortcuts);
+    document.addEventListener('DOMContentLoaded', initGlobalListeners);
   } else {
-    initKeyboardShortcuts();
+    initGlobalListeners();
   }
 
   return {

@@ -9,6 +9,7 @@ from app.models.employee import Employee
 from app.models.kra import EmployeeKra, EmployeeKraItem, KraTemplate, KraTemplateItem
 from app.models.leave import LeaveApplication, LeaveApprovalHistory, LeaveBalance, LeaveType
 from app.models.login_attempt import LoginAttempt
+from app.models.notification import Notification
 from app.models.onboarding import EmployeeOnboarding, EmployeeOnboardingTask, OnboardingTask, OnboardingTemplate
 from app.models.pms import (
     Competency,
@@ -45,6 +46,7 @@ __all__ = [
     "LeaveBalance",
     "LeaveType",
     "LoginAttempt",
+    "Notification",
     "OnboardingTask",
     "OnboardingTemplate",
     "PmsEvaluation",

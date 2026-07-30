@@ -4,10 +4,12 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import HR_WRITE_ROLES, get_client_ip, get_current_user, get_db, require_role
 from app.core.audit import log_audit
+from app.core.notifications import hr_user_ids, notify, notify_many
 from app.models.appraisal import AppraisalCycle
 from app.models.designation import Designation
 from app.models.employee import Employee
 from app.models.mixins import utcnow
+from app.models.notification import NotificationCategory
 from app.models.pms import (
     Competency,
     PmsEvaluation,
@@ -331,6 +333,7 @@ def assign_employee_to_cycle(
 ) -> list[PmsReviewRequestResponse]:
     cycle = _get_cycle_or_404(db, cycle_id, current_user.company_id)
     employee = _get_employee_or_404(db, payload.employee_id, current_user.company_id)
+    newly_created_reviewer_ids: list[int] = []
 
     def _ensure_request(reviewer_user_id: int, role: PmsReviewerRole) -> PmsReviewRequest:
         existing = db.scalar(
@@ -348,6 +351,7 @@ def assign_employee_to_cycle(
         )
         db.add(review_request)
         db.flush()
+        newly_created_reviewer_ids.append(reviewer_user_id)
         return review_request
 
     created = [_ensure_request(employee.user_id, PmsReviewerRole.SELF)]
@@ -363,6 +367,12 @@ def assign_employee_to_cycle(
     log_audit(
         db, user_id=current_user.id, action="pms_employee_assigned", entity_type="appraisal_cycle",
         entity_id=cycle.id, ip_address=get_client_ip(request),
+    )
+    notify_many(
+        db, user_ids=newly_created_reviewer_ids, category=NotificationCategory.PMS,
+        title="You have a new performance review to complete",
+        body=f"A review for '{cycle.name}' is waiting for you.",
+        link="/employee/pms",
     )
     return [_to_review_request_response(db, r) for r in created]
 
@@ -410,6 +420,13 @@ def assign_reviewer(
     log_audit(
         db, user_id=current_user.id, action="pms_reviewer_assigned", entity_type="pms_review_request",
         entity_id=review_request.id, ip_address=get_client_ip(request),
+    )
+    employee_user = db.get(User, employee.user_id)
+    notify(
+        db, user_id=reviewer_user.id, category=NotificationCategory.PMS,
+        title="You have a new performance review to complete",
+        body=f"You've been asked to give {role.value} feedback for {employee_user.full_name} in '{cycle.name}'.",
+        link="/employee/pms",
     )
     return _to_review_request_response(db, review_request)
 
@@ -665,6 +682,14 @@ def create_promotion(
         db, user_id=current_user.id, action="pms_promotion_recommended", entity_type="promotion_recommendation",
         entity_id=promo.id, ip_address=get_client_ip(request),
     )
+    employee_user = db.get(User, employee.user_id)
+    notify_many(
+        db, user_ids=hr_user_ids(db, current_user.company_id, exclude_user_id=current_user.id),
+        category=NotificationCategory.PMS,
+        title="A promotion has been recommended",
+        body=f"{current_user.full_name} recommended {employee_user.full_name} for promotion.",
+        link="/hr/pms",
+    )
     return _to_promotion_response(db, promo)
 
 
@@ -691,4 +716,16 @@ def update_promotion(
         db, user_id=current_user.id, action=f"pms_promotion_{payload.status.value}", entity_type="promotion_recommendation",
         entity_id=promo.id, ip_address=get_client_ip(request),
     )
+    employee_user = db.get(User, employee.user_id)
+    notify(
+        db, user_id=employee_user.id, category=NotificationCategory.PMS,
+        title=f"Your promotion recommendation was {payload.status.value}",
+        link="/employee/pms",
+    )
+    if promo.recommended_by != current_user.id:
+        notify(
+            db, user_id=promo.recommended_by, category=NotificationCategory.PMS,
+            title=f"Promotion recommendation for {employee_user.full_name} was {payload.status.value}",
+            link="/hr/pms",
+        )
     return _to_promotion_response(db, promo)

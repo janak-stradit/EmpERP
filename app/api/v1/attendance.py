@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import HR_WRITE_ROLES, get_client_ip, get_current_user, get_db, require_role
 from app.core.audit import log_audit
 from app.core.email import send_email
+from app.core.notifications import hr_user_ids, notify, notify_many
 from app.models.attendance import (
     AttendanceLog,
     AttendanceRegularization,
@@ -17,6 +18,7 @@ from app.models.attendance import (
 )
 from app.models.employee import Employee
 from app.models.mixins import utcnow
+from app.models.notification import NotificationCategory
 from app.models.user import User
 from app.schemas.attendance import (
     AssignShiftRequest,
@@ -416,6 +418,22 @@ def request_regularization(
         db, user_id=current_user.id, action="regularization_requested", entity_type="attendance_regularization",
         entity_id=reg.id, ip_address=get_client_ip(request),
     )
+    manager = db.get(Employee, employee.reporting_manager_id) if employee.reporting_manager_id else None
+    manager_user = db.get(User, manager.user_id) if manager else None
+    if manager_user is not None and manager_user.is_active:
+        notify(
+            db, user_id=manager_user.id, category=NotificationCategory.ATTENDANCE,
+            title="Attendance correction request awaiting your approval",
+            body=f"{current_user.full_name} requested a correction for {payload.date}.",
+            link="/manager/team-leave",
+        )
+    else:
+        notify_many(
+            db, user_ids=hr_user_ids(db, current_user.company_id), category=NotificationCategory.ATTENDANCE,
+            title="Attendance correction request awaiting HR approval",
+            body=f"{current_user.full_name} requested a correction for {payload.date}.",
+            link="/hr/attendance",
+        )
     return _to_reg_response(db, reg)
 
 
@@ -521,5 +539,11 @@ def act_on_regularization(
         to=employee_user.email,
         subject=f"Attendance regularization {reg.status.value}",
         body=f"Your attendance correction request for {reg.date} has been {reg.status.value}.",
+    )
+    notify(
+        db, user_id=employee_user.id, category=NotificationCategory.ATTENDANCE,
+        title=f"Attendance correction {reg.status.value}",
+        body=f"Your attendance correction request for {reg.date} has been {reg.status.value}.",
+        link="/employee/attendance",
     )
     return _to_reg_response(db, reg)
