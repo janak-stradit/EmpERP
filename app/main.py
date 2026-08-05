@@ -6,6 +6,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+from app.api.v1.activities import router as activities_router
 from app.api.v1.attendance import router as attendance_router
 from app.api.v1.auth import router as auth_router
 from app.api.v1.departments import router as departments_router
@@ -17,6 +18,7 @@ from app.api.v1.leave import router as leave_router
 from app.api.v1.notifications import router as notifications_router
 from app.api.v1.onboarding import router as onboarding_router
 from app.api.v1.pms import router as pms_router
+from app.api.v1.teams import router as teams_router
 from app.core.config import get_settings
 
 settings = get_settings()
@@ -114,9 +116,24 @@ def manager_team_leave_page(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(request, "manager/team_leave.html", {"csp_nonce": request.state.csp_nonce})
 
 
+@app.get("/manager/activities", response_class=HTMLResponse, tags=["system"])
+def manager_activities_page(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(request, "manager/activity_dashboard.html", {"csp_nonce": request.state.csp_nonce})
+
+
+@app.get("/admin/team-mapping", response_class=HTMLResponse, tags=["system"])
+def admin_team_mapping_page(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(request, "admin/team_mapping.html", {"csp_nonce": request.state.csp_nonce})
+
+
 @app.get("/employee/profile", response_class=HTMLResponse, tags=["system"])
 def employee_profile_page(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(request, "employee/profile.html", {"csp_nonce": request.state.csp_nonce})
+
+
+@app.get("/employee/activities", response_class=HTMLResponse, tags=["system"])
+def employee_activities_page(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(request, "employee/activity_tracker.html", {"csp_nonce": request.state.csp_nonce})
 
 
 @app.get("/employee/documents", response_class=HTMLResponse, tags=["system"])
@@ -174,4 +191,6 @@ app.include_router(leave_router, prefix="/api/v1")
 app.include_router(attendance_router, prefix="/api/v1")
 app.include_router(kra_router, prefix="/api/v1")
 app.include_router(pms_router, prefix="/api/v1")
+app.include_router(activities_router, prefix="/api/v1")
+app.include_router(teams_router, prefix="/api/v1")
 app.include_router(notifications_router, prefix="/api/v1")

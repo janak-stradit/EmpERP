@@ -12,6 +12,7 @@ from app.models.user import User
 bearer_scheme = HTTPBearer(auto_error=False)
 
 HR_WRITE_ROLES = ("super_admin", "admin", "hr")
+ADMIN_ROLES = ("super_admin", "admin")
 
 
 def get_db() -> Generator[Session, None, None]:

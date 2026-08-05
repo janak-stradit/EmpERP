@@ -1,3 +1,4 @@
+from app.models.activity import ActivityCategory, ActivityLog
 from app.models.appraisal import AppraisalCycle
 from app.models.attendance import AttendanceLog, AttendanceRegularization, EmployeeShift, Shift
 from app.models.audit_log import AuditLog
@@ -20,9 +21,12 @@ from app.models.pms import (
     RatingScale,
 )
 from app.models.refresh_token import RefreshToken
+from app.models.team import TeamMapping
 from app.models.user import User
 
 __all__ = [
+    "ActivityCategory",
+    "ActivityLog",
     "AppraisalCycle",
     "AttendanceLog",
     "AttendanceRegularization",
@@ -56,5 +60,6 @@ __all__ = [
     "RatingScale",
     "RefreshToken",
     "Shift",
+    "TeamMapping",
     "User",
 ]
