@@ -1,4 +1,5 @@
 import secrets
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -23,7 +24,18 @@ from app.core.config import get_settings
 
 settings = get_settings()
 
-app = FastAPI(title="Stradit Workforce API", version="0.1.0")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Ensure all missing database tables are created automatically on startup
+    import app.models  # noqa: F401
+    from app.db.base import Base
+    from app.db.session import engine
+    Base.metadata.create_all(bind=engine)
+    yield
+
+
+app = FastAPI(title="Stradit Workforce API", version="0.1.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

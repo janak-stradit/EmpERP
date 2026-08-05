@@ -1,35 +1,23 @@
 from app.api.deps import HR_WRITE_ROLES
 
-ALWAYS_ON_MODULE = "profile"
+ALWAYS_ON_MODULES = {"profile", "activity_tracker"}
 
 MODULE_CATALOG: dict[str, str] = {
     "profile": "My Profile",
-    "documents": "Upload Documents",
-    "leave": "My Leave",
-    "attendance": "My Attendance",
-    "kra": "My KRA",
+    "activity_tracker": "Activity Tracker",
     "pms": "My Performance",
     "hr_employees": "Employees",
-    "hr_onboarding": "Onboarding",
-    "hr_documents": "Document Review",
-    "hr_leave": "Leave Management",
-    "hr_attendance": "Attendance Management",
-    "hr_kra": "KRA Management",
-    "hr_pms": "Performance Management",
+    "admin_team_mapping": "Team Mapping",
     "manager_team": "Team Approvals",
+    "manager_activities": "Team Activities",
 }
 
-BASE_MODULES = ("profile", "documents", "leave", "attendance", "kra", "pms")
+BASE_MODULES = ("profile", "activity_tracker", "pms")
 HR_MODULES = (
     "hr_employees",
-    "hr_onboarding",
-    "hr_documents",
-    "hr_leave",
-    "hr_attendance",
-    "hr_kra",
-    "hr_pms",
+    "admin_team_mapping",
 )
-MANAGER_MODULES = ("manager_team",)
+MANAGER_MODULES = ("manager_team", "manager_activities")
 
 
 def default_modules_for(role: str, is_manager: bool) -> list[str]:
@@ -46,11 +34,11 @@ def effective_modules_for(module_access_json: list[str] | None, role: str, is_ma
     """Resolves an employee's actual dashboard modules.
 
     A Super Admin-configured override (module_access_json not None) is authoritative and
-    replaces the role-based default entirely - "My Profile" is always force-included since
-    every account needs at least a way to manage its own profile.
+    replaces the role-based default entirely - "My Profile" and "Activity Tracker" are always
+    force-included.
     """
     if module_access_json is not None:
         modules = {m for m in module_access_json if m in MODULE_CATALOG}
-        modules.add(ALWAYS_ON_MODULE)
+        modules.update(ALWAYS_ON_MODULES)
         return sorted(modules)
     return default_modules_for(role, is_manager)

@@ -9,10 +9,13 @@
   <link href="/static/css/app.css" rel="stylesheet">
 </head>
 <body class="bg-light">
-  <nav class="navbar navbar-expand emp-navbar mb-4">
+  <nav class="navbar emp-navbar mb-4">
     <div class="container">
-      <span class="navbar-brand"><i class="bi bi-buildings me-2"></i>Stradit Workforce &mdash; My Workspace</span>
-      <div class="navbar-nav">
+      <a class="navbar-brand" href="/dashboard"><i class="bi bi-buildings me-2"></i><span>Stradit Workforce</span></a>
+      <button class="emp-navbar-toggler ms-auto" id="empNavToggler" aria-label="Toggle navigation">
+        <i class="bi bi-list"></i>
+      </button>
+      <div class="emp-navbar-collapse" id="empNavCollapse">
         <a class="nav-link" href="/dashboard"><i class="bi bi-grid me-1"></i>Dashboard</a>
         <a class="nav-link" href="#" id="logoutLink"><i class="bi bi-box-arrow-right me-1"></i>Logout</a>
       </div>
@@ -24,16 +27,104 @@
 
     <div class="emp-page-header">
       <h1>Daily Activity Tracker</h1>
-      <p>Log your daily tasks in 30-minute blocks.</p>
+      <p>Log and analyze your daily task breakdown and productivity metrics.</p>
     </div>
 
     <div class="toast-container position-fixed top-0 end-0 p-3" id="toastContainer"></div>
+
+    <!-- Analytics Metric Stat Cards -->
+    <div class="row g-3 mb-4" id="activityStatsRow">
+      <div class="col-6 col-md-3">
+        <div class="card emp-stat-card border-0 shadow-sm card-accent-primary h-100">
+          <div class="card-body p-3">
+            <div class="d-flex align-items-center justify-content-between">
+              <div>
+                <span class="text-muted small fw-semibold text-uppercase d-block mb-1">Total Logged</span>
+                <h3 class="fw-bold mb-0 text-navy" id="statTotalHours">0.0 hrs</h3>
+              </div>
+              <div class="emp-stat-icon primary">
+                <i class="bi bi-stopwatch-fill"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="card emp-stat-card border-0 shadow-sm card-accent-indigo h-100">
+          <div class="card-body p-3">
+            <div class="d-flex align-items-center justify-content-between">
+              <div>
+                <span class="text-muted small fw-semibold text-uppercase d-block mb-1">Regular Time</span>
+                <h3 class="fw-bold mb-0 text-navy" id="statRegularHours">0.0 hrs</h3>
+              </div>
+              <div class="emp-stat-icon indigo">
+                <i class="bi bi-clock-fill"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="card emp-stat-card border-0 shadow-sm card-accent-warning h-100">
+          <div class="card-body p-3">
+            <div class="d-flex align-items-center justify-content-between">
+              <div>
+                <span class="text-muted small fw-semibold text-uppercase d-block mb-1">Overtime</span>
+                <h3 class="fw-bold mb-0 text-navy" id="statOvertimeHours">0.0 hrs</h3>
+              </div>
+              <div class="emp-stat-icon warning">
+                <i class="bi bi-lightning-charge-fill"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="card emp-stat-card border-0 shadow-sm card-accent-info h-100">
+          <div class="card-body p-3">
+            <div class="d-flex align-items-center justify-content-between">
+              <div>
+                <span class="text-muted small fw-semibold text-uppercase d-block mb-1">Logged Blocks</span>
+                <h3 class="fw-bold mb-0 text-navy" id="statTotalEntries">0</h3>
+              </div>
+              <div class="emp-stat-icon info">
+                <i class="bi bi-list-check"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Interactive Charts Section -->
+    <div class="row g-3 mb-4" id="activityChartsRow">
+      <div class="col-lg-6">
+        <div class="card border-0 shadow-sm card-accent-indigo h-100">
+          <div class="card-body p-3">
+            <h6 class="card-title text-navy fw-bold mb-3"><i class="bi bi-pie-chart-fill me-2 text-indigo"></i>Time Distribution by Category</h6>
+            <div style="height: 240px; position: relative;">
+              <canvas id="categoryDoughnutChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-6">
+        <div class="card border-0 shadow-sm card-accent-primary h-100">
+          <div class="card-body p-3">
+            <h6 class="card-title text-navy fw-bold mb-3"><i class="bi bi-bar-chart-line-fill me-2 text-primary"></i>Daily Logged Hours Breakdown</h6>
+            <div style="height: 240px; position: relative;">
+              <canvas id="dailyBarChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <div class="row">
       <div class="col-lg-4">
         <div class="card card-accent-primary mb-4">
           <div class="card-body">
-            <h5 class="card-title"><i class="bi bi-plus-circle"></i> Log Time Block</h5>
+            <h5 class="card-title"><i class="bi bi-plus-circle me-1"></i> Log Time Block</h5>
             <form id="activityForm" class="mt-3">
               <div class="mb-3">
                 <label class="form-label">Date</label>
@@ -59,7 +150,7 @@
                 <label class="form-label">Notes (optional)</label>
                 <input type="text" class="form-control" id="notes">
               </div>
-              <button type="submit" class="btn btn-primary w-100">Log Activity</button>
+              <button type="submit" class="btn btn-primary w-100"><i class="bi bi-check-circle me-1"></i>Log Activity</button>
             </form>
           </div>
         </div>
@@ -68,8 +159,16 @@
       <div class="col-lg-8">
         <div class="card card-accent-info mb-4">
           <div class="card-body">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-              <h5 class="card-title mb-0"><i class="bi bi-list-task"></i> My Activities (This Week)</h5>
+            <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+              <h5 class="card-title mb-0"><i class="bi bi-list-task me-1"></i> Activity History</h5>
+              <div class="d-flex align-items-center gap-2 flex-wrap">
+                <div class="btn-group btn-group-sm" role="group" id="filterPresetGroup">
+                  <button type="button" class="btn btn-outline-primary active" id="btnYesterday">Yesterday</button>
+                  <button type="button" class="btn btn-outline-primary" id="btnToday">Today</button>
+                  <button type="button" class="btn btn-outline-primary" id="btnThisWeek">This Week</button>
+                </div>
+                <input type="date" class="form-control form-control-sm" id="filterDate" style="width: 140px;">
+              </div>
             </div>
             <div class="table-responsive">
               <table class="table table-hover align-middle" id="activitiesTable">
@@ -96,13 +195,19 @@
 
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="/static/js/app-ux.js"></script>
   <script nonce="{{ csp_nonce }}">
     const authHeader = { 'Authorization': 'Bearer ' + sessionStorage.getItem('access_token') };
     if (!sessionStorage.getItem('access_token')) {
       window.location.href = '/auth/login';
     }
 
+    let categoryChartInstance = null;
+    let dailyChartInstance = null;
+
     function showToast(message, type = 'success') {
+      if (window.EmpUX) { return EmpUX.showToast(message, type === 'danger' ? 'danger' : 'success'); }
       const bg = type === 'success' ? 'text-bg-success' : 'text-bg-danger';
       const html = `<div class="toast align-items-center ${bg} border-0" role="alert" aria-live="assertive" aria-atomic="true">
         <div class="d-flex">
@@ -124,6 +229,16 @@
       });
     }
 
+    function getYesterdayStr() {
+      const d = new Date();
+      d.setDate(d.getDate() - 1);
+      return d.toISOString().split('T')[0];
+    }
+
+    function getTodayStr() {
+      return new Date().toISOString().split('T')[0];
+    }
+
     function getStartOfWeek() {
       const d = new Date();
       const day = d.getDay(), diff = d.getDate() - day + (day == 0 ? -6 : 1);
@@ -136,12 +251,136 @@
       return new Date(d.setDate(diff)).toISOString().split('T')[0];
     }
 
-    function loadActivities() {
-      const start = getStartOfWeek();
-      const end = getEndOfWeek();
+    function renderDashboardVisuals(data) {
+      let totalMinutes = 0;
+      let regularMinutes = 0;
+      let overtimeMinutes = 0;
+      
+      const categoryTotals = {};
+      const dateTotals = {};
+
+      data.forEach(log => {
+        const mins = log.duration_minutes || 0;
+        totalMinutes += mins;
+        if (log.is_overtime) {
+          overtimeMinutes += mins;
+        } else {
+          regularMinutes += mins;
+        }
+
+        const catName = log.category ? log.category.name : 'Other';
+        categoryTotals[catName] = (categoryTotals[catName] || 0) + mins;
+
+        const dStr = log.log_date;
+        if (!dateTotals[dStr]) {
+          dateTotals[dStr] = { regular: 0, overtime: 0 };
+        }
+        if (log.is_overtime) {
+          dateTotals[dStr].overtime += mins;
+        } else {
+          dateTotals[dStr].regular += mins;
+        }
+      });
+
+      // Update Metric Cards
+      $('#statTotalHours').text((totalMinutes / 60).toFixed(1) + ' hrs');
+      $('#statRegularHours').text((regularMinutes / 60).toFixed(1) + ' hrs');
+      $('#statOvertimeHours').text((overtimeMinutes / 60).toFixed(1) + ' hrs');
+      $('#statTotalEntries').text(data.length);
+
+      // Render Category Doughnut Chart
+      const catLabels = Object.keys(categoryTotals);
+      const catDataHours = Object.values(categoryTotals).map(m => +(m / 60).toFixed(2));
+      
+      const catCtx = document.getElementById('categoryDoughnutChart');
+      if (catCtx) {
+        if (categoryChartInstance) categoryChartInstance.destroy();
+        
+        categoryChartInstance = new Chart(catCtx, {
+          type: 'doughnut',
+          data: {
+            labels: catLabels.length ? catLabels : ['No Activity Data'],
+            datasets: [{
+              data: catDataHours.length ? catDataHours : [1],
+              backgroundColor: catLabels.length ? [
+                '#4f46e5', '#16a34a', '#d97706', '#0284c7', '#8b5cf6', '#ec4899', '#f97316'
+              ] : ['#e2e8f0'],
+              borderWidth: 2,
+              borderColor: '#ffffff'
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { position: 'right', labels: { boxWidth: 12, font: { family: 'Inter, sans-serif', size: 11 } } },
+              tooltip: {
+                callbacks: {
+                  label: function(context) {
+                    return ` ${context.label}: ${context.raw} hrs`;
+                  }
+                }
+              }
+            },
+            cutout: '68%'
+          }
+        });
+      }
+
+      // Render Daily Bar Chart
+      const dateLabels = Object.keys(dateTotals).sort();
+      const regBarData = dateLabels.map(d => +(dateTotals[d].regular / 60).toFixed(2));
+      const otBarData = dateLabels.map(d => +(dateTotals[d].overtime / 60).toFixed(2));
+
+      const dailyCtx = document.getElementById('dailyBarChart');
+      if (dailyCtx) {
+        if (dailyChartInstance) dailyChartInstance.destroy();
+
+        dailyChartInstance = new Chart(dailyCtx, {
+          type: 'bar',
+          data: {
+            labels: dateLabels.length ? dateLabels : ['No Activity Data'],
+            datasets: [
+              {
+                label: 'Regular Hours',
+                data: regBarData.length ? regBarData : [0],
+                backgroundColor: '#4f46e5',
+                borderRadius: 4
+              },
+              {
+                label: 'Overtime Hours',
+                data: otBarData.length ? otBarData : [0],
+                backgroundColor: '#f59e0b',
+                borderRadius: 4
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              x: { stacked: true, grid: { display: false } },
+              y: { stacked: true, title: { display: true, text: 'Hours' }, beginAtZero: true }
+            },
+            plugins: {
+              legend: { position: 'top', labels: { boxWidth: 12, font: { family: 'Inter, sans-serif', size: 11 } } }
+            }
+          }
+        });
+      }
+    }
+
+    function loadActivities(startDate, endDate) {
+      const start = startDate || $('#filterDate').val() || getYesterdayStr();
+      const end = endDate || start;
+      
+      $('#activitiesTable tbody').html('<tr><td colspan="6" class="text-center py-3"><div class="spinner-border spinner-border-sm text-primary me-2"></div>Loading activities...</td></tr>');
+      
       $.ajax({ url: `/api/v1/activities/me?start_date=${start}&end_date=${end}`, headers: authHeader }).done(function(data) {
-        if(data.length === 0) {
-          $('#activitiesTable tbody').html('<tr><td colspan="6" class="text-center text-muted">No activities logged this week.</td></tr>');
+        renderDashboardVisuals(data);
+
+        if (data.length === 0) {
+          $('#activitiesTable tbody').html(`<tr><td colspan="6" class="text-center text-muted py-4"><i class="bi bi-calendar-x fs-4 d-block mb-1"></i>No activities logged for ${start === end ? start : start + ' to ' + end}.</td></tr>`);
           return;
         }
         let rows = '';
@@ -158,14 +397,58 @@
           </tr>`;
         });
         $('#activitiesTable tbody').html(rows);
+      }).fail(function() {
+        $('#activitiesTable tbody').html('<tr><td colspan="6" class="text-center text-danger py-3">Failed to load activity logs.</td></tr>');
       });
     }
 
     $(document).ready(function() {
-      $('#logDate').val(new Date().toISOString().split('T')[0]);
+      // Default log date for new entries is Today
+      $('#logDate').val(getTodayStr());
       
+      // Default filter date for view is Previous Date (Yesterday)
+      const yesterday = getYesterdayStr();
+      $('#filterDate').val(yesterday);
+
       loadCategories();
-      loadActivities();
+      loadActivities(yesterday, yesterday);
+
+      // Filter controls event handlers
+      $('#btnYesterday').on('click', function() {
+        $('#filterPresetGroup .btn').removeClass('active');
+        $(this).addClass('active');
+        const yest = getYesterdayStr();
+        $('#filterDate').val(yest);
+        loadActivities(yest, yest);
+      });
+
+      $('#btnToday').on('click', function() {
+        $('#filterPresetGroup .btn').removeClass('active');
+        $(this).addClass('active');
+        const today = getTodayStr();
+        $('#filterDate').val(today);
+        loadActivities(today, today);
+      });
+
+      $('#btnThisWeek').on('click', function() {
+        $('#filterPresetGroup .btn').removeClass('active');
+        $(this).addClass('active');
+        const start = getStartOfWeek();
+        const end = getEndOfWeek();
+        $('#filterDate').val(start);
+        loadActivities(start, end);
+      });
+
+      $('#filterDate').on('change', function() {
+        const val = $(this).val();
+        $('#filterPresetGroup .btn').removeClass('active');
+        if (val === getYesterdayStr()) {
+          $('#btnYesterday').addClass('active');
+        } else if (val === getTodayStr()) {
+          $('#btnToday').addClass('active');
+        }
+        loadActivities(val, val);
+      });
 
       $('#activityForm').on('submit', function(e) {
         e.preventDefault();
@@ -175,9 +458,10 @@
           timeVal += ':00';
         }
         
+        const targetDate = $('#logDate').val();
         const payload = {
           category_id: parseInt($('#categoryId').val()),
-          log_date: $('#logDate').val(),
+          log_date: targetDate,
           time_block: timeVal,
           duration_minutes: parseInt($('#durationMinutes').val()),
           is_overtime: $('#isOvertime').is(':checked'),
@@ -193,7 +477,12 @@
         }).done(function() {
           showToast('Activity logged successfully');
           $('#notes').val('');
-          loadActivities();
+          // Update view to the date of logged activity
+          $('#filterDate').val(targetDate);
+          $('#filterPresetGroup .btn').removeClass('active');
+          if (targetDate === getYesterdayStr()) $('#btnYesterday').addClass('active');
+          if (targetDate === getTodayStr()) $('#btnToday').addClass('active');
+          loadActivities(targetDate, targetDate);
         }).fail(function(xhr) {
           showToast((xhr.responseJSON && xhr.responseJSON.detail) || 'Error logging activity', 'danger');
         });

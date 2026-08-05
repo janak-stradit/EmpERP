@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -106,19 +106,12 @@
 
     const MODULE_DEFS = {
       profile: { title: 'My Profile', desc: 'View and update your personal, contact, and bank details.', icon: 'bi-person-circle', url: '/employee/profile', accent: 'card-accent-indigo', alwaysUnlocked: true },
-      documents: { title: 'Upload Documents', desc: 'Upload and track your identification and official documents.', icon: 'bi-folder2-open', url: '/employee/documents', accent: 'card-accent-info' },
-      leave: { title: 'My Leave', desc: 'Apply for leave and track your balances and requests.', icon: 'bi-calendar-check', url: '/employee/leave', accent: 'card-accent-success' },
-      attendance: { title: 'My Attendance', desc: 'Clock in/out, review your timesheet, and request corrections.', icon: 'bi-clock-history', url: '/employee/attendance', accent: 'card-accent-primary' },
-      kra: { title: 'My KRA', desc: 'Rate yourself against this cycle\'s key result areas and track appraisal.', icon: 'bi-bullseye', url: '/employee/kra', accent: 'card-accent-warning' },
+      activity_tracker: { title: 'Activity Tracker', desc: 'Log your daily tasks and work activities in 30-minute time blocks.', icon: 'bi-stopwatch', url: '/employee/activities', accent: 'card-accent-primary', alwaysUnlocked: true },
       pms: { title: 'My Performance', desc: 'Complete 360° reviews and view performance evaluation results.', icon: 'bi-graph-up-arrow', url: '/employee/pms', accent: 'card-accent-indigo' },
       hr_employees: { title: 'Employees', desc: 'Manage employee directory, departments, and designations.', icon: 'bi-people', url: '/hr/employees', accent: 'card-accent-primary', alwaysUnlocked: true },
-      hr_onboarding: { title: 'Onboarding', desc: 'Build checklists, assign them, and track new-hire progress.', icon: 'bi-clipboard-check', url: '/hr/onboarding', accent: 'card-accent-success', alwaysUnlocked: true },
-      hr_documents: { title: 'Document Review', desc: 'Review, approve, or reject employee-submitted documents.', icon: 'bi-folder2-open', url: '/hr/documents', accent: 'card-accent-info', alwaysUnlocked: true },
-      hr_leave: { title: 'Leave Management', desc: 'Manage leave types, balances, and approve HR-stage requests.', icon: 'bi-calendar-week', url: '/hr/leave', accent: 'card-accent-success', alwaysUnlocked: true },
-      hr_attendance: { title: 'Attendance', desc: 'Manage shifts, review reports, and approve correction requests.', icon: 'bi-clock-history', url: '/hr/attendance', accent: 'card-accent-primary', alwaysUnlocked: true },
-      hr_kra: { title: 'KRA Management', desc: 'Manage appraisal cycles, KRA templates, assignments, and approvals.', icon: 'bi-bullseye', url: '/hr/kra', accent: 'card-accent-warning', alwaysUnlocked: true },
-      hr_pms: { title: 'Performance Management', desc: 'Run 360-degree reviews, track completion, and view rating normalization.', icon: 'bi-graph-up-arrow', url: '/hr/pms', accent: 'card-accent-indigo', alwaysUnlocked: true },
-      manager_team: { title: 'Team Approvals', desc: 'Review and approve leave requests from your direct reports.', icon: 'bi-person-check', url: '/manager/team-leave', accent: 'card-accent-info', alwaysUnlocked: true }
+      admin_team_mapping: { title: 'Team Mapping', desc: 'Map employees to reporting managers for activity tracking.', icon: 'bi-diagram-3', url: '/admin/team-mapping', accent: 'card-accent-warning', alwaysUnlocked: true },
+      manager_team: { title: 'Team Approvals', desc: 'Review and approve leave requests from your direct reports.', icon: 'bi-person-check', url: '/manager/team-leave', accent: 'card-accent-info', alwaysUnlocked: true },
+      manager_activities: { title: 'Team Activities', desc: 'Monitor weekly logged time and productivity breakdown of your team.', icon: 'bi-bar-chart-line', url: '/manager/activities', accent: 'card-accent-success', alwaysUnlocked: true }
     };
 
     function buildModuleList(enabledModules) {
@@ -172,8 +165,8 @@
             '</div>' +
             '<a href="/employee/profile" class="btn btn-sm btn-primary pe-3"><i class="bi bi-arrow-right-circle me-1"></i>Complete Profile</a>' +
           '</div>' +
-        '</div>'
-      );
+        '</div>' +
+      '');
     }
 
     $.ajax({ url: '/api/v1/auth/me', headers: authHeader })
@@ -201,8 +194,8 @@
           })
           .fail(function () {
             const fallback = HR_ROLES.includes(me.role)
-              ? ['hr_employees', 'hr_onboarding', 'hr_documents', 'hr_leave', 'hr_attendance', 'hr_kra', 'hr_pms']
-              : [];
+              ? ['profile', 'activity_tracker', 'hr_employees', 'admin_team_mapping']
+              : ['profile', 'activity_tracker', 'pms'];
             $('#profileCompletionVal').text('N/A');
             $('#profileCompletionSub').text('Admin workspace');
             renderTiles(buildModuleList(fallback), true);
