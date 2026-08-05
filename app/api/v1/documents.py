@@ -13,9 +13,11 @@ from app.api.deps import HR_WRITE_ROLES, get_client_ip, get_current_user, get_db
 from app.core.audit import log_audit
 from app.core.email import send_email
 from app.core.files import save_upload
+from app.core.notifications import hr_user_ids, notify, notify_many
 from app.models.document import DocumentCategory, DocumentStatus, EmployeeDocument
 from app.models.employee import Employee
 from app.models.mixins import utcnow
+from app.models.notification import NotificationCategory
 from app.models.user import User
 from app.schemas.document import (
     DocumentCategoryCreate,
@@ -176,6 +178,23 @@ def upload_document(
         entity_id=document.id,
         ip_address=get_client_ip(request),
     )
+
+    category = db.get(DocumentCategory, category_id)
+    if uploaded_on_behalf:
+        employee_user = db.get(User, employee.user_id)
+        notify(
+            db, user_id=employee_user.id, category=NotificationCategory.DOCUMENT,
+            title="A new document was added to your file",
+            body=f"{category.name if category else 'A document'} was uploaded and approved by HR.",
+            link="/employee/documents",
+        )
+    else:
+        notify_many(
+            db, user_ids=hr_user_ids(db, current_user.company_id), category=NotificationCategory.DOCUMENT,
+            title="Document awaiting verification",
+            body=f"{current_user.full_name} uploaded {category.name if category else 'a document'} for review.",
+            link=f"/hr/documents/employee/{employee.id}",
+        )
     return document
 
 
@@ -324,5 +343,11 @@ def verify_document(
         to=employee_user.email,
         subject=f"Document {payload.status.value}",
         body=f"Your document '{document.file_name}' has been {payload.status.value}.",
+    )
+    notify(
+        db, user_id=employee_user.id, category=NotificationCategory.DOCUMENT,
+        title=f"Document {payload.status.value}",
+        body=f"Your document '{document.file_name}' has been {payload.status.value}.",
+        link="/employee/documents",
     )
     return document

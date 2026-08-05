@@ -119,9 +119,12 @@ h1, h2, h3, h4, h5, h6,
 /* ---- User-Friendly Enterprise Navbar ---- */
 
 .navbar.emp-navbar {
+  position: sticky;
+  top: 0;
+  z-index: 1030;
   background: var(--emp-navy);
   border-bottom: 3px solid var(--emp-primary);
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.15);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.18);
   padding: 0.7rem 0;
 }
 
@@ -894,3 +897,495 @@ h1, h2, h3, h4, h5, h6,
     transform: translateY(0);
   }
 }
+
+/* ============================================================
+   RESPONSIVE MOBILE & TABLET DESIGN
+   Breakpoints: xs <576px | sm 576-767px | md 768-991px | lg 992+
+   ============================================================ */
+
+/* ---- Mobile Navbar Hamburger Toggle ---- */
+.emp-navbar-toggler {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  padding: 0.4rem 0.6rem;
+  font-size: 1.1rem;
+  cursor: pointer;
+  display: none;
+  line-height: 1;
+}
+
+.emp-navbar-collapse {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* ---- Touch-Friendly Tap Targets ---- */
+@media (max-width: 991px) {
+  .nav-link,
+  .btn {
+    min-height: 44px;
+  }
+
+  .btn {
+    padding: 0.6rem 1rem;
+  }
+
+  .btn-sm {
+    min-height: 36px;
+    padding: 0.4rem 0.75rem;
+  }
+}
+
+/* ---- Tablet (768px - 991px) ---- */
+@media (max-width: 991px) {
+  .emp-navbar-toggler {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .emp-navbar-collapse {
+    display: none;
+    flex-direction: column;
+    align-items: flex-start;
+    width: 100%;
+    padding: 0.75rem 0 0.25rem;
+    gap: 0.25rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+    margin-top: 0.5rem;
+  }
+
+  .emp-navbar-collapse.show {
+    display: flex;
+  }
+
+  .navbar.emp-navbar {
+    flex-wrap: wrap;
+    padding: 0.65rem 0;
+  }
+
+  .navbar.emp-navbar .navbar-brand {
+    font-size: 1rem;
+  }
+
+  .emp-nav-user {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .navbar.emp-navbar .nav-link {
+    width: 100%;
+    padding: 0.55rem 0.75rem !important;
+  }
+
+  /* Stat cards: 2-column grid on tablet */
+  .emp-stat-card {
+    padding: 1rem;
+  }
+
+  /* Table controls wrap neatly */
+  .emp-table-controls {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .emp-search-input-group {
+    max-width: 100%;
+    width: 100%;
+  }
+}
+
+/* ---- Mobile (< 768px) ---- */
+@media (max-width: 767px) {
+  body {
+    font-size: 0.9rem;
+  }
+
+  .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  /* Page Header */
+  .emp-page-header {
+    margin-bottom: 1rem;
+    padding-bottom: 0.65rem;
+  }
+
+  .emp-page-header h1 {
+    font-size: 1.25rem;
+    letter-spacing: -0.01em;
+  }
+
+  .emp-page-header p {
+    font-size: 0.83rem;
+  }
+
+  .emp-page-header.d-flex {
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 0.75rem;
+  }
+
+  /* Cards */
+  .card .card-body,
+  .emp-card .card-body {
+    padding: 1rem;
+  }
+
+  .card .card-title,
+  .emp-card .card-title {
+    font-size: 0.85rem;
+  }
+
+  /* Stat Cards: full width stacked on mobile */
+  .emp-stat-card {
+    padding: 0.9rem 1rem;
+    gap: 0.75rem;
+  }
+
+  .emp-stat-icon {
+    width: 40px;
+    height: 40px;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+  }
+
+  .emp-stat-val {
+    font-size: 1.25rem;
+  }
+
+  .emp-stat-label {
+    font-size: 0.7rem;
+  }
+
+  /* Module Tiles: 1-column on small screens */
+  #tileRow .col-md-6,
+  #tileRow .col-lg-4 {
+    width: 100%;
+  }
+
+  .emp-tile-icon {
+    width: 2.75rem;
+    height: 2.75rem;
+    font-size: 1.25rem;
+    margin-bottom: 0.75rem;
+  }
+
+  /* Data Tables: Horizontal scroll */
+  .table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .table thead th,
+  .table tbody td {
+    white-space: nowrap;
+    padding: 0.65rem 0.75rem;
+    font-size: 0.82rem;
+  }
+
+  /* Forms */
+  .form-label {
+    font-size: 0.78rem;
+  }
+
+  .form-control,
+  .form-select {
+    font-size: 0.88rem;
+    padding: 0.55rem 0.75rem;
+  }
+
+  /* Buttons: full-width on very small screens */
+  .btn.w-100-mobile {
+    width: 100%;
+  }
+
+  /* Back links */
+  .btn.btn-link.ps-0.mb-2 {
+    font-size: 0.82rem;
+  }
+
+  /* Offcanvas: Full width on mobile */
+  .offcanvas {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* Offcanvas header */
+  .offcanvas-header {
+    padding: 0.9rem 1rem;
+  }
+
+  .offcanvas-title {
+    font-size: 0.82rem;
+  }
+
+  /* Profile avatar layout */
+  .emp-avatar,
+  .emp-avatar-placeholder {
+    width: 72px;
+    height: 72px;
+  }
+
+  .emp-avatar-placeholder {
+    font-size: 1.75rem;
+  }
+
+  /* Dashboard header flex layout */
+  .emp-page-header .d-flex.justify-content-between {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  /* Action buttons in page header */
+  .emp-page-header .d-flex.gap-2 {
+    flex-wrap: wrap;
+    width: 100%;
+  }
+
+  .emp-page-header .d-flex.gap-2 .btn {
+    flex: 1 1 auto;
+  }
+
+  /* Card header action buttons */
+  .card .d-flex.justify-content-between.flex-wrap {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .card .d-flex.justify-content-between.flex-wrap .d-flex {
+    flex-wrap: wrap;
+    width: 100%;
+  }
+
+  /* Date range inputs in rows */
+  .d-flex.gap-2 > input[type="date"] {
+    min-width: 0;
+    flex: 1;
+  }
+
+  /* Toast notifications */
+  .toast-container {
+    left: 0 !important;
+    right: 0 !important;
+    padding: 0.5rem !important;
+    width: 100%;
+  }
+
+  .toast-container .toast,
+  .emp-toast {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  /* Login page: stack vertically */
+  .emp-login-wrapper .row {
+    flex-direction: column;
+  }
+
+  .emp-login-wrapper .col-lg-6,
+  .emp-login-wrapper .col-lg-5 {
+    width: 100%;
+    padding: 1.5rem 1.25rem;
+  }
+
+  .emp-login-wrapper h1.display-5 {
+    font-size: 1.75rem;
+  }
+
+  .emp-login-icon {
+    width: 2.75rem;
+    height: 2.75rem;
+    font-size: 1.4rem;
+  }
+
+  .emp-login-card {
+    margin: 0;
+    box-shadow: none;
+    border: none;
+  }
+
+  /* Progress bar */
+  .progress {
+    height: 0.55rem;
+  }
+
+  /* Dropdown: status filter select */
+  .form-select.form-select-sm {
+    font-size: 0.8rem;
+  }
+
+  /* Pagination */
+  .pagination {
+    flex-wrap: wrap;
+    gap: 0.25rem;
+  }
+
+  .pagination .page-link {
+    min-width: 36px;
+    min-height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Modal dialogs: full height on mobile */
+  .modal-dialog {
+    margin: 0;
+    max-width: 100%;
+    height: 100%;
+  }
+
+  .modal-content {
+    height: 100%;
+    overflow-y: auto;
+  }
+
+  .modal-body {
+    padding: 1rem;
+  }
+
+  /* Summary stat mini tiles (text-center) */
+  .card.text-center {
+    padding: 0.75rem 0.5rem;
+  }
+
+  .card.text-center .fs-4 {
+    font-size: 1.2rem !important;
+  }
+}
+
+/* ---- Extra Small (< 480px) ---- */
+@media (max-width: 479px) {
+  .emp-page-header h1 {
+    font-size: 1.1rem;
+  }
+
+  .navbar.emp-navbar .navbar-brand {
+    font-size: 0.9rem;
+    letter-spacing: 0.02em;
+  }
+
+  .navbar.emp-navbar .navbar-brand i {
+    font-size: 0.95rem;
+    padding: 0.3rem 0.4rem;
+  }
+
+  /* Stat row: 2 per row on XS */
+  .row.g-3 .col-6 {
+    padding: 0.35rem;
+  }
+
+  .emp-stat-val {
+    font-size: 1.1rem;
+  }
+
+  /* Full-width row buttons in upload forms */
+  .row.g-3 .col-md-3.d-flex .btn {
+    font-size: 0.78rem;
+    padding: 0.5rem 0.75rem;
+  }
+
+  /* Tighter card bodies */
+  .card .card-body,
+  .emp-card .card-body {
+    padding: 0.85rem;
+  }
+
+  /* Checklist items */
+  .list-group-item {
+    padding: 0.65rem 0.85rem;
+    font-size: 0.83rem;
+  }
+
+  /* Dropzone */
+  .emp-dropzone {
+    padding: 1rem;
+  }
+
+  .emp-dropzone i {
+    font-size: 1.25rem !important;
+  }
+}
+
+/* ---- iPad Pro / Landscape Tablet (992px - 1199px) ---- */
+@media (min-width: 992px) and (max-width: 1199px) {
+  .emp-stat-val {
+    font-size: 1.35rem;
+  }
+
+  .emp-stat-icon {
+    width: 40px;
+    height: 40px;
+    font-size: 1.15rem;
+  }
+
+  .emp-tile-icon {
+    width: 2.85rem;
+    height: 2.85rem;
+    font-size: 1.3rem;
+  }
+}
+
+/* ---- Utility: Hide text on mobile, show icons only ---- */
+@media (max-width: 575px) {
+  .emp-hide-xs {
+    display: none !important;
+  }
+
+  .navbar.emp-navbar .navbar-brand span {
+    display: none;
+  }
+
+  .emp-nav-user span:not(.emp-nav-user-avatar) {
+    display: none;
+  }
+}
+
+/* ---- Print-safe ---- */
+@media print {
+  .emp-navbar,
+  .btn,
+  .toast-container {
+    display: none !important;
+  }
+
+  .card {
+    box-shadow: none;
+    border: 1px solid #ccc;
+  }
+}
+
+/* ---- Notification bell ---- */
+
+#notifBellItem .nav-link {
+  padding-left: 0.6rem !important;
+  padding-right: 0.6rem !important;
+}
+
+#notifBadge {
+  position: absolute;
+  top: 0.15rem;
+  right: -0.05rem;
+  font-size: 0.6rem;
+  padding: 0.25em 0.45em;
+}
+
+.emp-notif-dropdown {
+  width: 22rem;
+  max-width: 90vw;
+  max-height: 24rem;
+  overflow-y: auto;
+}
+
+.notif-item {
+  white-space: normal;
+}
+
+.notif-item.emp-notif-unread {
+  background-color: var(--emp-primary-light);
+}
+

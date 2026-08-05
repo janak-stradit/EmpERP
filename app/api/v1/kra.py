@@ -4,10 +4,12 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import HR_WRITE_ROLES, get_client_ip, get_current_user, get_db, require_role
 from app.core.audit import log_audit
+from app.core.notifications import hr_user_ids, notify, notify_many
 from app.models.appraisal import AppraisalCycle, AppraisalCycleStatus
 from app.models.employee import Employee
 from app.models.kra import EmployeeKra, EmployeeKraItem, KraStatus, KraTemplate, KraTemplateItem
 from app.models.mixins import utcnow
+from app.models.notification import NotificationCategory
 from app.models.user import User
 from app.schemas.kra import (
     AppraisalCycleCreate,
@@ -412,6 +414,13 @@ def assign_kra(
         db, user_id=current_user.id, action="kra_assigned", entity_type="employee_kra",
         entity_id=employee_kra.id, ip_address=get_client_ip(request),
     )
+    employee_user = db.get(User, employee.user_id)
+    notify(
+        db, user_id=employee_user.id, category=NotificationCategory.KRA,
+        title="A new KRA has been assigned to you",
+        body=f"'{cycle.name}' using the '{template.name}' template. Rate yourself to get started.",
+        link="/employee/kra",
+    )
     return _to_employee_kra_detail(db, employee_kra)
 
 
@@ -542,6 +551,22 @@ def submit_kra(
         db, user_id=current_user.id, action="kra_submitted", entity_type="employee_kra",
         entity_id=employee_kra.id, ip_address=get_client_ip(request),
     )
+    manager = db.get(Employee, employee.reporting_manager_id) if employee.reporting_manager_id else None
+    manager_user = db.get(User, manager.user_id) if manager else None
+    if manager_user is not None:
+        notify(
+            db, user_id=manager_user.id, category=NotificationCategory.KRA,
+            title="A KRA is awaiting your review",
+            body=f"{current_user.full_name} submitted their KRA for review.",
+            link="/manager/team-leave",
+        )
+    else:
+        notify_many(
+            db, user_ids=hr_user_ids(db, current_user.company_id), category=NotificationCategory.KRA,
+            title="A KRA is awaiting review",
+            body=f"{current_user.full_name} submitted their KRA for review.",
+            link="/hr/kra",
+        )
     return _to_employee_kra_detail(db, employee_kra)
 
 
@@ -618,6 +643,13 @@ def complete_review(
         db, user_id=current_user.id, action="kra_review_completed", entity_type="employee_kra",
         entity_id=employee_kra.id, ip_address=get_client_ip(request),
     )
+    employee_user = db.get(User, employee.user_id)
+    notify_many(
+        db, user_ids=hr_user_ids(db, current_user.company_id), category=NotificationCategory.KRA,
+        title="A KRA is awaiting HR approval",
+        body=f"{employee_user.full_name}'s KRA has been reviewed and needs final approval.",
+        link="/hr/kra",
+    )
     return _to_employee_kra_detail(db, employee_kra)
 
 
@@ -647,5 +679,12 @@ def approve_kra(
     log_audit(
         db, user_id=current_user.id, action="kra_approved", entity_type="employee_kra",
         entity_id=employee_kra.id, ip_address=get_client_ip(request),
+    )
+    employee_user = db.get(User, employee.user_id)
+    notify(
+        db, user_id=employee_user.id, category=NotificationCategory.KRA,
+        title="Your KRA has been approved",
+        body=f"Your overall score is {employee_kra.overall_score:.2f}.",
+        link="/employee/kra",
     )
     return _to_employee_kra_detail(db, employee_kra)
