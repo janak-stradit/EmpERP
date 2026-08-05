@@ -19,6 +19,7 @@ from app.schemas.employee import (
     EmployeeCreate,
     EmployeeDetail,
     EmployeeListItem,
+    EmployeePasswordReset,
     EmployeeSelfUpdate,
     ModuleAccessUpdate,
 )
@@ -374,6 +375,32 @@ def update_employee(
         ip_address=get_client_ip(request),
     )
     return _to_detail(db, employee, user)
+
+
+@router.put("/{employee_id}/password", status_code=status.HTTP_204_NO_CONTENT)
+def reset_employee_password(
+    employee_id: int,
+    payload: EmployeePasswordReset,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(*HR_WRITE_ROLES)),
+) -> None:
+    employee = _get_employee_or_404(db, employee_id, current_user.company_id)
+    user = db.get(User, employee.user_id)
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Employee user account not found")
+
+    user.password_hash = hash_password(payload.new_password)
+    db.commit()
+
+    log_audit(
+        db,
+        user_id=current_user.id,
+        action="employee_password_reset",
+        entity_type="employee",
+        entity_id=employee.id,
+        ip_address=get_client_ip(request),
+    )
 
 
 @router.put("/{employee_id}/access", response_model=EmployeeDetail)

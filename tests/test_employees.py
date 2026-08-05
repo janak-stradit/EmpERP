@@ -52,6 +52,50 @@ def test_employee_can_view_and_update_own_profile(client, db_session):
     assert resp.json()["phone"] == "9999999999"
 
 
+def test_hr_can_reset_employee_password(client, db_session):
+    company = create_company(db_session)
+    create_user(db_session, company, "hr@example.com", "Password123!", role=UserRole.HR)
+    hr_token = login(client, "hr@example.com", "Password123!")
+    employee = _create_employee(client, hr_token, email="reset@example.com")
+
+    resp = client.put(
+        f"/api/v1/employees/{employee['id']}/password",
+        json={"new_password": "NewPassword123!", "confirm_password": "NewPassword123!"},
+        headers=auth_headers(hr_token),
+    )
+    assert resp.status_code == 204
+    assert login(client, "reset@example.com", "NewPassword123!")
+
+
+def test_reset_employee_password_rejects_mismatch(client, db_session):
+    company = create_company(db_session)
+    create_user(db_session, company, "hr@example.com", "Password123!", role=UserRole.HR)
+    hr_token = login(client, "hr@example.com", "Password123!")
+    employee = _create_employee(client, hr_token, email="mismatch@example.com")
+
+    resp = client.put(
+        f"/api/v1/employees/{employee['id']}/password",
+        json={"new_password": "NewPassword123!", "confirm_password": "Different123!"},
+        headers=auth_headers(hr_token),
+    )
+    assert resp.status_code == 422
+
+
+def test_employee_cannot_reset_password(client, db_session):
+    company = create_company(db_session)
+    create_user(db_session, company, "hr@example.com", "Password123!", role=UserRole.HR)
+    hr_token = login(client, "hr@example.com", "Password123!")
+    employee = _create_employee(client, hr_token, email="employee@example.com")
+    employee_token = login(client, "employee@example.com", "InitialPass123!")
+
+    resp = client.put(
+        f"/api/v1/employees/{employee['id']}/password",
+        json={"new_password": "NewPassword123!", "confirm_password": "NewPassword123!"},
+        headers=auth_headers(employee_token),
+    )
+    assert resp.status_code == 403
+
+
 def test_employee_can_self_update_dob_gender_and_bank_details(client, db_session):
     company = create_company(db_session)
     create_user(db_session, company, "hr@example.com", "Password123!", role=UserRole.HR)
