@@ -2,7 +2,7 @@ import re
 from datetime import date
 from typing import Annotated
 
-from pydantic import AfterValidator, BaseModel, EmailStr, Field
+from pydantic import AfterValidator, BaseModel, EmailStr, Field, model_validator
 
 from app.models.employee import EmployeeStatus
 from app.models.user import UserRole
@@ -122,6 +122,17 @@ class EmployeeAdminUpdate(EmployeeSelfUpdate):
 
 class EmployeeAccessUpdate(BaseModel):
     is_active: bool
+
+
+class EmployeePasswordReset(BaseModel):
+    new_password: str = Field(min_length=8, max_length=12)
+    confirm_password: str = Field(min_length=8, max_length=12)
+
+    @model_validator(mode="after")
+    def validate_matching_passwords(self) -> "EmployeePasswordReset":
+        if self.new_password != self.confirm_password:
+            raise ValueError("Passwords do not match")
+        return self
 
 
 class ModuleAccessUpdate(BaseModel):

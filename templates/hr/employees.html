@@ -266,6 +266,35 @@
     </div>
   </div>
 
+  <!-- Reset password offcanvas -->
+  <div class="offcanvas offcanvas-end" tabindex="-1" id="resetPasswordPanel" style="width: 420px;">
+    <div class="offcanvas-header border-bottom">
+      <h5 class="offcanvas-title"><i class="bi bi-key me-1"></i>Reset Password</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body d-flex flex-column">
+      <form id="resetPasswordForm" class="flex-grow-1 d-flex flex-column" novalidate>
+        <input type="hidden" id="reset_password_employee_id">
+        <div class="row g-3 flex-grow-1 align-content-start">
+          <div class="col-12">
+            <label class="form-label" for="new_password">New password</label>
+            <input type="password" class="form-control" id="new_password" minlength="8" autocomplete="new-password" required>
+            <div class="invalid-feedback" id="newPasswordFeedback">Password must be at least 8 characters.</div>
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="confirm_password">Confirm password</label>
+            <input type="password" class="form-control" id="confirm_password" minlength="8" autocomplete="new-password" required>
+            <div class="invalid-feedback" id="confirmPasswordFeedback">Please confirm the new password.</div>
+          </div>
+        </div>
+        <div class="d-flex gap-2 pt-3 mt-2 border-top">
+          <button type="button" class="btn btn-outline-secondary w-50" data-bs-dismiss="offcanvas">Cancel</button>
+          <button type="submit" class="btn btn-primary w-50"><i class="bi bi-key me-1"></i>Reset Password</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Edit employee offcanvas -->
   <div class="offcanvas offcanvas-end" tabindex="-1" id="editPanel" style="width: 480px;">
     <div class="offcanvas-header">
@@ -622,6 +651,9 @@
           '<td>' + e.joining_date + '</td>' +
           '<td class="text-end text-nowrap">' +
             '<button class="btn btn-sm btn-outline-primary edit-employee" data-id="' + e.id + '"><i class="bi bi-pencil"></i></button> ' +
+            '<button class="btn btn-sm btn-outline-primary reset-password" data-id="' + e.id + '" title="Reset password">' +
+              '<i class="bi bi-key"></i>' +
+            '</button> ' +
             moduleAccessBtn +
             '<button class="btn btn-sm ' + toggleClass + ' toggle-access" data-id="' + e.id + '" data-active="' + e.is_active + '">' +
               '<i class="bi ' + toggleIcon + '"></i> ' + toggleLabel +
@@ -700,6 +732,71 @@
 
     // ---- Edit panel ----
     const editPanel = new bootstrap.Offcanvas(document.getElementById('editPanel'));
+    const resetPasswordPanel = new bootstrap.Offcanvas(document.getElementById('resetPasswordPanel'));
+
+    $(document).on('click', '.reset-password', function () {
+      $('#resetPasswordForm')[0].reset();
+      $('#new_password, #confirm_password').removeClass('is-invalid is-valid');
+      $('#reset_password_employee_id').val($(this).data('id'));
+      resetPasswordPanel.show();
+    });
+
+    $('#resetPasswordForm').on('submit', function (e) {
+      e.preventDefault();
+
+      const newPassword = $('#new_password').val();
+      const confirmPassword = $('#confirm_password').val();
+      let isValid = true;
+
+      if (newPassword.length < 8) {
+        $('#newPasswordFeedback').text(newPassword ? 'Password must be at least 8 characters.' : 'New password is required.');
+        $('#new_password').addClass('is-invalid').removeClass('is-valid');
+        isValid = false;
+      } else {
+        $('#new_password').removeClass('is-invalid').addClass('is-valid');
+      }
+
+      if (!confirmPassword) {
+        $('#confirmPasswordFeedback').text('Please confirm the new password.');
+        $('#confirm_password').addClass('is-invalid').removeClass('is-valid');
+        isValid = false;
+      } else if (newPassword !== confirmPassword) {
+        $('#confirmPasswordFeedback').text('Passwords do not match.');
+        $('#confirm_password').addClass('is-invalid').removeClass('is-valid');
+        isValid = false;
+      } else {
+        $('#confirm_password').removeClass('is-invalid').addClass('is-valid');
+      }
+
+      if (!isValid) return;
+
+      const submitButton = $(this).find('button[type="submit"]');
+      submitButton.prop('disabled', true);
+      $.ajax({
+        url: '/api/v1/employees/' + $('#reset_password_employee_id').val() + '/password',
+        method: 'PUT',
+        contentType: 'application/json',
+        headers: authHeader,
+        data: JSON.stringify({
+          new_password: newPassword,
+          confirm_password: confirmPassword
+        })
+      }).done(function () {
+        resetPasswordPanel.hide();
+        $('#resetPasswordForm')[0].reset();
+        $('#new_password, #confirm_password').removeClass('is-invalid is-valid');
+        showSuccess('Password reset successfully.');
+      }).fail(function (xhr) {
+        const detail = xhr.responseJSON && xhr.responseJSON.detail;
+        showError((typeof detail === 'string' ? detail : JSON.stringify(detail)) || 'Failed to reset password.');
+      }).always(function () {
+        submitButton.prop('disabled', false);
+      });
+    });
+
+    $('#new_password, #confirm_password').on('input', function () {
+      $(this).removeClass('is-invalid is-valid');
+    });
 
     function splitPhone(value) {
       if (!value) return { code: '+91', number: '' };
