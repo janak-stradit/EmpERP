@@ -1,3 +1,5 @@
+from datetime import date
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -108,8 +110,8 @@ def log_activity(
 
 @router.get("/me", response_model=list[ActivityLogResponse])
 def my_activities(
-    start_date: str | None = None,
-    end_date: str | None = None,
+    start_date: date | None = None,
+    end_date: date | None = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -138,8 +140,8 @@ def my_activities(
 
 @router.get("/team-summary", response_model=list[EmployeeSummary])
 def get_team_summary(
-    start_date: str,
-    end_date: str,
+    start_date: date,
+    end_date: date,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
