@@ -138,6 +138,11 @@ def admin_team_mapping_page(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(request, "admin/team_mapping.html", {"csp_nonce": request.state.csp_nonce})
 
 
+@app.get("/admin/activity-reports", response_class=HTMLResponse, tags=["system"])
+def admin_activity_reports_page(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(request, "admin/activity_reports.html", {"csp_nonce": request.state.csp_nonce})
+
+
 @app.get("/employee/profile", response_class=HTMLResponse, tags=["system"])
 def employee_profile_page(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(request, "employee/profile.html", {"csp_nonce": request.state.csp_nonce})

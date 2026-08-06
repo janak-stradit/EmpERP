@@ -1,10 +1,12 @@
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.responses import StreamingResponse
+import io
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_db, require_role, HR_WRITE_ROLES
+from app.api.deps import get_current_user, get_db, require_role, HR_WRITE_ROLES, ADMIN_ROLES
 from app.core.audit import log_audit
 from app.api.deps import get_client_ip
 from app.models.employee import Employee
@@ -205,3 +207,117 @@ def get_team_summary(
         )
         
     return response
+
+@router.get("/company-summary", response_model=list[EmployeeSummary])
+def get_company_summary(
+    start_date: date,
+    end_date: date,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(*ADMIN_ROLES))
+):
+    logs = db.execute(
+        select(ActivityLog, ActivityCategory, User.full_name, Employee.id)
+        .join(ActivityCategory, ActivityLog.category_id == ActivityCategory.id)
+        .join(Employee, ActivityLog.employee_id == Employee.id)
+        .join(User, Employee.user_id == User.id)
+        .where(
+            Employee.company_id == current_user.company_id,
+            ActivityLog.log_date >= start_date,
+            ActivityLog.log_date <= end_date
+        )
+    ).all()
+
+    summary_map = {}
+    for log, cat, emp_name, emp_id in logs:
+        if emp_id not in summary_map:
+            summary_map[emp_id] = {
+                "employee_id": emp_id,
+                "employee_name": emp_name,
+                "total_regular_hours": 0.0,
+                "total_overtime_hours": 0.0,
+                "categories": {}
+            }
+            
+        hours = log.duration_minutes / 60.0
+        if log.is_overtime:
+            summary_map[emp_id]["total_overtime_hours"] += hours
+        else:
+            summary_map[emp_id]["total_regular_hours"] += hours
+            
+        if cat.name not in summary_map[emp_id]["categories"]:
+            summary_map[emp_id]["categories"][cat.name] = 0.0
+        summary_map[emp_id]["categories"][cat.name] += hours
+
+    response = []
+    for emp_data in summary_map.values():
+        from app.schemas.activity import CategoryHours
+        cats = [CategoryHours(category_name=k, hours=round(v, 2)) for k, v in emp_data["categories"].items()]
+        response.append(
+            EmployeeSummary(
+                employee_id=emp_data["employee_id"],
+                employee_name=emp_data["employee_name"],
+                total_regular_hours=round(emp_data["total_regular_hours"], 2),
+                total_overtime_hours=round(emp_data["total_overtime_hours"], 2),
+                categories=cats
+            )
+        )
+        
+    return response
+
+@router.get("/export/{employee_id}")
+def export_employee_activities(
+    employee_id: int,
+    start_date: date,
+    end_date: date,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(*ADMIN_ROLES))
+):
+    employee = db.scalar(select(Employee).where(Employee.id == employee_id, Employee.company_id == current_user.company_id))
+    if not employee:
+        raise HTTPException(status_code=404, detail="Employee not found")
+        
+    emp_user = db.get(User, employee.user_id)
+    
+    logs = db.execute(
+        select(ActivityLog, ActivityCategory)
+        .join(ActivityCategory)
+        .where(
+            ActivityLog.employee_id == employee_id,
+            ActivityLog.log_date >= start_date,
+            ActivityLog.log_date <= end_date
+        )
+        .order_by(ActivityLog.log_date, ActivityLog.time_block)
+    ).all()
+    
+    try:
+        import openpyxl
+    except ImportError:
+        raise HTTPException(status_code=500, detail="openpyxl is not installed")
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Activities"
+    
+    headers = ["Date", "Time Block", "Category", "Duration (Mins)", "Overtime?", "Notes"]
+    ws.append(headers)
+    
+    for log, cat in logs:
+        ws.append([
+            log.log_date.isoformat(),
+            log.time_block,
+            cat.name,
+            log.duration_minutes,
+            "Yes" if log.is_overtime else "No",
+            log.notes or ""
+        ])
+        
+    stream = io.BytesIO()
+    wb.save(stream)
+    stream.seek(0)
+    
+    filename = f"Activities_{emp_user.full_name.replace(' ', '_')}_{start_date}_to_{end_date}.xlsx"
+    return StreamingResponse(
+        stream, 
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
