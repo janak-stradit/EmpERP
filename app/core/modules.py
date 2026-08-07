@@ -24,6 +24,8 @@ MANAGER_MODULES = ("manager_team", "manager_activities")
 def default_modules_for(role: str, is_manager: bool) -> list[str]:
     """The standard role-based module set, unchanged from the app's original behavior."""
     modules = list(BASE_MODULES)
+    if role == "super_admin" and "activity_tracker" in modules:
+        modules.remove("activity_tracker")
     if role in HR_WRITE_ROLES:
         modules.extend(HR_MODULES)
     if role in ADMIN_ROLES:
@@ -43,5 +45,7 @@ def effective_modules_for(module_access_json: list[str] | None, role: str, is_ma
     if module_access_json is not None:
         modules = {m for m in module_access_json if m in MODULE_CATALOG}
         modules.update(ALWAYS_ON_MODULES)
+        if role == "super_admin" and "activity_tracker" in modules:
+            modules.remove("activity_tracker")
         return sorted(modules)
     return default_modules_for(role, is_manager)

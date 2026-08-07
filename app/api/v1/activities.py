@@ -12,7 +12,7 @@ from app.api.deps import get_client_ip
 from app.models.employee import Employee
 from app.models.activity import ActivityCategory, ActivityLog
 from app.models.user import User
-from app.schemas.activity import ActivityCategoryResponse, ActivityLogCreate, ActivityLogResponse, EmployeeSummary
+from app.schemas.activity import ActivityCategoryResponse, ActivityLogCreate, ActivityLogUpdate, ActivityLogResponse, EmployeeSummary
 
 router = APIRouter(prefix="/activities", tags=["activities"])
 
@@ -108,6 +108,74 @@ def log_activity(
             ip_address=get_client_ip(request),
         )
         return new_log
+
+@router.delete("/log/{log_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_activity(
+    log_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    employee = db.scalar(select(Employee).where(Employee.user_id == current_user.id, Employee.deleted_at.is_(None)))
+    if employee is None:
+        raise HTTPException(status_code=404, detail="Employee profile not found")
+
+    log_entry = db.scalar(select(ActivityLog).where(ActivityLog.id == log_id, ActivityLog.employee_id == employee.id))
+    if not log_entry:
+        raise HTTPException(status_code=404, detail="Activity log not found")
+
+    db.delete(log_entry)
+    db.commit()
+
+    log_audit(
+        db,
+        user_id=current_user.id,
+        action="activity_deleted",
+        entity_type="activity_log",
+        entity_id=log_id,
+        ip_address=get_client_ip(request),
+    )
+
+@router.put("/log/{log_id}", response_model=ActivityLogResponse)
+def update_activity(
+    log_id: int,
+    payload: ActivityLogUpdate,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    employee = db.scalar(select(Employee).where(Employee.user_id == current_user.id, Employee.deleted_at.is_(None)))
+    if employee is None:
+        raise HTTPException(status_code=404, detail="Employee profile not found")
+
+    log_entry = db.scalar(select(ActivityLog).where(ActivityLog.id == log_id, ActivityLog.employee_id == employee.id))
+    if not log_entry:
+        raise HTTPException(status_code=404, detail="Activity log not found")
+
+    category = db.scalar(select(ActivityCategory).where(ActivityCategory.id == payload.category_id, ActivityCategory.company_id == current_user.company_id))
+    if category is None:
+        raise HTTPException(status_code=400, detail="Invalid category")
+
+    log_entry.category_id = payload.category_id
+    log_entry.log_date = payload.log_date
+    log_entry.time_block = payload.time_block
+    log_entry.duration_minutes = payload.duration_minutes
+    log_entry.is_overtime = payload.is_overtime
+    log_entry.notes = payload.notes
+
+    db.commit()
+    db.refresh(log_entry)
+    log_entry.category = category
+
+    log_audit(
+        db,
+        user_id=current_user.id,
+        action="activity_updated",
+        entity_type="activity_log",
+        entity_id=log_entry.id,
+        ip_address=get_client_ip(request),
+    )
+    return log_entry
 
 
 @router.get("/me", response_model=list[ActivityLogResponse])

@@ -16,6 +16,14 @@ class ActivityLogCreate(BaseModel):
     is_overtime: bool = False
     notes: str | None = None
 
+class ActivityLogUpdate(BaseModel):
+    category_id: int
+    log_date: date
+    time_block: time
+    duration_minutes: int = 30
+    is_overtime: bool = False
+    notes: str | None = None
+
 class ActivityLogResponse(BaseModel):
     id: int
     employee_id: int

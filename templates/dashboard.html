@@ -201,6 +201,9 @@
                     fallback.push('admin_team_mapping', 'admin_activity_reports');
                 }
             }
+            if (me.role === 'super_admin') {
+                fallback = fallback.filter(m => m !== 'activity_tracker');
+            }
             $('#profileCompletionVal').text('N/A');
             $('#profileCompletionSub').text('Admin workspace');
             renderTiles(buildModuleList(fallback), true);
