@@ -1,0 +1,38 @@
+# Production compose file — used on the EC2 host only.
+# Pulls the pre-built image from ECR instead of building locally.
+# App secrets (JWT_SECRET_KEY, FERNET_KEY, DATABASE_URL, POSTGRES_*, ...) live in
+# /opt/emperp/.env on the server — see AWS_SERVICES.md for the required keys.
+version: '3.8'
+
+services:
+  app:
+    image: ${ECR_IMAGE}
+    container_name: emperp_app
+    restart: always
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - app_uploads:/app/uploads
+
+  db:
+    image: postgres:16-alpine
+    container_name: emperp_db
+    restart: always
+    env_file:
+      - .env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  app_uploads:
