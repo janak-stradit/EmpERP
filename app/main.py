@@ -49,6 +49,9 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
 
+DOCS_PATHS = {"/docs", "/redoc", "/docs/oauth2-redirect"}
+
+
 @app.middleware("http")
 async def security_headers_middleware(request: Request, call_next):
     nonce = secrets.token_urlsafe(16)
@@ -58,14 +61,27 @@ async def security_headers_middleware(request: Request, call_next):
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Referrer-Policy"] = "same-origin"
-    response.headers["Content-Security-Policy"] = (
-        "default-src 'self'; "
-        f"script-src 'self' 'nonce-{nonce}' https://cdn.jsdelivr.net https://code.jquery.com; "
-        "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
-        "font-src 'self' https://cdn.jsdelivr.net; "
-        "connect-src 'self' https://cdn.jsdelivr.net; "
-        "img-src 'self' data: blob:;"
-    )
+    if request.url.path in DOCS_PATHS:
+        # Swagger/ReDoc's bundled HTML ships inline <script> blocks with no
+        # nonce attribute, so the strict app-wide policy below would silently
+        # block them from rendering. Relax just enough for these dev-tool pages.
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+            "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+            "font-src 'self' https://cdn.jsdelivr.net; "
+            "connect-src 'self' https://cdn.jsdelivr.net; "
+            "img-src 'self' data: https://fastapi.tiangolo.com;"
+        )
+    else:
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            f"script-src 'self' 'nonce-{nonce}' https://cdn.jsdelivr.net https://code.jquery.com; "
+            "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+            "font-src 'self' https://cdn.jsdelivr.net; "
+            "connect-src 'self' https://cdn.jsdelivr.net; "
+            "img-src 'self' data: blob:;"
+        )
     if request.url.scheme == "https":
         response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
     return response
