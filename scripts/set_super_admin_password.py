@@ -16,21 +16,22 @@ from app.models.user import UserRole
  
 def main() -> None:
     settings = get_settings()
-    new_password = "janak@123"
+    target_email = "admin@emperp.dev"
+    new_password = "3vsfzECrPc4uV3Xt"
     db = SessionLocal()
- 
+
     try:
-        user = db.scalar(select(User).where(User.email == settings.super_admin_email))
+        user = db.scalar(select(User).where(User.email == target_email))
         if user is None:
             company = db.scalar(select(Company).where(Company.name == settings.super_admin_company_name))
             if company is None:
                 company = Company(name=settings.super_admin_company_name)
                 db.add(company)
                 db.flush()
- 
+
             user = User(
                 company_id=company.id,
-                email=settings.super_admin_email,
+                email=target_email,
                 password_hash=hash_password(new_password),
                 full_name=settings.super_admin_name,
                 role=UserRole.SUPER_ADMIN,
@@ -39,12 +40,12 @@ def main() -> None:
             )
             db.add(user)
             db.commit()
-            print(f"Super admin '{settings.super_admin_email}' created with password '{new_password}'.")
+            print(f"Super admin '{target_email}' created with password '{new_password}'.")
             return
- 
+
         user.password_hash = hash_password(new_password)
         db.commit()
-        print(f"Password updated for super admin '{settings.super_admin_email}'.")
+        print(f"Password updated for super admin '{target_email}'.")
     finally:
         db.close()
  
