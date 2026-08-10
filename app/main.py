@@ -86,6 +86,11 @@ def login_page(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(request, "auth/login.html", {"csp_nonce": request.state.csp_nonce})
 
 
+@app.get("/auth/admin-reset", response_class=HTMLResponse, include_in_schema=False)
+def admin_reset_page(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(request, "auth/admin_reset.html", {"csp_nonce": request.state.csp_nonce})
+
+
 @app.get("/dashboard", response_class=HTMLResponse, tags=["system"])
 def dashboard_page(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(request, "dashboard.html", {"csp_nonce": request.state.csp_nonce})

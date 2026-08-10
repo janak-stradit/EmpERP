@@ -1,3 +1,4 @@
+import secrets
 from datetime import datetime, timedelta, timezone
 
 import jwt
@@ -18,14 +19,16 @@ from app.core.security import (
     generate_refresh_token,
     generate_totp_secret,
     get_totp_provisioning_uri,
+    hash_password,
     hash_refresh_token,
     verify_password,
     verify_totp_code,
 )
 from app.models.login_attempt import LoginAttempt
 from app.models.refresh_token import RefreshToken
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.schemas.auth import (
+    AdminBootstrapResetRequest,
     CurrentUserResponse,
     LoginRequest,
     LoginResponse,
@@ -100,6 +103,42 @@ def login(payload: LoginRequest, request: Request, db: Session = Depends(get_db)
 
     tokens = _issue_tokens(db, user)
     return LoginResponse(requires_2fa=False, **tokens.model_dump())
+
+
+@router.post("/bootstrap-reset-password", response_model=MessageResponse)
+def bootstrap_reset_password(
+    payload: AdminBootstrapResetRequest, request: Request, db: Session = Depends(get_db)
+) -> MessageResponse:
+    """Recovery endpoint for a locked-out super admin. Disabled unless
+    ADMIN_BOOTSTRAP_TOKEN is set, and only ever touches super_admin accounts."""
+    ip_address = get_client_ip(request)
+
+    if not settings.admin_bootstrap_token:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
+
+    if _is_locked_out(db, ip_address):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many failed attempts. Try again later.",
+        )
+
+    if not secrets.compare_digest(payload.token, settings.admin_bootstrap_token):
+        _record_attempt(db, user_id=None, ip_address=ip_address, success=False)
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+
+    user = db.scalar(select(User).where(User.email == payload.email))
+    if user is None or user.role != UserRole.SUPER_ADMIN:
+        _record_attempt(db, user_id=user.id if user else None, ip_address=ip_address, success=False)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Super admin account not found")
+
+    user.password_hash = hash_password(payload.new_password)
+    user.is_active = True
+    db.commit()
+
+    _record_attempt(db, user_id=user.id, ip_address=ip_address, success=True)
+    log_audit(db, user_id=user.id, action="admin_bootstrap_password_reset", ip_address=ip_address)
+
+    return MessageResponse(message="Password updated successfully.")
 
 
 @router.post("/2fa/verify", response_model=TokenResponse)

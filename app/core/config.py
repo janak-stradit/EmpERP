@@ -39,6 +39,11 @@ class Settings(BaseSettings):
     login_max_attempts: int = 5
     login_lockout_window_minutes: int = 15
 
+    # Secret required to call POST /api/v1/auth/bootstrap-reset-password.
+    # Empty (default) disables the endpoint entirely. Set only when recovering
+    # a locked-out super admin account, then unset/rotate it again.
+    admin_bootstrap_token: str = ""
+
     email_backend: str = "console"  # "console" (log only) or "smtp"
     smtp_host: str = ""
     smtp_port: int = 587

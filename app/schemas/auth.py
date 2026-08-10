@@ -42,6 +42,12 @@ class LogoutRequest(BaseModel):
     refresh_token: str
 
 
+class AdminBootstrapResetRequest(BaseModel):
+    token: str = Field(min_length=1)
+    email: EmailStr
+    new_password: str = Field(min_length=8, max_length=72)
+
+
 class MessageResponse(BaseModel):
     message: str
 
