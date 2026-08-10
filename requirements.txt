@@ -12,3 +12,4 @@ cryptography
 python-multipart
 email-validator
 jinja2
+openpyxl

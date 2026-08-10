@@ -110,6 +110,7 @@
       pms: { title: 'My Performance', desc: 'Complete 360° reviews and view performance evaluation results.', icon: 'bi-graph-up-arrow', url: '/employee/pms', accent: 'card-accent-indigo' },
       hr_employees: { title: 'Employees', desc: 'Manage employee directory, departments, and designations.', icon: 'bi-people', url: '/hr/employees', accent: 'card-accent-primary', alwaysUnlocked: true },
       admin_team_mapping: { title: 'Team Mapping', desc: 'Map employees to reporting managers for activity tracking.', icon: 'bi-diagram-3', url: '/admin/team-mapping', accent: 'card-accent-warning', alwaysUnlocked: true },
+      admin_activity_reports: { title: 'Company Activities', desc: 'View and export activity reports for all employees.', icon: 'bi-file-earmark-excel', url: '/admin/activity-reports', accent: 'card-accent-success', alwaysUnlocked: true },
       manager_team: { title: 'Team Approvals', desc: 'Review and approve leave requests from your direct reports.', icon: 'bi-person-check', url: '/manager/team-leave', accent: 'card-accent-info', alwaysUnlocked: true },
       manager_activities: { title: 'Team Activities', desc: 'Monitor weekly logged time and productivity breakdown of your team.', icon: 'bi-bar-chart-line', url: '/manager/activities', accent: 'card-accent-success', alwaysUnlocked: true }
     };
@@ -193,9 +194,16 @@
             renderTiles(buildModuleList(profile.enabled_modules), isComplete);
           })
           .fail(function () {
-            const fallback = HR_ROLES.includes(me.role)
-              ? ['profile', 'activity_tracker', 'hr_employees', 'admin_team_mapping']
-              : ['profile', 'activity_tracker', 'pms'];
+            let fallback = ['profile', 'activity_tracker', 'pms'];
+            if (HR_ROLES.includes(me.role)) {
+                fallback = ['profile', 'activity_tracker', 'hr_employees'];
+                if (['super_admin', 'admin'].includes(me.role)) {
+                    fallback.push('admin_team_mapping', 'admin_activity_reports');
+                }
+            }
+            if (me.role === 'super_admin') {
+                fallback = fallback.filter(m => m !== 'activity_tracker');
+            }
             $('#profileCompletionVal').text('N/A');
             $('#profileCompletionSub').text('Admin workspace');
             renderTiles(buildModuleList(fallback), true);
