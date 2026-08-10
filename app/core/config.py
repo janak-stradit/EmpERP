@@ -1,5 +1,6 @@
 from functools import lru_cache
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -7,6 +8,18 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     database_url: str
+
+    @field_validator("database_url")
+    @classmethod
+    def _use_psycopg3_dialect(cls, v: str) -> str:
+        # Managed Postgres add-ons (Render, Heroku, ...) inject plain
+        # postgresql:// / postgres:// URLs, which SQLAlchemy resolves to the
+        # psycopg2 dialect. This project only installs psycopg3 (psycopg[binary]).
+        if v.startswith("postgres://"):
+            v = "postgresql://" + v[len("postgres://"):]
+        if v.startswith("postgresql://"):
+            v = "postgresql+psycopg://" + v[len("postgresql://"):]
+        return v
 
     jwt_secret_key: str
     jwt_algorithm: str = "HS256"
