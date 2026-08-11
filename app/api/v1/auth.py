@@ -29,6 +29,7 @@ from app.models.refresh_token import RefreshToken
 from app.models.user import User, UserRole
 from app.schemas.auth import (
     AdminBootstrapResetRequest,
+    ChangePasswordRequest,
     CurrentUserResponse,
     LoginRequest,
     LoginResponse,
@@ -75,7 +76,9 @@ def _issue_tokens(db: Session, user: User) -> TokenResponse:
         )
     )
     db.commit()
-    return TokenResponse(access_token=access_token, refresh_token=refresh_token)
+    return TokenResponse(
+        access_token=access_token, refresh_token=refresh_token, must_change_password=user.must_change_password
+    )
 
 
 @router.post("/login", response_model=LoginResponse)
@@ -133,6 +136,7 @@ def bootstrap_reset_password(
 
     user.password_hash = hash_password(payload.new_password)
     user.is_active = True
+    user.must_change_password = True
     db.commit()
 
     _record_attempt(db, user_id=user.id, ip_address=ip_address, success=True)
@@ -248,4 +252,23 @@ def me(current_user: User = Depends(get_current_user)) -> CurrentUserResponse:
         full_name=current_user.full_name,
         role=current_user.role.value,
         is_2fa_enabled=current_user.is_2fa_enabled,
+        must_change_password=current_user.must_change_password,
     )
+
+
+@router.put("/change-password", response_model=MessageResponse)
+def change_password(
+    payload: ChangePasswordRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> MessageResponse:
+    if not verify_password(payload.current_password, current_user.password_hash):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Current password is incorrect")
+
+    current_user.password_hash = hash_password(payload.new_password)
+    current_user.must_change_password = False
+    db.commit()
+
+    log_audit(db, user_id=current_user.id, action="password_changed", ip_address=get_client_ip(request))
+    return MessageResponse(message="Password updated successfully.")

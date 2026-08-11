@@ -14,6 +14,15 @@ bearer_scheme = HTTPBearer(auto_error=False)
 HR_WRITE_ROLES = ("super_admin", "admin", "hr")
 ADMIN_ROLES = ("super_admin", "admin")
 
+# Endpoints a user must still be able to reach while must_change_password is set,
+# so they can actually clear it (and check their own status / sign out).
+PASSWORD_CHANGE_EXEMPT_PATHS = {
+    "/api/v1/auth/change-password",
+    "/api/v1/auth/me",
+    "/api/v1/auth/logout",
+    "/api/v1/auth/refresh",
+}
+
 
 def get_db() -> Generator[Session, None, None]:
     db = SessionLocal()
@@ -31,6 +40,7 @@ def get_client_ip(request: Request) -> str:
 
 
 def get_current_user(
+    request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     db: Session = Depends(get_db),
 ) -> User:
@@ -48,6 +58,9 @@ def get_current_user(
     user = db.get(User, int(payload["sub"]))
     if user is None or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found or inactive")
+
+    if user.must_change_password and request.url.path not in PASSWORD_CHANGE_EXEMPT_PATHS:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="password_change_required")
 
     return user
 

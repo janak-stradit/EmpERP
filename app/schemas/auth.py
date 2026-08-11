@@ -10,6 +10,7 @@ class TokenResponse(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
+    must_change_password: bool = False
 
 
 class LoginResponse(BaseModel):
@@ -18,6 +19,7 @@ class LoginResponse(BaseModel):
     access_token: str | None = None
     refresh_token: str | None = None
     token_type: str = "bearer"
+    must_change_password: bool = False
 
 
 class TwoFAVerifyRequest(BaseModel):
@@ -48,6 +50,11 @@ class AdminBootstrapResetRequest(BaseModel):
     new_password: str = Field(min_length=8, max_length=72)
 
 
+class ChangePasswordRequest(BaseModel):
+    current_password: str = Field(min_length=1)
+    new_password: str = Field(min_length=8, max_length=72)
+
+
 class MessageResponse(BaseModel):
     message: str
 
@@ -58,3 +65,4 @@ class CurrentUserResponse(BaseModel):
     full_name: str
     role: str
     is_2fa_enabled: bool
+    must_change_password: bool

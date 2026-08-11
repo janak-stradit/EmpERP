@@ -26,3 +26,4 @@ class User(TimestampMixin, Base):
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     is_2fa_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     totp_secret: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    must_change_password: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)

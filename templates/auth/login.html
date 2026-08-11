@@ -104,6 +104,28 @@
               </div>
               <button type="submit" class="btn btn-primary w-100 py-2 fw-bold">Verify Security Code</button>
             </form>
+
+            <form id="changePasswordForm" class="d-none">
+              <p class="text-muted small">This account needs a new password before you can continue.</p>
+              <div class="mb-3">
+                <label for="newPassword" class="form-label">New Password</label>
+                <div class="input-group">
+                  <span class="input-group-text"><i class="bi bi-lock"></i></span>
+                  <input type="password" class="form-control" id="newPassword" placeholder="••••••••" required minlength="8" maxlength="72" autocomplete="new-password">
+                </div>
+              </div>
+              <div class="mb-4">
+                <label for="confirmPassword" class="form-label">Confirm New Password</label>
+                <div class="input-group">
+                  <span class="input-group-text"><i class="bi bi-lock-fill"></i></span>
+                  <input type="password" class="form-control" id="confirmPassword" placeholder="••••••••" required minlength="8" maxlength="72" autocomplete="new-password">
+                </div>
+              </div>
+              <button type="submit" class="btn btn-primary w-100 py-2 fw-bold" id="changePasswordSubmit">
+                <span class="spinner-border spinner-border-sm me-2 d-none" id="changePasswordSpinner"></span>
+                Set New Password
+              </button>
+            </form>
           </div>
         </div>
       </div>
@@ -115,6 +137,7 @@
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <script nonce="{{ csp_nonce }}">
     let preAuthToken = null;
+    let authenticatedPassword = null;
 
     function showToast(message, variant) {
       const bg = variant === 'success' ? 'text-bg-success' : 'text-bg-danger';
@@ -143,31 +166,45 @@
       $('#loginSpinner').toggleClass('d-none', !isLoading);
     }
 
-    function storeTokensAndRedirect(data) {
+    function setChangePasswordLoading(isLoading) {
+      $('#changePasswordSubmit').prop('disabled', isLoading);
+      $('#changePasswordSpinner').toggleClass('d-none', !isLoading);
+    }
+
+    function storeTokensAndProceed(data) {
       sessionStorage.setItem('access_token', data.access_token);
       sessionStorage.setItem('refresh_token', data.refresh_token);
-      window.location.href = '/dashboard';
+      if (data.must_change_password) {
+        $('#loginForm').addClass('d-none');
+        $('#twoFAForm').addClass('d-none');
+        $('#changePasswordForm').removeClass('d-none');
+      } else {
+        window.location.href = '/dashboard';
+      }
     }
 
     $('#loginForm').on('submit', function (e) {
       e.preventDefault();
       clearError();
       setLoading(true);
+      const password = $('#password').val();
       $.ajax({
         url: '/api/v1/auth/login',
         method: 'POST',
         contentType: 'application/json',
         data: JSON.stringify({
           email: $('#email').val(),
-          password: $('#password').val()
+          password: password
         })
       }).done(function (data) {
         if (data.requires_2fa) {
           preAuthToken = data.pre_2fa_token;
+          authenticatedPassword = password;
           $('#loginForm').addClass('d-none');
           $('#twoFAForm').removeClass('d-none');
         } else {
-          storeTokensAndRedirect(data);
+          authenticatedPassword = password;
+          storeTokensAndProceed(data);
         }
       }).fail(function (xhr) {
         showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Login failed.');
@@ -188,9 +225,37 @@
           code: $('#code').val()
         })
       }).done(function (data) {
-        storeTokensAndRedirect(data);
+        storeTokensAndProceed(data);
       }).fail(function (xhr) {
         showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Invalid code.');
+      });
+    });
+
+    $('#changePasswordForm').on('submit', function (e) {
+      e.preventDefault();
+
+      if ($('#newPassword').val() !== $('#confirmPassword').val()) {
+        showError('Passwords do not match.');
+        return;
+      }
+
+      setChangePasswordLoading(true);
+      $.ajax({
+        url: '/api/v1/auth/change-password',
+        method: 'PUT',
+        contentType: 'application/json',
+        headers: { Authorization: 'Bearer ' + sessionStorage.getItem('access_token') },
+        data: JSON.stringify({
+          current_password: authenticatedPassword,
+          new_password: $('#newPassword').val()
+        })
+      }).done(function () {
+        showSuccess('Password updated. Redirecting...');
+        setTimeout(function () { window.location.href = '/dashboard'; }, 1000);
+      }).fail(function (xhr) {
+        showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Could not update password.');
+      }).always(function () {
+        setChangePasswordLoading(false);
       });
     });
   </script>

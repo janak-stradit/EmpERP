@@ -391,6 +391,7 @@ def reset_employee_password(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Employee user account not found")
 
     user.password_hash = hash_password(payload.new_password)
+    user.must_change_password = True
     db.commit()
 
     log_audit(
