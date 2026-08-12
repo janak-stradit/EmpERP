@@ -170,6 +170,15 @@
                   <button type="button" class="btn btn-outline-primary" id="btnToday">Today</button>
                   <button type="button" class="btn btn-outline-primary" id="btnThisWeek">This Week</button>
                 </div>
+                <div class="d-flex align-items-center me-3">
+                  <label for="dailyStatusFilter" class="form-label mb-0 me-2 fw-semibold">Status:</label>
+                  <select class="form-select form-select-sm border-secondary shadow-sm" id="dailyStatusFilter" style="width: 120px;">
+                    <option value="Working">Working</option>
+                    <option value="On Leave">On Leave</option>
+                    <option value="Holiday">Holiday</option>
+                    <option value="Half Day">Half Day</option>
+                  </select>
+                </div>
                 <input type="date" class="form-control form-control-sm" id="filterDate" style="width: 140px;">
               </div>
             </div>
@@ -433,6 +442,46 @@
 
       loadCategories();
       loadActivities(yesterday, yesterday);
+      loadDailyStatus(yesterday);
+
+      function loadDailyStatus(dateStr) {
+        $.ajax({ url: `/api/v1/activities/status/${dateStr}`, headers: authHeader }).done(function(data) {
+          $('#dailyStatusFilter').val(data.status);
+          checkStatusRestrictions(data.status);
+        }).fail(function() {
+          $('#dailyStatusFilter').val('Working');
+          checkStatusRestrictions('Working');
+        });
+      }
+
+      function checkStatusRestrictions(status) {
+        $('#statusWarning').remove();
+        if (status === 'On Leave' || status === 'Holiday') {
+          $('#activityForm').find('input, select, button').prop('disabled', true);
+          $('#activityForm').append('<div class="alert alert-warning mt-3 py-2 px-3 small" id="statusWarning"><i class="bi bi-exclamation-triangle-fill me-1"></i> Activity logging is disabled for days marked as ' + status + '</div>');
+          $('.btn-edit-activity, .btn-delete-activity').prop('disabled', true);
+        } else {
+          $('#activityForm').find('input, select, button').prop('disabled', false);
+          $('.btn-edit-activity, .btn-delete-activity').prop('disabled', false);
+        }
+      }
+
+      $('#dailyStatusFilter').on('change', function() {
+        const newStatus = $(this).val();
+        const targetDate = $('#filterDate').val();
+        $.ajax({
+          url: `/api/v1/activities/status/${targetDate}`,
+          method: 'PUT',
+          contentType: 'application/json',
+          headers: authHeader,
+          data: JSON.stringify({ status: newStatus })
+        }).done(function() {
+          showToast('Daily status updated');
+          checkStatusRestrictions(newStatus);
+        }).fail(function(xhr) {
+          showToast('Failed to update daily status', 'danger');
+        });
+      });
 
       // Filter controls event handlers
       $('#btnYesterday').on('click', function() {
@@ -440,7 +489,9 @@
         $(this).addClass('active');
         const yest = getYesterdayStr();
         $('#filterDate').val(yest);
+        $('#logDate').val(yest);
         loadActivities(yest, yest);
+        loadDailyStatus(yest);
       });
 
       $('#btnToday').on('click', function() {
@@ -448,7 +499,9 @@
         $(this).addClass('active');
         const today = getTodayStr();
         $('#filterDate').val(today);
+        $('#logDate').val(today);
         loadActivities(today, today);
+        loadDailyStatus(today);
       });
 
       $('#btnThisWeek').on('click', function() {
@@ -458,6 +511,7 @@
         const end = getEndOfWeek();
         $('#filterDate').val(start);
         loadActivities(start, end);
+        loadDailyStatus(start);
       });
 
       $('#filterDate').on('change', function() {
@@ -468,7 +522,18 @@
         } else if (val === getTodayStr()) {
           $('#btnToday').addClass('active');
         }
+        $('#logDate').val(val);
         loadActivities(val, val);
+        loadDailyStatus(val);
+      });
+
+      $('#logDate').on('change', function() {
+        const val = $(this).val();
+        $.ajax({ url: `/api/v1/activities/status/${val}`, headers: authHeader }).done(function(data) {
+          checkStatusRestrictions(data.status);
+        }).fail(function() {
+          checkStatusRestrictions('Working');
+        });
       });
 
       function resetForm() {

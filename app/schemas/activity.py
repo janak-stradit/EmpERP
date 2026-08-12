@@ -48,3 +48,17 @@ class EmployeeSummary(BaseModel):
     total_regular_hours: float
     total_overtime_hours: float
     categories: list[CategoryHours]
+    statuses: dict[str, int] = {}
+
+class DailyStatusUpdate(BaseModel):
+    status: str
+    notes: str | None = None
+
+class DailyStatusResponse(BaseModel):
+    id: int
+    employee_id: int
+    log_date: date
+    status: str
+    notes: str | None
+
+    model_config = {"from_attributes": True}
