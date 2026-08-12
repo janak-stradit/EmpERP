@@ -27,3 +27,12 @@ class ActivityLog(TimestampMixin, Base):
     duration_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=30)
     is_overtime: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+class DailyActivityStatus(TimestampMixin, Base):
+    __tablename__ = "daily_activity_statuses"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    employee_id: Mapped[int] = mapped_column(ForeignKey("employees.id"), nullable=False, index=True)
+    log_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(50), nullable=False, default="Working")
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
