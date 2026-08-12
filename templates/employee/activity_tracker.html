@@ -597,11 +597,17 @@
         }).done(function() {
           showToast(isEdit ? 'Activity updated successfully' : 'Activity logged successfully');
           
+          const submittedDuration = parseInt($('#durationMinutes').val());
+          const [hStr, mStr] = timeVal.split(':');
+          
           resetForm();
           
-          if (!isEdit) {
-            updateTimeBlockForDate(targetDate);
-          }
+          const d = new Date();
+          d.setHours(parseInt(hStr, 10));
+          d.setMinutes(parseInt(mStr, 10) + submittedDuration);
+          const nextH = d.getHours().toString().padStart(2, '0');
+          const nextM = d.getMinutes().toString().padStart(2, '0');
+          $('#timeBlock').val(`${nextH}:${nextM}`);
           
           // Update view to the date of logged activity
           $('#filterDate').val(targetDate);
