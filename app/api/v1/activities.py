@@ -30,7 +30,7 @@ def get_categories(
     
     # Auto-seed basic categories if none exist for easy testing
     if not categories:
-        seed_names = ["Deep Work / Focus", "Meetings / Calls", "Email / Comms", "Planning / Admin", "Collaboration", "Learning / Training", "Break"]
+        seed_names = ["Deep Work / Focus", "Meetings / Calls", "Email / Comms", "Planning / Admin", "Collaboration", "Learning / Development", "Break"]
         for name in seed_names:
             cat = ActivityCategory(company_id=current_user.company_id, name=name)
             db.add(cat)
