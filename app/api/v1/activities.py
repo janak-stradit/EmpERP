@@ -401,6 +401,280 @@ def get_company_summary(
         
     return response
 
+def _build_multi_sheet_activity_workbook(
+    employee_name: str,
+    employee_code: str | None,
+    logs: list,
+    status_map: dict,
+    start_date: date,
+    end_date: date
+) -> io.BytesIO:
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
+    from datetime import timedelta
+
+    wb = openpyxl.Workbook()
+    ws_summary = wb.active
+    ws_summary.title = "Weekly Summary"
+
+    navy_fill = PatternFill(start_color="1E1B4B", end_color="1E1B4B", fill_type="solid")
+    indigo_fill = PatternFill(start_color="4F46E5", end_color="4F46E5", fill_type="solid")
+    sub_header_fill = PatternFill(start_color="E2E8F0", end_color="E2E8F0", fill_type="solid")
+    green_fill = PatternFill(start_color="DCFCE7", end_color="DCFCE7", fill_type="solid")
+    yellow_fill = PatternFill(start_color="FEF9C3", end_color="FEF9C3", fill_type="solid")
+
+    font_title = Font(name="Calibri", size=14, bold=True, color="FFFFFF")
+    font_header = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
+    font_bold = Font(name="Calibri", size=11, bold=True)
+    font_regular = Font(name="Calibri", size=11)
+    font_muted = Font(name="Calibri", size=10, italic=True, color="64748B")
+
+    thin_border = Border(
+        left=Side(style="thin", color="CBD5E1"),
+        right=Side(style="thin", color="CBD5E1"),
+        top=Side(style="thin", color="CBD5E1"),
+        bottom=Side(style="thin", color="CBD5E1")
+    )
+
+    logs_by_date = {}
+    for log, cat in logs:
+        if log.log_date not in logs_by_date:
+            logs_by_date[log.log_date] = []
+        logs_by_date[log.log_date].append((log, cat))
+
+    # --- 1. WEEKLY SUMMARY SHEET ---
+    ws_summary.merge_cells("A1:G1")
+    ws_summary["A1"] = "EMPLOYEE DAILY ACTIVITY TRACKER — WEEKLY REPORT"
+    ws_summary["A1"].font = font_title
+    ws_summary["A1"].fill = navy_fill
+    ws_summary["A1"].alignment = Alignment(horizontal="center", vertical="center")
+    ws_summary.row_dimensions[1].height = 35
+
+    ws_summary.append([])
+    ws_summary.append(["Employee Name:", employee_name, "", "Period:", f"{start_date.isoformat()} to {end_date.isoformat()}"])
+    ws_summary.append(["Employee Code:", employee_code or "N/A", "", "Generated On:", date.today().isoformat()])
+    ws_summary.append([])
+
+    for r in [3, 4]:
+        for c in [1, 4]:
+            ws_summary.cell(row=r, column=c).font = font_bold
+
+    summary_headers = ["Date", "Day Name", "Working Status", "Regular (Hrs)", "Overtime (Hrs)", "Total Hours", "Entries Logged"]
+    ws_summary.append(summary_headers)
+    hdr_row = ws_summary.max_row
+    ws_summary.row_dimensions[hdr_row].height = 24
+
+    for c_idx, h in enumerate(summary_headers, start=1):
+        cell = ws_summary.cell(row=hdr_row, column=c_idx)
+        cell.fill = indigo_fill
+        cell.font = font_header
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+
+    tot_reg_hrs = 0.0
+    tot_ot_hrs = 0.0
+    tot_entries = 0
+    cat_summary = {}
+
+    current_date = start_date
+    while current_date <= end_date:
+        d_logs = logs_by_date.get(current_date, [])
+        d_status = status_map.get(current_date, "Working")
+
+        reg_m = sum(l.duration_minutes for l, _ in d_logs if not l.is_overtime)
+        ot_m = sum(l.duration_minutes for l, _ in d_logs if l.is_overtime)
+
+        reg_h = round(reg_m / 60.0, 2)
+        ot_h = round(ot_m / 60.0, 2)
+        tot_h = round(reg_h + ot_h, 2)
+        cnt = len(d_logs)
+
+        tot_reg_hrs += reg_h
+        tot_ot_hrs += ot_h
+        tot_entries += cnt
+
+        for log, cat in d_logs:
+            c_name = cat.name if cat else "Other"
+            cat_summary[c_name] = cat_summary.get(c_name, 0.0) + (log.duration_minutes / 60.0)
+
+        ws_summary.append([
+            current_date.isoformat(),
+            current_date.strftime("%A"),
+            d_status,
+            reg_h,
+            ot_h,
+            tot_h,
+            cnt
+        ])
+        r_idx = ws_summary.max_row
+        for c_idx in range(1, 8):
+            cell = ws_summary.cell(row=r_idx, column=c_idx)
+            cell.border = thin_border
+            cell.font = font_regular
+            if c_idx in (4, 5, 6, 7):
+                cell.alignment = Alignment(horizontal="right")
+
+        current_date += timedelta(days=1)
+
+    # Total Summary Row
+    ws_summary.append([
+        "TOTAL",
+        "",
+        "",
+        round(tot_reg_hrs, 2),
+        round(tot_ot_hrs, 2),
+        round(tot_reg_hrs + tot_ot_hrs, 2),
+        tot_entries
+    ])
+    tot_row = ws_summary.max_row
+    ws_summary.row_dimensions[tot_row].height = 22
+    for c_idx in range(1, 8):
+        cell = ws_summary.cell(row=tot_row, column=c_idx)
+        cell.font = font_bold
+        cell.fill = sub_header_fill
+        cell.border = thin_border
+        if c_idx in (4, 5, 6, 7):
+            cell.alignment = Alignment(horizontal="right")
+
+    # Category summary table
+    ws_summary.append([])
+    ws_summary.append(["Category Breakdown", "Total Hours Logged", "% of Total Hours"])
+    cat_hdr_row = ws_summary.max_row
+    ws_summary.row_dimensions[cat_hdr_row].height = 22
+    for c_idx in range(1, 4):
+        cell = ws_summary.cell(row=cat_hdr_row, column=c_idx)
+        cell.fill = indigo_fill
+        cell.font = font_header
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+
+    all_hrs = tot_reg_hrs + tot_ot_hrs
+    for c_name, c_hrs in cat_summary.items():
+        pct = (c_hrs / all_hrs * 100.0) if all_hrs > 0 else 0.0
+        ws_summary.append([c_name, round(c_hrs, 2), f"{pct:.1f}%"])
+        r_idx = ws_summary.max_row
+        for c_idx in range(1, 4):
+            cell = ws_summary.cell(row=r_idx, column=c_idx)
+            cell.border = thin_border
+            cell.font = font_regular
+            if c_idx in (2, 3):
+                cell.alignment = Alignment(horizontal="right")
+
+    for col in ws_summary.columns:
+        max_len = max(len(str(cell.value or '')) for cell in col)
+        col_letter = get_column_letter(col[0].column)
+        ws_summary.column_dimensions[col_letter].width = max(max_len + 3, 14)
+
+    # --- 2. INDIVIDUAL DAY SHEETS ---
+    current_date = start_date
+    while current_date <= end_date:
+        tab_name = current_date.strftime("%a %d-%b")  # e.g. "Mon 10-Aug"
+        ws_day = wb.create_sheet(title=tab_name[:31])
+
+        d_logs = logs_by_date.get(current_date, [])
+        d_status = status_map.get(current_date, "Working")
+
+        # Day Title Banner
+        ws_day.merge_cells("A1:F1")
+        ws_day["A1"] = f"DAILY ACTIVITY LOG — {current_date.strftime('%A, %B %d, %Y')}"
+        ws_day["A1"].font = font_title
+        ws_day["A1"].fill = navy_fill
+        ws_day["A1"].alignment = Alignment(horizontal="center", vertical="center")
+        ws_day.row_dimensions[1].height = 32
+
+        ws_day.append([])
+        ws_day.append(["Employee:", employee_name, "", "Working Status:", d_status])
+        ws_day.append(["Date:", current_date.isoformat(), "", "Total Tasks Logged:", len(d_logs)])
+        ws_day.append([])
+
+        for r in [3, 4]:
+            for c in [1, 4]:
+                ws_day.cell(row=r, column=c).font = font_bold
+
+        day_headers = ["Time Block", "Category", "Duration (Mins)", "Duration (Hrs)", "Type", "Notes / Task Details"]
+        ws_day.append(day_headers)
+        d_hdr_row = ws_day.max_row
+        ws_day.row_dimensions[d_hdr_row].height = 24
+
+        for c_idx, h in enumerate(day_headers, start=1):
+            cell = ws_day.cell(row=d_hdr_row, column=c_idx)
+            cell.fill = indigo_fill
+            cell.font = font_header
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+
+        d_reg_m = 0
+        d_ot_m = 0
+
+        if not d_logs:
+            ws_day.append(["-", "No activities logged on this date", 0, 0.0, "-", ""])
+            r_idx = ws_day.max_row
+            for c_idx in range(1, 7):
+                cell = ws_day.cell(row=r_idx, column=c_idx)
+                cell.font = font_muted
+                cell.border = thin_border
+        else:
+            for log, cat in d_logs:
+                tb = log.time_block.strftime("%H:%M") if hasattr(log.time_block, "strftime") else str(log.time_block)[:5]
+                mins = log.duration_minutes
+                hrs = round(mins / 60.0, 2)
+                type_str = "Overtime" if log.is_overtime else "Regular"
+
+                if log.is_overtime:
+                    d_ot_m += mins
+                else:
+                    d_reg_m += mins
+
+                ws_day.append([
+                    tb,
+                    cat.name if cat else "Other",
+                    mins,
+                    hrs,
+                    type_str,
+                    log.notes or ""
+                ])
+                r_idx = ws_day.max_row
+                for c_idx in range(1, 7):
+                    cell = ws_day.cell(row=r_idx, column=c_idx)
+                    cell.font = font_regular
+                    cell.border = thin_border
+                    if c_idx in (3, 4):
+                        cell.alignment = Alignment(horizontal="right")
+                    if c_idx == 5:
+                        cell.alignment = Alignment(horizontal="center")
+                        cell.fill = yellow_fill if log.is_overtime else green_fill
+
+        # Day Summary Total
+        d_tot_m = d_reg_m + d_ot_m
+        ws_day.append([
+            "DAILY TOTAL",
+            f"Regular: {round(d_reg_m/60.0, 2)}h | Overtime: {round(d_ot_m/60.0, 2)}h",
+            d_tot_m,
+            round(d_tot_m / 60.0, 2),
+            "",
+            ""
+        ])
+        d_tot_row = ws_day.max_row
+        ws_day.row_dimensions[d_tot_row].height = 22
+        for c_idx in range(1, 7):
+            cell = ws_day.cell(row=d_tot_row, column=c_idx)
+            cell.font = font_bold
+            cell.fill = sub_header_fill
+            cell.border = thin_border
+            if c_idx in (3, 4):
+                cell.alignment = Alignment(horizontal="right")
+
+        for col in ws_day.columns:
+            max_len = max(len(str(cell.value or '')) for cell in col)
+            col_letter = get_column_letter(col[0].column)
+            ws_day.column_dimensions[col_letter].width = max(max_len + 3, 14)
+
+        current_date += timedelta(days=1)
+
+    stream = io.BytesIO()
+    wb.save(stream)
+    stream.seek(0)
+    return stream
+
+
 @router.get("/export/me")
 def export_my_activities(
     start_date: date,
@@ -433,74 +707,10 @@ def export_my_activities(
     ).all()
     status_map = {row.log_date: row.status for row in statuses}
 
-    try:
-        import openpyxl
-        from openpyxl.styles import Font, PatternFill, Alignment
-        from openpyxl.utils import get_column_letter
-    except ImportError:
-        raise HTTPException(status_code=500, detail="openpyxl is not installed")
+    emp_name = current_user.full_name or current_user.email
+    stream = _build_multi_sheet_activity_workbook(emp_name, employee.employee_code, logs, status_map, start_date, end_date)
 
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "Activity Report"
-
-    headers = ["Date", "Status", "Time Block", "Category", "Duration (Mins)", "Overtime?", "Notes"]
-    ws.append(headers)
-
-    header_fill = PatternFill(start_color="4F46E5", end_color="4F46E5", fill_type="solid")
-    header_font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
-    for cell in ws[1]:
-        cell.fill = header_fill
-        cell.font = header_font
-        cell.alignment = Alignment(horizontal="center", vertical="center")
-
-    logs_by_date = {}
-    for log, cat in logs:
-        if log.log_date not in logs_by_date:
-            logs_by_date[log.log_date] = []
-        logs_by_date[log.log_date].append((log, cat))
-
-    from datetime import timedelta
-    current_date = start_date
-    while current_date <= end_date:
-        daily_status = status_map.get(current_date, "Working")
-        day_logs = logs_by_date.get(current_date, [])
-
-        if not day_logs:
-            ws.append([
-                current_date.isoformat(),
-                daily_status,
-                "-",
-                "-",
-                0,
-                "No",
-                ""
-            ])
-        else:
-            for log, cat in day_logs:
-                tb = log.time_block.strftime("%H:%M") if hasattr(log.time_block, "strftime") else str(log.time_block)
-                ws.append([
-                    log.log_date.isoformat(),
-                    daily_status,
-                    tb,
-                    cat.name,
-                    log.duration_minutes,
-                    "Yes" if log.is_overtime else "No",
-                    log.notes or ""
-                ])
-        current_date += timedelta(days=1)
-
-    for col in ws.columns:
-        max_len = max(len(str(cell.value or '')) for cell in col)
-        col_letter = get_column_letter(col[0].column)
-        ws.column_dimensions[col_letter].width = max(max_len + 3, 12)
-
-    stream = io.BytesIO()
-    wb.save(stream)
-    stream.seek(0)
-
-    emp_name = (current_user.full_name or current_user.email).replace(" ", "_")
-    filename = f"Activity_Report_{emp_name}_{start_date}_to_{end_date}.xlsx"
+    filename = f"Activity_Report_{emp_name.replace(' ', '_')}_{start_date}_to_{end_date}.xlsx"
     return StreamingResponse(
         stream,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -521,6 +731,7 @@ def export_employee_activities(
         raise HTTPException(status_code=404, detail="Employee not found")
         
     emp_user = db.get(User, employee.user_id)
+    emp_name = emp_user.full_name if emp_user else f"Employee_{employee_id}"
     
     logs = db.execute(
         select(ActivityLog, ActivityCategory)
@@ -542,59 +753,10 @@ def export_employee_activities(
         )
     ).all()
     status_map = {row.log_date: row.status for row in statuses}
-    
-    try:
-        import openpyxl
-    except ImportError:
-        raise HTTPException(status_code=500, detail="openpyxl is not installed")
 
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "Activities"
+    stream = _build_multi_sheet_activity_workbook(emp_name, employee.employee_code, logs, status_map, start_date, end_date)
     
-    headers = ["Date", "Status", "Time Block", "Category", "Duration (Mins)", "Overtime?", "Notes"]
-    ws.append(headers)
-    
-    logs_by_date = {}
-    for log, cat in logs:
-        if log.log_date not in logs_by_date:
-            logs_by_date[log.log_date] = []
-        logs_by_date[log.log_date].append((log, cat))
-        
-    from datetime import timedelta
-    current_date = start_date
-    while current_date <= end_date:
-        daily_status = status_map.get(current_date, "Working")
-        day_logs = logs_by_date.get(current_date, [])
-        
-        if not day_logs:
-            ws.append([
-                current_date.isoformat(),
-                daily_status,
-                "-",
-                "-",
-                0,
-                "No",
-                ""
-            ])
-        else:
-            for log, cat in day_logs:
-                ws.append([
-                    log.log_date.isoformat(),
-                    daily_status,
-                    log.time_block,
-                    cat.name,
-                    log.duration_minutes,
-                    "Yes" if log.is_overtime else "No",
-                    log.notes or ""
-                ])
-        current_date += timedelta(days=1)
-        
-    stream = io.BytesIO()
-    wb.save(stream)
-    stream.seek(0)
-    
-    filename = f"Activities_{emp_user.full_name.replace(' ', '_')}_{start_date}_to_{end_date}.xlsx"
+    filename = f"Activities_{emp_name.replace(' ', '_')}_{start_date}_to_{end_date}.xlsx"
     return StreamingResponse(
         stream, 
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
