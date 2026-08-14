@@ -401,6 +401,113 @@ def get_company_summary(
         
     return response
 
+@router.get("/export/me")
+def export_my_activities(
+    start_date: date,
+    end_date: date,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    employee = db.scalar(select(Employee).where(Employee.user_id == current_user.id, Employee.deleted_at.is_(None)))
+    if not employee:
+        raise HTTPException(status_code=404, detail="Employee profile not found")
+
+    logs = db.execute(
+        select(ActivityLog, ActivityCategory)
+        .join(ActivityCategory)
+        .where(
+            ActivityLog.employee_id == employee.id,
+            ActivityLog.log_date >= start_date,
+            ActivityLog.log_date <= end_date
+        )
+        .order_by(ActivityLog.log_date, ActivityLog.time_block)
+    ).all()
+
+    statuses = db.execute(
+        select(DailyActivityStatus.log_date, DailyActivityStatus.status)
+        .where(
+            DailyActivityStatus.employee_id == employee.id,
+            DailyActivityStatus.log_date >= start_date,
+            DailyActivityStatus.log_date <= end_date
+        )
+    ).all()
+    status_map = {row.log_date: row.status for row in statuses}
+
+    try:
+        import openpyxl
+        from openpyxl.styles import Font, PatternFill, Alignment
+        from openpyxl.utils import get_column_letter
+    except ImportError:
+        raise HTTPException(status_code=500, detail="openpyxl is not installed")
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Activity Report"
+
+    headers = ["Date", "Status", "Time Block", "Category", "Duration (Mins)", "Overtime?", "Notes"]
+    ws.append(headers)
+
+    header_fill = PatternFill(start_color="4F46E5", end_color="4F46E5", fill_type="solid")
+    header_font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
+    for cell in ws[1]:
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+
+    logs_by_date = {}
+    for log, cat in logs:
+        if log.log_date not in logs_by_date:
+            logs_by_date[log.log_date] = []
+        logs_by_date[log.log_date].append((log, cat))
+
+    from datetime import timedelta
+    current_date = start_date
+    while current_date <= end_date:
+        daily_status = status_map.get(current_date, "Working")
+        day_logs = logs_by_date.get(current_date, [])
+
+        if not day_logs:
+            ws.append([
+                current_date.isoformat(),
+                daily_status,
+                "-",
+                "-",
+                0,
+                "No",
+                ""
+            ])
+        else:
+            for log, cat in day_logs:
+                tb = log.time_block.strftime("%H:%M") if hasattr(log.time_block, "strftime") else str(log.time_block)
+                ws.append([
+                    log.log_date.isoformat(),
+                    daily_status,
+                    tb,
+                    cat.name,
+                    log.duration_minutes,
+                    "Yes" if log.is_overtime else "No",
+                    log.notes or ""
+                ])
+        current_date += timedelta(days=1)
+
+    for col in ws.columns:
+        max_len = max(len(str(cell.value or '')) for cell in col)
+        col_letter = get_column_letter(col[0].column)
+        ws.column_dimensions[col_letter].width = max(max_len + 3, 12)
+
+    stream = io.BytesIO()
+    wb.save(stream)
+    stream.seek(0)
+
+    emp_name = (current_user.full_name or current_user.email).replace(" ", "_")
+    filename = f"Activity_Report_{emp_name}_{start_date}_to_{end_date}.xlsx"
+    return StreamingResponse(
+        stream,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+
 @router.get("/export/{employee_id}")
 def export_employee_activities(
     employee_id: int,

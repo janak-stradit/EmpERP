@@ -25,9 +25,20 @@
   <div class="container pb-5">
     <a href="/dashboard" class="btn btn-sm btn-link ps-0 mb-2"><i class="bi bi-arrow-left me-1"></i>Back to Dashboard</a>
 
-    <div class="emp-page-header">
-      <h1>Daily Activity Tracker</h1>
-      <p>Log and analyze your daily task breakdown and productivity metrics.</p>
+    <div class="emp-page-header d-flex justify-content-between align-items-md-center flex-column flex-md-row gap-3 mb-4">
+      <div>
+        <h1 class="mb-1">Daily Activity Tracker</h1>
+        <p class="text-muted mb-0">Log and analyze your daily task breakdown and productivity metrics.</p>
+      </div>
+      <div class="d-flex align-items-center gap-2 flex-wrap">
+        <div class="d-flex align-items-center bg-white px-2 py-1 rounded border shadow-sm">
+          <label for="filterWeek" class="small fw-semibold text-secondary mb-0 me-2"><i class="bi bi-calendar-week me-1"></i>Week:</label>
+          <input type="week" class="form-control form-control-sm border-0 bg-transparent" id="filterWeek" style="width: 150px;" title="Select specific week">
+        </div>
+        <button type="button" class="btn btn-success text-white shadow-sm fw-semibold" id="btnExportExcel">
+          <i class="bi bi-file-earmark-excel me-1"></i>Export Excel
+        </button>
+      </div>
     </div>
 
     <div class="toast-container position-fixed top-0 end-0 p-3" id="toastContainer"></div>
@@ -166,20 +177,20 @@
               <h5 class="card-title mb-0"><i class="bi bi-list-task me-1"></i> Activity History</h5>
               <div class="d-flex align-items-center gap-2 flex-wrap">
                 <div class="btn-group btn-group-sm" role="group" id="filterPresetGroup">
-                  <button type="button" class="btn btn-outline-primary active" id="btnYesterday">Yesterday</button>
+                  <button type="button" class="btn btn-outline-primary" id="btnYesterday">Yesterday</button>
                   <button type="button" class="btn btn-outline-primary" id="btnToday">Today</button>
-                  <button type="button" class="btn btn-outline-primary" id="btnThisWeek">This Week</button>
+                  <button type="button" class="btn btn-outline-primary active" id="btnThisWeek">This Week</button>
                 </div>
-                <div class="d-flex align-items-center me-3">
-                  <label for="dailyStatusFilter" class="form-label mb-0 me-2 fw-semibold">Status:</label>
-                  <select class="form-select form-select-sm border-secondary shadow-sm" id="dailyStatusFilter" style="width: 120px;">
+                <div class="d-flex align-items-center me-2">
+                  <label for="dailyStatusFilter" class="form-label mb-0 me-1 fw-semibold small">Status:</label>
+                  <select class="form-select form-select-sm border-secondary shadow-sm" id="dailyStatusFilter" style="width: 110px;">
                     <option value="Working">Working</option>
                     <option value="On Leave">On Leave</option>
                     <option value="Holiday">Holiday</option>
                     <option value="Half Day">Half Day</option>
                   </select>
                 </div>
-                <input type="date" class="form-control form-control-sm" id="filterDate" style="width: 140px;">
+                <input type="date" class="form-control form-control-sm" id="filterDate" style="width: 135px;">
               </div>
             </div>
             <div class="table-responsive">
@@ -384,17 +395,47 @@
       }
     }
 
+    let currentExportStartDate = null;
+    let currentExportEndDate = null;
+
+    function getDatesFromWeekString(weekStr) {
+      if (!weekStr) return null;
+      const parts = weekStr.split('-W');
+      if (parts.length !== 2) return null;
+      const year = parseInt(parts[0], 10);
+      const week = parseInt(parts[1], 10);
+
+      const simple = new Date(year, 0, 1 + (week - 1) * 7);
+      const dow = simple.getDay();
+      const ISOweekStart = simple;
+      if (dow <= 4)
+        ISOweekStart.setDate(simple.getDate() - simple.getDay() + 1);
+      else
+        ISOweekStart.setDate(simple.getDate() + 8 - simple.getDay());
+
+      const monday = new Date(ISOweekStart);
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+
+      return {
+        start: monday.toISOString().split('T')[0],
+        end: sunday.toISOString().split('T')[0]
+      };
+    }
+
     function loadActivities(startDate, endDate) {
       const start = startDate || $('#filterDate').val() || getYesterdayStr();
       const end = endDate || start;
+      currentExportStartDate = start;
+      currentExportEndDate = end;
       
-      $('#activitiesTable tbody').html('<tr><td colspan="6" class="text-center py-3"><div class="spinner-border spinner-border-sm text-primary me-2"></div>Loading activities...</td></tr>');
+      $('#activitiesTable tbody').html('<tr><td colspan="7" class="text-center py-3"><div class="spinner-border spinner-border-sm text-primary me-2"></div>Loading activities...</td></tr>');
       
       $.ajax({ url: `/api/v1/activities/me?start_date=${start}&end_date=${end}`, headers: authHeader }).done(function(data) {
         renderDashboardVisuals(data);
 
         if (data.length === 0) {
-          $('#activitiesTable tbody').html(`<tr><td colspan="6" class="text-center text-muted py-4"><i class="bi bi-calendar-x fs-4 d-block mb-1"></i>No activities logged for ${start === end ? start : start + ' to ' + end}.</td></tr>`);
+          $('#activitiesTable tbody').html(`<tr><td colspan="7" class="text-center text-muted py-4"><i class="bi bi-calendar-x fs-4 d-block mb-1"></i>No activities logged for ${start === end ? start : start + ' to ' + end}.</td></tr>`);
           return;
         }
         let rows = '';
@@ -428,7 +469,7 @@
         });
         $('#activitiesTable tbody').html(rows);
       }).fail(function() {
-        $('#activitiesTable tbody').html('<tr><td colspan="6" class="text-center text-danger py-3">Failed to load activity logs.</td></tr>');
+        $('#activitiesTable tbody').html('<tr><td colspan="7" class="text-center text-danger py-3">Failed to load activity logs.</td></tr>');
       });
     }
 
@@ -516,6 +557,19 @@
         loadDailyStatus(start);
       });
 
+      $('#filterWeek').on('change', function() {
+        const weekVal = $(this).val();
+        if (!weekVal) return;
+        const dates = getDatesFromWeekString(weekVal);
+        if (dates) {
+          $('#filterPresetGroup .btn').removeClass('active');
+          $('#filterDate').val(dates.start);
+          $('#logDate').val(dates.start);
+          loadActivities(dates.start, dates.end);
+          loadDailyStatus(dates.start);
+        }
+      });
+
       $('#filterDate').on('change', function() {
         const val = $(this).val();
         $('#filterPresetGroup .btn').removeClass('active');
@@ -527,6 +581,45 @@
         $('#logDate').val(val);
         loadActivities(val, val);
         loadDailyStatus(val);
+      });
+
+      $('#btnExportExcel').on('click', function() {
+        const start = currentExportStartDate || getStartOfWeek();
+        const end = currentExportEndDate || getEndOfWeek();
+        
+        const token = sessionStorage.getItem('access_token');
+        const exportUrl = `/api/v1/activities/export/me?start_date=${start}&end_date=${end}`;
+        
+        const $btn = $(this);
+        const origHtml = $btn.html();
+        $btn.html('<span class="spinner-border spinner-border-sm me-1"></span>Exporting...');
+        $btn.prop('disabled', true);
+
+        fetch(exportUrl, {
+          headers: { 'Authorization': 'Bearer ' + token }
+        })
+        .then(res => {
+          if (!res.ok) throw new Error('Failed to generate activity report');
+          return res.blob();
+        })
+        .then(blob => {
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `Activity_Report_${start}_to_${end}.xlsx`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          window.URL.revokeObjectURL(url);
+          showToast('Excel report downloaded successfully');
+        })
+        .catch(err => {
+          showToast(err.message || 'Error exporting activity report', 'danger');
+        })
+        .finally(() => {
+          $btn.html(origHtml);
+          $btn.prop('disabled', false);
+        });
       });
 
       function updateTimeBlockForDate(dateStr) {
