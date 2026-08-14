@@ -434,7 +434,8 @@
 
     $(document).ready(function() {
       // Default log date for new entries is Today
-      $('#logDate').val(getTodayStr());
+      const todayStr = getTodayStr();
+      $('#logDate').val(todayStr);
       
       // Default filter date for view is Previous Date (Yesterday)
       const yesterday = getYesterdayStr();
@@ -443,6 +444,7 @@
       loadCategories();
       loadActivities(yesterday, yesterday);
       loadDailyStatus(yesterday);
+      updateTimeBlockForDate(todayStr);
 
       function loadDailyStatus(dateStr) {
         $.ajax({ url: `/api/v1/activities/status/${dateStr}`, headers: authHeader }).done(function(data) {
@@ -527,8 +529,25 @@
         loadDailyStatus(val);
       });
 
+      function updateTimeBlockForDate(dateStr) {
+        if (editingLogId) return;
+        $.ajax({ url: `/api/v1/activities/me?start_date=${dateStr}&end_date=${dateStr}`, headers: authHeader }).done(function(data) {
+          if (data.length > 0) {
+            const latestLog = data.reduce((prev, current) => (prev.time_block > current.time_block) ? prev : current);
+            const [hStr, mStr] = latestLog.time_block.split(':');
+            const d = new Date();
+            d.setHours(parseInt(hStr, 10));
+            d.setMinutes(parseInt(mStr, 10) + latestLog.duration_minutes);
+            const nextH = d.getHours().toString().padStart(2, '0');
+            const nextM = d.getMinutes().toString().padStart(2, '0');
+            $('#timeBlock').val(`${nextH}:${nextM}`);
+          }
+        });
+      }
+
       $('#logDate').on('change', function() {
         const val = $(this).val();
+        updateTimeBlockForDate(val);
         $.ajax({ url: `/api/v1/activities/status/${val}`, headers: authHeader }).done(function(data) {
           checkStatusRestrictions(data.status);
         }).fail(function() {
@@ -577,7 +596,18 @@
           data: JSON.stringify(payload)
         }).done(function() {
           showToast(isEdit ? 'Activity updated successfully' : 'Activity logged successfully');
+          
+          const submittedDuration = parseInt($('#durationMinutes').val());
+          const [hStr, mStr] = timeVal.split(':');
+          
           resetForm();
+          
+          const d = new Date();
+          d.setHours(parseInt(hStr, 10));
+          d.setMinutes(parseInt(mStr, 10) + submittedDuration);
+          const nextH = d.getHours().toString().padStart(2, '0');
+          const nextM = d.getMinutes().toString().padStart(2, '0');
+          $('#timeBlock').val(`${nextH}:${nextM}`);
           
           // Update view to the date of logged activity
           $('#filterDate').val(targetDate);
@@ -604,7 +634,8 @@
         $('#submitActivityBtn').html('<i class="bi bi-pencil me-1"></i>Update Activity');
         $('#cancelEditBtn').removeClass('d-none');
         
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        // Prevent unwanted scrolling on wide screens where form is already visible
+        document.getElementById('activityForm').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       });
 
       $(document).on('click', '.btn-delete-activity', function() {
