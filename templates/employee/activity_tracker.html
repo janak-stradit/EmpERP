@@ -198,7 +198,7 @@
                 <thead>
                   <tr>
                     <th>Date</th>
-                    <th>Time</th>
+                    <th class="text-nowrap"><i class="bi bi-clock me-1"></i>Time (Start &ndash; End)</th>
                     <th>Category</th>
                     <th>Duration</th>
                     <th>Type</th>
@@ -423,6 +423,24 @@
       };
     }
 
+    function formatTimeRange(timeBlockStr, durationMinutes) {
+      if (!timeBlockStr) return '-';
+      const startStr = timeBlockStr.substring(0, 5);
+      const parts = startStr.split(':');
+      if (parts.length < 2) return startStr;
+      
+      let hours = parseInt(parts[0], 10);
+      let minutes = parseInt(parts[1], 10);
+      
+      const d = new Date();
+      d.setHours(hours, minutes + (durationMinutes || 0), 0);
+      
+      const endH = d.getHours().toString().padStart(2, '0');
+      const endM = d.getMinutes().toString().padStart(2, '0');
+      
+      return `<span class="fw-semibold text-navy">${startStr}</span> &ndash; <span class="fw-semibold text-primary">${endH}:${endM}</span>`;
+    }
+
     function loadActivities(startDate, endDate) {
       const start = startDate || $('#filterDate').val() || getYesterdayStr();
       const end = endDate || start;
@@ -442,11 +460,12 @@
         data.forEach(log => {
           const catName = log.category ? log.category.name : 'Unknown';
           const typeBadge = log.is_overtime ? '<span class="badge bg-warning text-dark">Overtime</span>' : '<span class="badge bg-success">Regular</span>';
+          const timeRangeDisplay = formatTimeRange(log.time_block, log.duration_minutes);
           rows += `<tr>
-            <td>${log.log_date}</td>
-            <td>${log.time_block.substring(0, 5)}</td>
+            <td class="text-nowrap">${log.log_date}</td>
+            <td class="text-nowrap">${timeRangeDisplay}</td>
             <td>${catName}</td>
-            <td>${log.duration_minutes}m</td>
+            <td class="text-nowrap">${log.duration_minutes}m</td>
             <td>${typeBadge}</td>
             <td>${log.notes || ''}</td>
             <td class="text-end text-nowrap">
