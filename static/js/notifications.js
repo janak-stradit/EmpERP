@@ -18,7 +18,7 @@
   }
 
   function injectBell() {
-    const nav = document.querySelector('.navbar-nav');
+    const nav = document.querySelector('.emp-navbar-collapse') || document.querySelector('.navbar-nav');
     if (!nav || document.getElementById('notifBellItem')) return;
 
     const wrapper = document.createElement('div');

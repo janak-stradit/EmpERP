@@ -1,6 +1,6 @@
 from app.api.deps import HR_WRITE_ROLES, ADMIN_ROLES
 
-ALWAYS_ON_MODULES = {"profile", "activity_tracker"}
+ALWAYS_ON_MODULES = {"profile", "activity_tracker", "tickets"}
 
 MODULE_CATALOG: dict[str, str] = {
     "profile": "My Profile",
@@ -11,9 +11,10 @@ MODULE_CATALOG: dict[str, str] = {
     "manager_team": "Team Approvals",
     "manager_activities": "Team Activities",
     "admin_activity_reports": "Company Activities",
+    "tickets": "Tickets",
 }
 
-BASE_MODULES = ("profile", "activity_tracker", "pms")
+BASE_MODULES = ("profile", "activity_tracker", "pms", "tickets")
 HR_MODULES = (
     "hr_employees",
 )

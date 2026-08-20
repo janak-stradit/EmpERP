@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Stradit Workforce &mdash; Backlog</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="/static/css/app.css" rel="stylesheet">
+  <style nonce="{{ csp_nonce }}">
+    #viewTabs.nav-pills .nav-link { font-size: .8rem; font-weight: 700; color: var(--emp-text-muted); padding: .4rem .9rem; border: 1px solid transparent; }
+    #viewTabs.nav-pills .nav-link:hover { background: var(--emp-secondary-light); }
+    #viewTabs.nav-pills .nav-link.active { background: var(--emp-primary); color: #fff; }
+    .backlog-row { background: var(--emp-surface); border: 1px solid var(--emp-border); border-left: 3px solid var(--emp-border-strong); padding: .5rem .75rem; margin-bottom: .4rem; cursor: grab; display: flex; align-items: center; gap: .6rem; box-shadow: var(--emp-shadow-xs); }
+    .backlog-row:hover { box-shadow: 0 1px 4px rgba(0,0,0,.1); }
+    .backlog-list { min-height: 40px; background: var(--emp-neutral-bg); border: 1px solid var(--emp-border); padding: .5rem; }
+    .sortable-ghost { opacity: .4; }
+    .sprint-section-header { cursor: pointer; }
+  </style>
+</head>
+<body>
+  <nav class="navbar emp-navbar mb-4">
+    <div class="container-fluid px-4">
+      <a class="navbar-brand" href="/dashboard"><i class="bi bi-buildings me-2"></i><span>Stradit Workforce</span></a>
+      <button class="emp-navbar-toggler ms-auto" id="empNavToggler" aria-label="Toggle navigation">
+        <i class="bi bi-list"></i>
+      </button>
+      <div class="emp-navbar-collapse" id="empNavCollapse">
+        <a class="nav-link" href="/dashboard"><i class="bi bi-grid me-1"></i>Dashboard</a>
+        <a class="nav-link" href="#" id="logoutLink"><i class="bi bi-box-arrow-right me-1"></i>Logout</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="toast-container position-fixed top-0 end-0 p-3" id="toastContainer"></div>
+
+  <div class="container pb-5">
+    <a href="/tickets" class="btn btn-sm btn-link ps-0 mb-2"><i class="bi bi-arrow-left me-1"></i>All Projects</a>
+
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
+      <div>
+        <span class="badge bg-secondary" id="projectKeyBadge">&mdash;</span>
+        <h3 class="d-inline ms-2" id="projectName"></h3>
+      </div>
+      <button class="btn btn-outline-primary btn-sm" id="newSprintBtn"><i class="bi bi-plus-lg me-1"></i>New Sprint</button>
+    </div>
+
+    <ul class="nav nav-pills mb-3" id="viewTabs"></ul>
+
+    <div class="card mb-3 d-none" id="bulkActionBar">
+      <div class="card-body py-2 d-flex flex-wrap align-items-center gap-2">
+        <span class="small fw-semibold" id="bulkCount">0 selected</span>
+        <select class="form-select form-select-sm" style="width: auto;" id="bulkSprintSelect">
+          <option value="">Move to&hellip;</option>
+          <option value="backlog">Backlog</option>
+        </select>
+        <button class="btn btn-sm btn-outline-danger ms-auto" id="bulkDeleteBtn"><i class="bi bi-trash me-1"></i>Delete</button>
+        <button class="btn btn-sm btn-outline-secondary" id="bulkClearBtn">Clear</button>
+      </div>
+    </div>
+
+    <div id="sprintSections"></div>
+
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span class="fw-semibold"><i class="bi bi-collection me-1"></i>Backlog</span>
+        <button class="btn btn-sm btn-primary" id="addBacklogTicketBtn"><i class="bi bi-plus-lg me-1"></i>Create Ticket</button>
+      </div>
+      <div class="card-body">
+        <div class="backlog-list" data-sprint="backlog" id="backlogList"></div>
+        <div class="text-muted small mt-2 d-none" id="backlogEmpty">Nothing in the backlog.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- New Sprint Modal -->
+  <div class="modal fade" id="newSprintModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <form id="newSprintForm">
+          <div class="modal-header">
+            <h5 class="modal-title"><i class="bi bi-plus-lg me-1"></i>New Sprint</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-3">
+              <label class="form-label small">Name</label>
+              <input type="text" class="form-control" id="sprintName" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label small">Goal</label>
+              <input type="text" class="form-control" id="sprintGoal">
+            </div>
+            <div class="row g-2">
+              <div class="col-6">
+                <label class="form-label small">Start date</label>
+                <input type="date" class="form-control" id="sprintStart">
+              </div>
+              <div class="col-6">
+                <label class="form-label small">End date</label>
+                <input type="date" class="form-control" id="sprintEnd">
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Create Sprint</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Complete Sprint Modal -->
+  <div class="modal fade" id="completeSprintModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <form id="completeSprintForm">
+          <input type="hidden" id="completeSprintId">
+          <div class="modal-header">
+            <h5 class="modal-title"><i class="bi bi-flag me-1"></i>Complete Sprint</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <p class="small text-muted">What should happen to tickets that aren't Done?</p>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="incompleteAction" id="actionBacklog" value="backlog" checked>
+              <label class="form-check-label" for="actionBacklog">Move to backlog</label>
+            </div>
+            <div class="form-check mb-2">
+              <input class="form-check-input" type="radio" name="incompleteAction" id="actionNextSprint" value="next_sprint">
+              <label class="form-check-label" for="actionNextSprint">Move to another sprint</label>
+            </div>
+            <select class="form-select form-select-sm d-none" id="targetSprintSelect"></select>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Complete Sprint</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- New Ticket Modal -->
+  <div class="modal fade" id="newTicketModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <form id="newTicketForm">
+          <input type="hidden" id="newTicketSprintId">
+          <div class="modal-header">
+            <h5 class="modal-title"><i class="bi bi-plus-lg me-1"></i>Create Ticket</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-3">
+              <label class="form-label small">Summary</label>
+              <input type="text" class="form-control" id="ticket_summary" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label small">Description</label>
+              <textarea class="form-control" id="ticket_description" rows="3"></textarea>
+            </div>
+            <div class="row g-2">
+              <div class="col-md-4">
+                <label class="form-label small">Issue type</label>
+                <select class="form-select form-select-sm" id="ticket_issue_type_id" required></select>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small">Priority</label>
+                <select class="form-select form-select-sm" id="ticket_priority_id"><option value="">None</option></select>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small">Assignee</label>
+                <select class="form-select form-select-sm" id="ticket_assignee_id"><option value="">Unassigned</option></select>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small">Story points</label>
+                <input type="number" min="0" class="form-control form-control-sm" id="ticket_story_points">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small">Due date</label>
+                <input type="date" class="form-control form-control-sm" id="ticket_due_date">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small">Original estimate (min)</label>
+                <input type="number" min="0" class="form-control form-control-sm" id="ticket_original_estimate">
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Create Ticket</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="/static/js/app-ux.js"></script>
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="/static/js/notifications.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+  <script nonce="{{ csp_nonce }}">
+    const token = sessionStorage.getItem('access_token');
+    if (!token) { window.location.href = '/auth/login'; }
+    const authHeader = { Authorization: 'Bearer ' + token };
+    const projectId = {{ project_id }};
+
+    function showToast(message, variant) {
+      const bg = variant === 'success' ? 'text-bg-success' : 'text-bg-danger';
+      const icon = variant === 'success' ? 'bi-check-circle' : 'bi-exclamation-triangle';
+      const toastEl = $(
+        '<div class="toast align-items-center ' + bg + ' border-0" role="alert">' +
+          '<div class="d-flex">' +
+            '<div class="toast-body"><i class="bi ' + icon + ' me-2"></i>' + message + '</div>' +
+            '<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>' +
+          '</div>' +
+        '</div>'
+      );
+      $('#toastContainer').append(toastEl);
+      const toast = new bootstrap.Toast(toastEl[0], { delay: 4000 });
+      toast.show();
+      toastEl.on('hidden.bs.toast', function () { toastEl.remove(); });
+    }
+    function showError(message) { showToast(message, 'danger'); }
+    function showSuccess(message) { showToast(message, 'success'); }
+    function escapeHtml(str) { return $('<div>').text(str == null ? '' : str).html(); }
+
+    $('#viewTabs').html(
+      ['Board', 'List', 'Backlog', 'Calendar', 'Dashboard'].map(function (v) {
+        const url = v === 'List' ? '/tickets/project/' + projectId : '/tickets/project/' + projectId + '/' + v.toLowerCase();
+        const active = v === 'Backlog' ? ' active' : '';
+        return '<li class="nav-item"><a class="nav-link' + active + '" href="' + url + '">' + v + '</a></li>';
+      }).join('')
+    );
+
+    let selectedIds = new Set();
+    let backlogData = null;
+
+    function loadProject() {
+      $.ajax({ url: '/api/v1/projects/' + projectId, headers: authHeader }).done(function (p) {
+        $('#projectKeyBadge').text(p.key);
+        $('#projectName').text(p.name);
+        document.title = 'Stradit Workforce — ' + p.name + ' Backlog';
+      });
+    }
+
+    function loadIssueTypesAndEmployees() {
+      $.ajax({ url: '/api/v1/issue-types', headers: authHeader }).done(function (d) {
+        $('#ticket_issue_type_id').html(d.map(function (t) { return '<option value="' + t.id + '">' + escapeHtml(t.name) + '</option>'; }).join(''));
+      });
+      $.ajax({ url: '/api/v1/priorities', headers: authHeader }).done(function (d) {
+        $('#ticket_priority_id').html('<option value="">None</option>' + d.map(function (p) { return '<option value="' + p.id + '">' + escapeHtml(p.name) + '</option>'; }).join(''));
+      });
+      $.ajax({ url: '/api/v1/employees', headers: authHeader }).done(function (d) {
+        const options = d.map(function (e) { return '<option value="' + e.id + '">' + escapeHtml(e.employee_code + ' - ' + e.full_name) + '</option>'; }).join('');
+        $('#ticket_assignee_id').html('<option value="">Unassigned</option>' + options);
+      });
+    }
+
+    function rowHtml(t) {
+      return '<div class="backlog-row" data-id="' + t.id + '">' +
+        '<input type="checkbox" class="row-checkbox" data-id="' + t.id + '">' +
+        '<span class="text-muted small fw-semibold" style="width: 70px;">' + escapeHtml(t.ticket_key) + '</span>' +
+        '<span class="flex-grow-1 small ticket-open" data-id="' + t.id + '" style="cursor:pointer;">' + escapeHtml(t.summary) + '</span>' +
+        '<span class="badge" style="background-color:' + t.issue_type.color + '; color:#fff;">' + escapeHtml(t.issue_type.name) + '</span>' +
+        (t.story_points != null ? '<span class="badge bg-light text-dark border">' + t.story_points + '</span>' : '') +
+        '<span class="small text-muted" style="width: 120px;">' + escapeHtml(t.assignee_name || 'Unassigned') + '</span>' +
+      '</div>';
+    }
+
+    function sprintStatsHtml(s) {
+      return '<span class="small text-muted">' + s.ticket_count + ' ticket' + (s.ticket_count === 1 ? '' : 's') +
+        (s.total_points ? (' &middot; ' + s.completed_points + '/' + s.total_points + ' pts') : '') +
+        (s.start_date ? (' &middot; ' + s.start_date + ' &rarr; ' + s.end_date) : '') + '</span>';
+    }
+
+    function renderBacklog() {
+      const data = backlogData;
+      let html = '';
+
+      if (data.active_sprint) {
+        const s = data.active_sprint;
+        html += '<div class="card mb-3">' +
+          '<div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">' +
+            '<div><span class="badge bg-success me-2">Active</span><strong>' + escapeHtml(s.name) + '</strong> ' +
+              (s.goal ? '<span class="text-muted small">— ' + escapeHtml(s.goal) + '</span>' : '') + '<br>' + sprintStatsHtml(s) + '</div>' +
+            '<button class="btn btn-sm btn-outline-primary complete-sprint-btn" data-id="' + s.id + '"><i class="bi bi-flag me-1"></i>Complete Sprint</button>' +
+          '</div>' +
+          '<div class="card-body"><div class="backlog-list" data-sprint="' + s.id + '" id="sprintList' + s.id + '">' +
+            data.active_sprint_tickets.map(rowHtml).join('') + '</div></div>' +
+        '</div>';
+      }
+
+      data.future_sprints.forEach(function (s) {
+        const tickets = data.future_sprint_tickets[s.id] || [];
+        html += '<div class="card mb-3">' +
+          '<div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">' +
+            '<div><strong>' + escapeHtml(s.name) + '</strong> ' + (s.goal ? '<span class="text-muted small">— ' + escapeHtml(s.goal) + '</span>' : '') +
+              '<br>' + sprintStatsHtml(s) + '</div>' +
+            '<span>' +
+              (!data.active_sprint ? '<button class="btn btn-sm btn-outline-success start-sprint-btn" data-id="' + s.id + '"><i class="bi bi-play-fill me-1"></i>Start Sprint</button> ' : '') +
+              '<button class="btn btn-sm btn-outline-danger delete-sprint-btn" data-id="' + s.id + '"><i class="bi bi-trash"></i></button>' +
+            '</span>' +
+          '</div>' +
+          '<div class="card-body"><div class="backlog-list" data-sprint="' + s.id + '" id="sprintList' + s.id + '">' +
+            tickets.map(rowHtml).join('') + '</div></div>' +
+        '</div>';
+      });
+
+      $('#sprintSections').html(html);
+      $('#backlogList').html(data.backlog_tickets.map(rowHtml).join(''));
+      $('#backlogEmpty').toggleClass('d-none', data.backlog_tickets.length > 0);
+
+      // Populate bulk "move to" and "complete sprint target" selects
+      const sprintOptions = data.future_sprints.map(function (s) { return '<option value="' + s.id + '">' + escapeHtml(s.name) + '</option>'; }).join('');
+      $('#bulkSprintSelect').html('<option value="">Move to&hellip;</option><option value="backlog">Backlog</option>' +
+        (data.active_sprint ? '<option value="' + data.active_sprint.id + '">' + escapeHtml(data.active_sprint.name) + '</option>' : '') + sprintOptions);
+      $('#targetSprintSelect').html(sprintOptions);
+
+      document.querySelectorAll('.backlog-list').forEach(function (el) {
+        new Sortable(el, {
+          group: 'backlog',
+          animation: 150,
+          ghostClass: 'sortable-ghost',
+          onEnd: function (evt) {
+            const ticketId = parseInt(evt.item.getAttribute('data-id'), 10);
+            const sprintAttr = evt.to.getAttribute('data-sprint');
+            const sprintId = sprintAttr === 'backlog' ? null : parseInt(sprintAttr, 10);
+            $.ajax({
+              url: '/api/v1/tickets/' + ticketId + '/sprint', method: 'POST', contentType: 'application/json',
+              headers: authHeader, data: JSON.stringify({ sprint_id: sprintId })
+            }).done(loadBacklog)
+              .fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to move ticket.'); loadBacklog(); });
+          }
+        });
+      });
+
+      selectedIds.clear();
+      updateBulkBar();
+    }
+
+    function loadBacklog() {
+      $.ajax({ url: '/api/v1/projects/' + projectId + '/backlog', headers: authHeader }).done(function (data) {
+        backlogData = data;
+        renderBacklog();
+      }).fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to load backlog.'); });
+    }
+
+    $(document).on('click', '.ticket-open', function () { window.location.href = '/tickets/' + $(this).data('id'); });
+
+    $(document).on('change', '.row-checkbox', function () {
+      const id = $(this).data('id');
+      if (this.checked) selectedIds.add(id); else selectedIds.delete(id);
+      updateBulkBar();
+    });
+    function updateBulkBar() {
+      $('#bulkCount').text(selectedIds.size + ' selected');
+      $('#bulkActionBar').toggleClass('d-none', selectedIds.size === 0);
+    }
+    $('#bulkClearBtn').on('click', function () {
+      selectedIds.clear();
+      $('.row-checkbox').prop('checked', false);
+      updateBulkBar();
+    });
+    $('#bulkDeleteBtn').on('click', function () {
+      if (!confirm('Delete ' + selectedIds.size + ' ticket(s)?')) return;
+      $.ajax({
+        url: '/api/v1/tickets/bulk', method: 'POST', contentType: 'application/json', headers: authHeader,
+        data: JSON.stringify({ ticket_ids: Array.from(selectedIds), delete: true })
+      }).done(function () { showSuccess('Deleted.'); loadBacklog(); })
+        .fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to delete.'); });
+    });
+    $('#bulkSprintSelect').on('change', function () {
+      const v = $(this).val();
+      if (!v) return;
+      const sprintId = v === 'backlog' ? null : parseInt(v, 10);
+      $.ajax({
+        url: '/api/v1/tickets/bulk', method: 'POST', contentType: 'application/json', headers: authHeader,
+        data: JSON.stringify({ ticket_ids: Array.from(selectedIds), sprint_id: sprintId })
+      }).done(function () { showSuccess('Moved.'); loadBacklog(); })
+        .fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to move.'); });
+      $(this).val('');
+    });
+
+    // ---- Sprint CRUD ----
+    $('#newSprintBtn').on('click', function () { new bootstrap.Modal('#newSprintModal').show(); });
+    $('#newSprintForm').on('submit', function (e) {
+      e.preventDefault();
+      $.ajax({
+        url: '/api/v1/projects/' + projectId + '/sprints', method: 'POST', contentType: 'application/json', headers: authHeader,
+        data: JSON.stringify({
+          name: $('#sprintName').val(), goal: $('#sprintGoal').val() || null,
+          start_date: $('#sprintStart').val() || null, end_date: $('#sprintEnd').val() || null
+        })
+      }).done(function () {
+        bootstrap.Modal.getInstance(document.getElementById('newSprintModal')).hide();
+        $('#newSprintForm')[0].reset();
+        showSuccess('Sprint created.');
+        loadBacklog();
+      }).fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to create sprint.'); });
+    });
+
+    $(document).on('click', '.start-sprint-btn', function () {
+      const id = $(this).data('id');
+      $.ajax({ url: '/api/v1/sprints/' + id + '/start', method: 'POST', headers: authHeader })
+        .done(function () { showSuccess('Sprint started.'); loadBacklog(); })
+        .fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to start sprint.'); });
+    });
+
+    $(document).on('click', '.delete-sprint-btn', function () {
+      const id = $(this).data('id');
+      if (!confirm('Delete this sprint? Its tickets will move to the backlog.')) return;
+      $.ajax({ url: '/api/v1/sprints/' + id, method: 'DELETE', headers: authHeader })
+        .done(loadBacklog)
+        .fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to delete sprint.'); });
+    });
+
+    $(document).on('click', '.complete-sprint-btn', function () {
+      $('#completeSprintId').val($(this).data('id'));
+      new bootstrap.Modal('#completeSprintModal').show();
+    });
+    $('input[name=incompleteAction]').on('change', function () {
+      $('#targetSprintSelect').toggleClass('d-none', $(this).val() !== 'next_sprint' || !this.checked);
+    });
+    $('#completeSprintForm').on('submit', function (e) {
+      e.preventDefault();
+      const action = $('input[name=incompleteAction]:checked').val();
+      $.ajax({
+        url: '/api/v1/sprints/' + $('#completeSprintId').val() + '/complete', method: 'POST', contentType: 'application/json',
+        headers: authHeader,
+        data: JSON.stringify({
+          incomplete_action: action,
+          target_sprint_id: action === 'next_sprint' ? parseInt($('#targetSprintSelect').val(), 10) : null
+        })
+      }).done(function () {
+        bootstrap.Modal.getInstance(document.getElementById('completeSprintModal')).hide();
+        showSuccess('Sprint completed.');
+        loadBacklog();
+      }).fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to complete sprint.'); });
+    });
+
+    // ---- Create ticket (backlog) ----
+    $('#addBacklogTicketBtn').on('click', function () {
+      $('#newTicketSprintId').val('');
+      new bootstrap.Modal('#newTicketModal').show();
+    });
+    $('#newTicketForm').on('submit', function (e) {
+      e.preventDefault();
+      const sprintId = $('#newTicketSprintId').val();
+      $.ajax({
+        url: '/api/v1/tickets', method: 'POST', contentType: 'application/json', headers: authHeader,
+        data: JSON.stringify({
+          project_id: projectId,
+          summary: $('#ticket_summary').val(),
+          description: $('#ticket_description').val() || null,
+          issue_type_id: parseInt($('#ticket_issue_type_id').val(), 10),
+          priority_id: $('#ticket_priority_id').val() ? parseInt($('#ticket_priority_id').val(), 10) : null,
+          assignee_id: $('#ticket_assignee_id').val() ? parseInt($('#ticket_assignee_id').val(), 10) : null,
+          story_points: $('#ticket_story_points').val() ? parseInt($('#ticket_story_points').val(), 10) : null,
+          due_date: $('#ticket_due_date').val() || null,
+          original_estimate: $('#ticket_original_estimate').val() ? parseInt($('#ticket_original_estimate').val(), 10) : null,
+          sprint_id: sprintId ? parseInt(sprintId, 10) : null
+        })
+      }).done(function (ticket) {
+        bootstrap.Modal.getInstance(document.getElementById('newTicketModal')).hide();
+        $('#newTicketForm')[0].reset();
+        showSuccess(ticket.ticket_key + ' created.');
+        loadBacklog();
+      }).fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to create ticket.'); });
+    });
+
+    loadProject();
+    loadIssueTypesAndEmployees();
+    loadBacklog();
+
+    $('#logoutLink').on('click', function (e) {
+      e.preventDefault();
+      sessionStorage.clear();
+      window.location.href = '/auth/login';
+    });
+  </script>
+</body>
+</html>

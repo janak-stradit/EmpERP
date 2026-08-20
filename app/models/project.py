@@ -1,0 +1,82 @@
+import enum
+from datetime import date
+
+from sqlalchemy import Boolean, Date, Enum, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.db.base import Base
+from app.models.mixins import CreatedAtMixin, TimestampMixin
+
+
+class StatusCategory(str, enum.Enum):
+    TODO = "todo"
+    INPROGRESS = "inprogress"
+    DONE = "done"
+
+
+class SprintStatus(str, enum.Enum):
+    FUTURE = "future"
+    ACTIVE = "active"
+    COMPLETED = "completed"
+    CLOSED = "closed"
+
+
+class Project(TimestampMixin, Base):
+    __tablename__ = "projects"
+    __table_args__ = (UniqueConstraint("company_id", "key", name="uq_project_company_key"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    company_id: Mapped[int] = mapped_column(ForeignKey("companies.id"), nullable=False, index=True)
+    key: Mapped[str] = mapped_column(String(10), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    lead_id: Mapped[int | None] = mapped_column(ForeignKey("employees.id"), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+
+class ProjectMember(CreatedAtMixin, Base):
+    __tablename__ = "project_members"
+    __table_args__ = (UniqueConstraint("project_id", "employee_id", name="uq_project_member"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), nullable=False, index=True)
+    employee_id: Mapped[int] = mapped_column(ForeignKey("employees.id"), nullable=False, index=True)
+    role: Mapped[str] = mapped_column(String(20), nullable=False, default="developer")
+
+
+class ProjectWatcher(CreatedAtMixin, Base):
+    __tablename__ = "project_watchers"
+    __table_args__ = (UniqueConstraint("project_id", "employee_id", name="uq_project_watcher"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), nullable=False, index=True)
+    employee_id: Mapped[int] = mapped_column(ForeignKey("employees.id"), nullable=False, index=True)
+
+
+class TicketStatus(Base):
+    __tablename__ = "ticket_statuses"
+    __table_args__ = (UniqueConstraint("project_id", "name", name="uq_ticket_status_project_name"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(50), nullable=False)
+    category: Mapped[StatusCategory] = mapped_column(Enum(StatusCategory, name="status_category"), nullable=False)
+    color: Mapped[str] = mapped_column(String(7), nullable=False, default="#6c757d")
+    position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    is_default: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    wip_limit: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+
+class Sprint(TimestampMixin, Base):
+    __tablename__ = "sprints"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    goal: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[SprintStatus] = mapped_column(
+        Enum(SprintStatus, name="sprint_status"), nullable=False, default=SprintStatus.FUTURE
+    )
+    start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    committed_points: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

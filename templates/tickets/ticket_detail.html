@@ -1,0 +1,556 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Stradit Workforce &mdash; Ticket</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="/static/css/app.css" rel="stylesheet">
+</head>
+<body>
+  <nav class="navbar emp-navbar mb-4">
+    <div class="container">
+      <a class="navbar-brand" href="/dashboard"><i class="bi bi-buildings me-2"></i><span>Stradit Workforce</span></a>
+      <button class="emp-navbar-toggler ms-auto" id="empNavToggler" aria-label="Toggle navigation">
+        <i class="bi bi-list"></i>
+      </button>
+      <div class="emp-navbar-collapse" id="empNavCollapse">
+        <a class="nav-link" href="/dashboard"><i class="bi bi-grid me-1"></i>Dashboard</a>
+        <a class="nav-link" href="#" id="logoutLink"><i class="bi bi-box-arrow-right me-1"></i>Logout</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="toast-container position-fixed top-0 end-0 p-3" id="toastContainer"></div>
+
+  <div class="container pb-5">
+    <div class="emp-breadcrumb mb-2" id="breadcrumb">
+      <a href="/tickets">Projects</a> &rsaquo; <a href="#" id="projectLink">&hellip;</a> &rsaquo; <span id="ticketKeyCrumb">&hellip;</span>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+      <h2 id="ticketSummary" class="mb-0" contenteditable="true" spellcheck="false"></h2>
+      <div class="d-flex gap-2 flex-shrink-0">
+        <button class="btn btn-sm btn-outline-primary" id="assignToMeBtn"><i class="bi bi-person-check me-1"></i>Assign to Me</button>
+        <button class="btn btn-sm btn-outline-secondary" id="watchBtn"><i class="bi bi-eye me-1"></i><span id="watchLabel">Watch</span></button>
+        <button class="btn btn-sm btn-outline-danger" id="deleteTicketBtn"><i class="bi bi-trash me-1"></i>Delete</button>
+      </div>
+    </div>
+
+    <div class="row g-4">
+      <!-- Left column -->
+      <div class="col-lg-8">
+        <div class="card mb-3">
+          <div class="card-body">
+            <h6 class="text-muted text-uppercase small mb-2">Description</h6>
+            <div id="descriptionView" style="white-space: pre-wrap; cursor: text;"></div>
+            <textarea class="form-control d-none" id="descriptionEdit" rows="5"></textarea>
+          </div>
+        </div>
+
+        <div class="card mb-3">
+          <div class="card-body">
+            <h6 class="text-muted text-uppercase small mb-3">Attachments</h6>
+            <form id="uploadForm" class="d-flex gap-2 mb-3">
+              <input type="file" class="form-control form-control-sm" id="attachmentFile" required>
+              <button type="submit" class="btn btn-sm btn-outline-primary flex-shrink-0"><i class="bi bi-upload me-1"></i>Upload</button>
+            </form>
+            <ul class="list-group list-group-flush" id="attachmentList"></ul>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-body">
+            <h6 class="text-muted text-uppercase small mb-3">Activity</h6>
+            <form id="commentForm" class="mb-3">
+              <textarea class="form-control mb-2" id="commentBody" rows="2" placeholder="Add a comment&hellip;" required></textarea>
+              <div class="d-flex justify-content-between align-items-center">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" id="commentInternal">
+                  <label class="form-check-label small" for="commentInternal">Internal note</label>
+                </div>
+                <button type="submit" class="btn btn-sm btn-primary"><i class="bi bi-send me-1"></i>Comment</button>
+              </div>
+            </form>
+            <div id="activityStream"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right column -->
+      <div class="col-lg-4">
+        <div class="card">
+          <div class="card-body">
+            <div class="mb-3">
+              <label class="form-label small text-muted">Status</label>
+              <select class="form-select form-select-sm" id="fieldStatus"></select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label small text-muted">Assignee</label>
+              <select class="form-select form-select-sm" id="fieldAssignee"><option value="">Unassigned</option></select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label small text-muted">Priority</label>
+              <select class="form-select form-select-sm" id="fieldPriority"><option value="">None</option></select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label small text-muted">Issue Type</label>
+              <select class="form-select form-select-sm" id="fieldIssueType"></select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label small text-muted">Due date</label>
+              <input type="date" class="form-control form-control-sm" id="fieldDueDate">
+            </div>
+            <div class="mb-3">
+              <label class="form-label small text-muted">Story points</label>
+              <input type="number" min="0" class="form-control form-control-sm" id="fieldStoryPoints">
+            </div>
+            <div class="mb-3">
+              <label class="form-label small text-muted">Labels</label>
+              <div class="mb-1" id="labelBadges"></div>
+              <select class="form-select form-select-sm" id="addLabelSelect"><option value="">Add label&hellip;</option></select>
+            </div>
+            <div class="mb-3">
+              <div class="d-flex justify-content-between align-items-center">
+                <label class="form-label small text-muted mb-0">Time tracking</label>
+                <button class="btn btn-sm btn-link p-0" id="logWorkBtn"><i class="bi bi-plus-lg"></i> Log work</button>
+              </div>
+              <div class="small" id="timeTracking">&mdash;</div>
+              <div id="workLogList" class="small text-muted mt-1"></div>
+            </div>
+            <hr>
+            <div class="small text-muted">
+              <div class="mb-1"><i class="bi bi-person me-1"></i>Reporter: <span id="metaReporter">&mdash;</span></div>
+              <div class="mb-1"><i class="bi bi-calendar-plus me-1"></i>Created: <span id="metaCreated">&mdash;</span></div>
+              <div class="mb-1"><i class="bi bi-calendar-check me-1"></i>Updated: <span id="metaUpdated">&mdash;</span></div>
+              <div class="mb-1"><i class="bi bi-eye me-1"></i>Watchers: <span id="metaWatchers">0</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Log Work Modal -->
+  <div class="modal fade" id="logWorkModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <form id="logWorkForm">
+          <div class="modal-header">
+            <h5 class="modal-title"><i class="bi bi-stopwatch me-1"></i>Log Work</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div class="row g-2">
+              <div class="col-6">
+                <label class="form-label small">Time spent (minutes)</label>
+                <input type="number" min="1" class="form-control" id="workMinutes" required>
+              </div>
+              <div class="col-6">
+                <label class="form-label small">Date</label>
+                <input type="date" class="form-control" id="workDate" required>
+              </div>
+              <div class="col-12">
+                <label class="form-label small">Description (optional)</label>
+                <textarea class="form-control" id="workDescription" rows="2"></textarea>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Log Work</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="/static/js/app-ux.js"></script>
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="/static/js/notifications.js"></script>
+  <script nonce="{{ csp_nonce }}">
+    const token = sessionStorage.getItem('access_token');
+    if (!token) { window.location.href = '/auth/login'; }
+    const authHeader = { Authorization: 'Bearer ' + token };
+    const ticketId = {{ ticket_id }};
+
+    function showToast(message, variant) {
+      const bg = variant === 'success' ? 'text-bg-success' : 'text-bg-danger';
+      const icon = variant === 'success' ? 'bi-check-circle' : 'bi-exclamation-triangle';
+      const toastEl = $(
+        '<div class="toast align-items-center ' + bg + ' border-0" role="alert">' +
+          '<div class="d-flex">' +
+            '<div class="toast-body"><i class="bi ' + icon + ' me-2"></i>' + message + '</div>' +
+            '<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>' +
+          '</div>' +
+        '</div>'
+      );
+      $('#toastContainer').append(toastEl);
+      const toast = new bootstrap.Toast(toastEl[0], { delay: 4000 });
+      toast.show();
+      toastEl.on('hidden.bs.toast', function () { toastEl.remove(); });
+    }
+    function showError(message) { showToast(message, 'danger'); }
+    function showSuccess(message) { showToast(message, 'success'); }
+    function escapeHtml(str) { return $('<div>').text(str == null ? '' : str).html(); }
+    function fmtDateTime(iso) { return iso ? new Date(iso).toLocaleString() : '&mdash;'; }
+
+    let currentTicket = null, myEmployeeId = null, employees = [], issueTypes = [], priorities = [];
+
+    function loadMe() {
+      return $.ajax({ url: '/api/v1/employees/me', headers: authHeader }).done(function (profile) {
+        myEmployeeId = profile.id;
+      });
+    }
+
+    function loadCatalogs() {
+      return $.when(
+        $.ajax({ url: '/api/v1/issue-types', headers: authHeader }).done(function (d) { issueTypes = d; }),
+        $.ajax({ url: '/api/v1/priorities', headers: authHeader }).done(function (d) { priorities = d; }),
+        $.ajax({ url: '/api/v1/employees', headers: authHeader }).done(function (d) { employees = d; })
+      );
+    }
+
+    function renderTicket(t) {
+      currentTicket = t;
+      $('#ticketSummary').text(t.summary);
+      $('#ticketKeyCrumb').text(t.ticket_key);
+      $('#projectLink').text(t.project_key).attr('href', '/tickets/project/' + t.project_id);
+      $('#descriptionView').text(t.description || 'No description provided.');
+      $('#descriptionEdit').val(t.description || '');
+
+      $('#fieldIssueType').html(issueTypes.map(function (it) {
+        return '<option value="' + it.id + '"' + (it.id === t.issue_type.id ? ' selected' : '') + '>' + escapeHtml(it.name) + '</option>';
+      }).join(''));
+      $('#fieldPriority').html('<option value="">None</option>' + priorities.map(function (p) {
+        return '<option value="' + p.id + '"' + (t.priority && p.id === t.priority.id ? ' selected' : '') + '>' + escapeHtml(p.name) + '</option>';
+      }).join(''));
+      $('#fieldAssignee').html('<option value="">Unassigned</option>' + employees.map(function (e) {
+        return '<option value="' + e.id + '"' + (e.id === t.assignee_id ? ' selected' : '') + '>' + escapeHtml(e.employee_code + ' - ' + e.full_name) + '</option>';
+      }).join(''));
+      $('#fieldDueDate').val(t.due_date || '');
+      $('#fieldStoryPoints').val(t.story_points != null ? t.story_points : '');
+
+      const spent = t.time_spent || 0;
+      const orig = t.original_estimate;
+      $('#timeTracking').text(orig ? (spent + ' / ' + orig + ' min logged') : (spent ? (spent + ' min logged') : 'No estimate set'));
+
+      $('#metaReporter').text(t.reporter_name);
+      $('#metaCreated').text(new Date(t.created_at).toLocaleString());
+      $('#metaUpdated').text(new Date(t.updated_at).toLocaleString());
+      $('#metaWatchers').text(t.watcher_count);
+      $('#watchLabel').text(t.is_watching ? 'Unwatch' : 'Watch');
+      $('#watchBtn').find('i').attr('class', 'bi ' + (t.is_watching ? 'bi-eye-slash' : 'bi-eye') + ' me-1');
+
+      const canEdit = t.my_role !== 'viewer';
+      $('#assignToMeBtn, #deleteTicketBtn, #fieldStatus, #fieldAssignee, #fieldPriority, #fieldIssueType, #fieldDueDate, #fieldStoryPoints, #addLabelSelect, #logWorkBtn').prop('disabled', !canEdit);
+      $('#ticketSummary').attr('contenteditable', canEdit ? 'true' : 'false');
+
+      renderLabels(t);
+      loadStatuses(t.project_id, t.status.id);
+      loadProjectLabels(t.project_id);
+    }
+
+    function renderLabels(t) {
+      $('#labelBadges').html(
+        (t.labels || []).map(function (l) {
+          return '<span class="badge me-1 mb-1" style="background-color:' + l.color + '; color:#fff;">' + escapeHtml(l.name) +
+            ' <a href="#" class="text-white text-decoration-none remove-label" data-id="' + l.id + '">&times;</a></span>';
+        }).join('') || '<span class="text-muted small">No labels</span>'
+      );
+    }
+
+    function loadProjectLabels(projectId) {
+      $.ajax({ url: '/api/v1/projects/' + projectId + '/labels', headers: authHeader }).done(function (labels) {
+        const appliedIds = (currentTicket.labels || []).map(function (l) { return l.id; });
+        const available = labels.filter(function (l) { return appliedIds.indexOf(l.id) === -1; });
+        $('#addLabelSelect').html(
+          '<option value="">Add label&hellip;</option>' +
+          available.map(function (l) { return '<option value="' + l.id + '">' + escapeHtml(l.name) + '</option>'; }).join('')
+        );
+      });
+    }
+
+    function loadStatuses(projectId, currentStatusId) {
+      $.ajax({ url: '/api/v1/projects/' + projectId + '/statuses', headers: authHeader }).done(function (statuses) {
+        $('#fieldStatus').html(statuses.map(function (s) {
+          return '<option value="' + s.id + '"' + (s.id === currentStatusId ? ' selected' : '') + '>' + escapeHtml(s.name) + '</option>';
+        }).join(''));
+      });
+    }
+
+    function loadTicket() {
+      $.ajax({ url: '/api/v1/tickets/' + ticketId, headers: authHeader })
+        .done(renderTicket)
+        .fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to load ticket.'); });
+    }
+
+    // ---- Inline edits ----
+
+    $('#ticketSummary').on('blur', function () {
+      const value = $(this).text().trim();
+      if (!value || value === currentTicket.summary) { $(this).text(currentTicket.summary); return; }
+      updateTicket({ summary: value });
+    });
+
+    $('#descriptionView').on('click', function () {
+      $(this).addClass('d-none');
+      $('#descriptionEdit').removeClass('d-none').focus();
+    });
+    $('#descriptionEdit').on('blur', function () {
+      const value = $(this).val();
+      $(this).addClass('d-none');
+      $('#descriptionView').removeClass('d-none');
+      if (value !== (currentTicket.description || '')) {
+        updateTicket({ description: value || null });
+      }
+    });
+
+    $('#fieldPriority').on('change', function () {
+      const v = $(this).val();
+      updateTicket({ priority_id: v ? parseInt(v, 10) : null });
+    });
+    $('#fieldIssueType').on('change', function () {
+      updateTicket({ issue_type_id: parseInt($(this).val(), 10) });
+    });
+    $('#fieldAssignee').on('change', function () {
+      const v = $(this).val();
+      updateTicket({ assignee_id: v ? parseInt(v, 10) : null });
+    });
+    $('#fieldDueDate').on('change', function () {
+      updateTicket({ due_date: $(this).val() || null });
+    });
+    $('#fieldStoryPoints').on('change', function () {
+      const v = $(this).val();
+      updateTicket({ story_points: v ? parseInt(v, 10) : null });
+    });
+
+    function updateTicket(payload) {
+      $.ajax({
+        url: '/api/v1/tickets/' + ticketId, method: 'PUT', contentType: 'application/json', headers: authHeader,
+        data: JSON.stringify(payload)
+      }).done(function (t) {
+        renderTicket(t);
+        loadActivity();
+        showSuccess('Ticket updated.');
+      }).fail(function (xhr) {
+        showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to update ticket.');
+        loadTicket();
+      });
+    }
+
+    $('#fieldStatus').on('change', function () {
+      $.ajax({
+        url: '/api/v1/tickets/' + ticketId + '/transition', method: 'POST', contentType: 'application/json', headers: authHeader,
+        data: JSON.stringify({ status_id: parseInt($(this).val(), 10) })
+      }).done(function (t) { renderTicket(t); loadActivity(); showSuccess('Status updated.'); })
+        .fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to transition ticket.'); loadTicket(); });
+    });
+
+    $('#assignToMeBtn').on('click', function () {
+      if (!myEmployeeId) { showError('No employee profile linked to your account.'); return; }
+      updateTicket({ assignee_id: myEmployeeId });
+    });
+
+    $('#watchBtn').on('click', function () {
+      const method = currentTicket.is_watching ? 'DELETE' : 'POST';
+      $.ajax({ url: '/api/v1/tickets/' + ticketId + '/watch', method: method, headers: authHeader })
+        .done(loadTicket)
+        .fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to update watch status.'); });
+    });
+
+    $('#deleteTicketBtn').on('click', function () {
+      if (!confirm('Delete ' + currentTicket.ticket_key + '? This can only be undone by an administrator.')) return;
+      $.ajax({ url: '/api/v1/tickets/' + ticketId, method: 'DELETE', headers: authHeader })
+        .done(function () { showSuccess('Ticket deleted.'); window.location.href = '/tickets/project/' + currentTicket.project_id; })
+        .fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to delete ticket.'); });
+    });
+
+    // ---- Labels ----
+
+    $('#addLabelSelect').on('change', function () {
+      const labelId = $(this).val();
+      if (!labelId) return;
+      $.ajax({
+        url: '/api/v1/tickets/' + ticketId + '/labels', method: 'POST', contentType: 'application/json', headers: authHeader,
+        data: JSON.stringify({ label_id: parseInt(labelId, 10) })
+      }).done(function (t) { renderTicket(t); }).fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to add label.'); });
+    });
+
+    $(document).on('click', '.remove-label', function (e) {
+      e.preventDefault();
+      const labelId = $(this).data('id');
+      $.ajax({ url: '/api/v1/tickets/' + ticketId + '/labels/' + labelId, method: 'DELETE', headers: authHeader })
+        .done(function (t) { renderTicket(t); })
+        .fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to remove label.'); });
+    });
+
+    // ---- Time tracking ----
+
+    function loadWorklogs() {
+      $.ajax({ url: '/api/v1/tickets/' + ticketId + '/worklogs', headers: authHeader }).done(function (logs) {
+        $('#workLogList').html(
+          logs.map(function (w) {
+            return '<div>' + w.log_date + ' &mdash; ' + escapeHtml(w.author_name) + ': ' + w.minutes_spent + 'm' +
+              (w.description ? ' (' + escapeHtml(w.description) + ')' : '') + '</div>';
+          }).join('')
+        );
+      });
+    }
+
+    $('#logWorkBtn').on('click', function () {
+      $('#workDate').val(new Date().toISOString().slice(0, 10));
+      $('#workMinutes').val('');
+      $('#workDescription').val('');
+      new bootstrap.Modal('#logWorkModal').show();
+    });
+
+    $('#logWorkForm').on('submit', function (e) {
+      e.preventDefault();
+      $.ajax({
+        url: '/api/v1/tickets/' + ticketId + '/worklogs', method: 'POST', contentType: 'application/json', headers: authHeader,
+        data: JSON.stringify({
+          minutes_spent: parseInt($('#workMinutes').val(), 10),
+          log_date: $('#workDate').val(),
+          description: $('#workDescription').val() || null
+        })
+      }).done(function (t) {
+        bootstrap.Modal.getInstance(document.getElementById('logWorkModal')).hide();
+        renderTicket(t);
+        loadWorklogs();
+        showSuccess('Work logged.');
+      }).fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to log work.'); });
+    });
+
+    // ---- Comments & activity ----
+
+    function actionLabel(a) {
+      switch (a.action) {
+        case 'created': return 'created this ticket';
+        case 'transitioned': return 'changed status from ' + escapeHtml(a.old_value) + ' to ' + escapeHtml(a.new_value);
+        case 'commented': return 'commented';
+        case 'attachment_added': return 'attached ' + escapeHtml(a.new_value);
+        case 'attachment_deleted': return 'removed attachment ' + escapeHtml(a.old_value);
+        case 'updated': return 'updated ' + escapeHtml(a.field_name) +
+          (a.old_value || a.new_value ? (' from "' + escapeHtml(a.old_value || '—') + '" to "' + escapeHtml(a.new_value || '—') + '"') : '');
+        default: return a.action;
+      }
+    }
+
+    function loadActivity() {
+      $.when(
+        $.ajax({ url: '/api/v1/tickets/' + ticketId + '/comments', headers: authHeader }),
+        $.ajax({ url: '/api/v1/tickets/' + ticketId + '/activities', headers: authHeader })
+      ).done(function (commentsResp, activitiesResp) {
+        const comments = commentsResp[0];
+        const activities = activitiesResp[0];
+        const items = activities
+          .filter(function (a) { return a.action !== 'commented'; })
+          .map(function (a) {
+            return { time: a.created_at, html: '<div class="mb-3"><div class="small"><strong>' + escapeHtml(a.actor_name) + '</strong> ' + actionLabel(a) +
+              '</div><div class="text-muted small">' + fmtDateTime(a.created_at) + '</div></div>' };
+          })
+          .concat(comments.map(function (c) {
+            return {
+              time: c.created_at,
+              html: '<div class="mb-3 p-2 rounded' + (c.is_internal ? ' bg-warning-subtle' : ' bg-light') + '">' +
+                '<div class="d-flex justify-content-between"><strong class="small">' + escapeHtml(c.author_name) +
+                (c.is_internal ? ' <span class="badge bg-warning text-dark">Internal</span>' : '') + '</strong>' +
+                '<span class="text-muted small">' + fmtDateTime(c.created_at) + '</span></div>' +
+                '<div class="small mt-1" style="white-space: pre-wrap;">' + escapeHtml(c.body) + '</div></div>'
+            };
+          }));
+        items.sort(function (a, b) { return new Date(a.time) - new Date(b.time); });
+        $('#activityStream').html(items.map(function (i) { return i.html; }).join('') || '<div class="text-muted small">No activity yet.</div>');
+      }).fail(function () { showError('Failed to load activity.'); });
+    }
+
+    $('#commentForm').on('submit', function (e) {
+      e.preventDefault();
+      $.ajax({
+        url: '/api/v1/tickets/' + ticketId + '/comments', method: 'POST', contentType: 'application/json', headers: authHeader,
+        data: JSON.stringify({ body: $('#commentBody').val(), is_internal: $('#commentInternal').is(':checked') })
+      }).done(function () {
+        $('#commentForm')[0].reset();
+        loadActivity();
+        loadTicket();
+        showSuccess('Comment added.');
+      }).fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to add comment.'); });
+    });
+
+    // ---- Attachments ----
+
+    function loadAttachments() {
+      $.ajax({ url: '/api/v1/tickets/' + ticketId + '/attachments', headers: authHeader }).done(function (attachments) {
+        $('#attachmentList').html(attachments.map(function (a) {
+          const sizeKb = Math.round(a.file_size / 1024);
+          return '<li class="list-group-item d-flex justify-content-between align-items-center py-2">' +
+            '<a href="#" class="download-attachment" data-id="' + a.id + '" data-filename="' + escapeHtml(a.file_name) + '">' +
+              '<i class="bi bi-paperclip me-1"></i>' + escapeHtml(a.file_name) + '</a>' +
+            '<span class="text-muted small">' + sizeKb + ' KB &middot; ' + escapeHtml(a.uploader_name) +
+              ' <button class="btn btn-sm btn-outline-danger ms-2 remove-attachment" data-id="' + a.id + '"><i class="bi bi-trash"></i></button></span>' +
+          '</li>';
+        }).join('') || '<li class="list-group-item text-muted small">No attachments yet.</li>');
+      });
+    }
+
+    $('#uploadForm').on('submit', function (e) {
+      e.preventDefault();
+      const fileInput = document.getElementById('attachmentFile');
+      if (!fileInput.files.length) return;
+      const formData = new FormData();
+      formData.append('file', fileInput.files[0]);
+      $.ajax({
+        url: '/api/v1/tickets/' + ticketId + '/attachments', method: 'POST', headers: authHeader,
+        data: formData, processData: false, contentType: false
+      }).done(function () {
+        $('#uploadForm')[0].reset();
+        loadAttachments();
+        loadActivity();
+        showSuccess('Attachment uploaded.');
+      }).fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to upload attachment.'); });
+    });
+
+    $(document).on('click', '.download-attachment', function (e) {
+      e.preventDefault();
+      const attachmentId = $(this).data('id');
+      const fileName = $(this).data('filename');
+      fetch('/api/v1/tickets/' + ticketId + '/attachments/' + attachmentId + '/download', { headers: authHeader })
+        .then(function (r) { if (!r.ok) throw new Error('download failed'); return r.blob(); })
+        .then(function (blob) {
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = fileName;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          window.URL.revokeObjectURL(url);
+        })
+        .catch(function () { showError('Failed to download attachment.'); });
+    });
+
+    $(document).on('click', '.remove-attachment', function () {
+      if (!confirm('Delete this attachment?')) return;
+      $.ajax({ url: '/api/v1/tickets/' + ticketId + '/attachments/' + $(this).data('id'), method: 'DELETE', headers: authHeader })
+        .done(function () { loadAttachments(); loadActivity(); })
+        .fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to delete attachment.'); });
+    });
+
+    $.when(loadMe(), loadCatalogs()).always(function () {
+      loadTicket();
+      loadActivity();
+      loadAttachments();
+      loadWorklogs();
+    });
+
+    $('#logoutLink').on('click', function (e) {
+      e.preventDefault();
+      sessionStorage.clear();
+      window.location.href = '/auth/login';
+    });
+  </script>
+</body>
+</html>

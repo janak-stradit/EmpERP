@@ -1,0 +1,554 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Stradit Workforce &mdash; Project Tickets</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="/static/css/app.css" rel="stylesheet">
+  <style nonce="{{ csp_nonce }}">
+    #viewTabs.nav-pills .nav-link { font-size: .8rem; font-weight: 700; color: var(--emp-text-muted); padding: .4rem .9rem; border: 1px solid transparent; }
+    #viewTabs.nav-pills .nav-link:hover { background: var(--emp-secondary-light); }
+    #viewTabs.nav-pills .nav-link.active { background: var(--emp-primary); color: #fff; }
+  </style>
+</head>
+<body>
+  <nav class="navbar emp-navbar mb-4">
+    <div class="container">
+      <a class="navbar-brand" href="/dashboard"><i class="bi bi-buildings me-2"></i><span>Stradit Workforce</span></a>
+      <button class="emp-navbar-toggler ms-auto" id="empNavToggler" aria-label="Toggle navigation">
+        <i class="bi bi-list"></i>
+      </button>
+      <div class="emp-navbar-collapse" id="empNavCollapse">
+        <a class="nav-link" href="/dashboard"><i class="bi bi-grid me-1"></i>Dashboard</a>
+        <a class="nav-link" href="#" id="logoutLink"><i class="bi bi-box-arrow-right me-1"></i>Logout</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="toast-container position-fixed top-0 end-0 p-3" id="toastContainer"></div>
+
+  <div class="container pb-5">
+    <a href="/tickets" class="btn btn-sm btn-link ps-0 mb-2"><i class="bi bi-arrow-left me-1"></i>All Projects</a>
+
+    <div class="emp-page-header d-flex justify-content-between align-items-start flex-wrap gap-2">
+      <div>
+        <div class="emp-breadcrumb"><span class="badge bg-secondary" id="projectKeyBadge">&mdash;</span></div>
+        <h1 id="projectName">Loading&hellip;</h1>
+        <p id="projectDescription"></p>
+      </div>
+      <div class="d-flex gap-2">
+        <button class="btn btn-outline-secondary btn-sm" id="watchProjectBtn"><i class="bi bi-eye me-1"></i><span id="watchProjectLabel">Watch</span></button>
+        <button class="btn btn-outline-secondary btn-sm" id="exportTicketsBtn"><i class="bi bi-download me-1"></i>Export</button>
+        <button class="btn btn-outline-primary btn-sm" data-bs-toggle="offcanvas" data-bs-target="#labelsPanel">
+          <i class="bi bi-tags me-1"></i>Labels
+        </button>
+        <button class="btn btn-outline-primary btn-sm" data-bs-toggle="offcanvas" data-bs-target="#membersPanel">
+          <i class="bi bi-people me-1"></i>Members
+        </button>
+        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#newTicketModal">
+          <i class="bi bi-plus-lg me-1"></i>Create Ticket
+        </button>
+      </div>
+    </div>
+
+    <ul class="nav nav-pills mb-3" id="viewTabs"></ul>
+
+    <div class="card mb-3">
+      <div class="card-body">
+        <div class="row g-2 align-items-center">
+          <div class="col-md-3">
+            <input type="text" class="form-control form-control-sm" id="searchQ" placeholder="Search summary, description, key&hellip;">
+          </div>
+          <div class="col-md-2">
+            <select class="form-select form-select-sm" id="filterStatus"><option value="">All statuses</option></select>
+          </div>
+          <div class="col-md-2">
+            <select class="form-select form-select-sm" id="filterAssignee"><option value="">Any assignee</option></select>
+          </div>
+          <div class="col-md-2">
+            <select class="form-select form-select-sm" id="filterIssueType"><option value="">Any type</option></select>
+          </div>
+          <div class="col-md-2">
+            <select class="form-select form-select-sm" id="filterPriority"><option value="">Any priority</option></select>
+          </div>
+          <div class="col-md-1 text-end">
+            <button class="btn btn-sm btn-outline-secondary" id="clearFiltersBtn" title="Clear filters"><i class="bi bi-x-lg"></i></button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mb-3 d-none" id="bulkActionBar">
+      <div class="card-body py-2 d-flex flex-wrap align-items-center gap-2">
+        <span class="small fw-semibold" id="bulkCount">0 selected</span>
+        <select class="form-select form-select-sm" style="width: auto;" id="bulkStatusSelect"><option value="">Change status&hellip;</option></select>
+        <select class="form-select form-select-sm" style="width: auto;" id="bulkAssigneeSelect"><option value="">Assign to&hellip;</option></select>
+        <button class="btn btn-sm btn-outline-danger ms-auto" id="bulkDeleteBtn"><i class="bi bi-trash me-1"></i>Delete</button>
+        <button class="btn btn-sm btn-outline-secondary" id="bulkClearBtn">Clear</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table table-hover align-middle">
+            <thead>
+              <tr>
+                <th style="width: 2rem;"><input type="checkbox" id="selectAllCheckbox"></th>
+                <th>Key</th><th>Summary</th><th>Type</th><th>Status</th><th>Priority</th>
+                <th>Assignee</th><th>Points</th><th>Due</th><th>Updated</th>
+              </tr>
+            </thead>
+            <tbody id="ticketRows"></tbody>
+          </table>
+        </div>
+        <div id="emptyState" class="emp-empty-state d-none">
+          <i class="bi bi-inbox display-6 d-block mb-2"></i>
+          No tickets match this filter.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- New Ticket Modal -->
+  <div class="modal fade" id="newTicketModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <form id="newTicketForm">
+          <div class="modal-header">
+            <h5 class="modal-title"><i class="bi bi-plus-lg me-1"></i>Create Ticket</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-3">
+              <label class="form-label small">Summary</label>
+              <input type="text" class="form-control" id="ticket_summary" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label small">Description</label>
+              <textarea class="form-control" id="ticket_description" rows="3"></textarea>
+            </div>
+            <div class="row g-2">
+              <div class="col-md-4">
+                <label class="form-label small">Issue type</label>
+                <select class="form-select form-select-sm" id="ticket_issue_type_id" required></select>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small">Priority</label>
+                <select class="form-select form-select-sm" id="ticket_priority_id"><option value="">None</option></select>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small">Assignee</label>
+                <select class="form-select form-select-sm" id="ticket_assignee_id"><option value="">Unassigned</option></select>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small">Story points</label>
+                <input type="number" min="0" class="form-control form-control-sm" id="ticket_story_points">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small">Due date</label>
+                <input type="date" class="form-control form-control-sm" id="ticket_due_date">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small">Original estimate (min)</label>
+                <input type="number" min="0" class="form-control form-control-sm" id="ticket_original_estimate">
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Create Ticket</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Members offcanvas -->
+  <div class="offcanvas offcanvas-end" tabindex="-1" id="membersPanel">
+    <div class="offcanvas-header">
+      <h5 class="offcanvas-title"><i class="bi bi-people me-1"></i>Project Members</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+    </div>
+    <div class="offcanvas-body">
+      <form id="addMemberForm" class="mb-3">
+        <div class="row g-2">
+          <div class="col-6">
+            <select class="form-select form-select-sm" id="newMemberEmployeeId" required></select>
+          </div>
+          <div class="col-4">
+            <select class="form-select form-select-sm" id="newMemberRole">
+              <option value="developer">Developer</option>
+              <option value="tester">Tester</option>
+              <option value="manager">Manager</option>
+              <option value="admin">Admin</option>
+              <option value="viewer">Viewer</option>
+            </select>
+          </div>
+          <div class="col-2">
+            <button type="submit" class="btn btn-primary btn-sm w-100"><i class="bi bi-plus-lg"></i></button>
+          </div>
+        </div>
+      </form>
+      <ul class="list-group list-group-flush" id="memberList"></ul>
+    </div>
+  </div>
+
+  <!-- Labels offcanvas -->
+  <div class="offcanvas offcanvas-end" tabindex="-1" id="labelsPanel">
+    <div class="offcanvas-header">
+      <h5 class="offcanvas-title"><i class="bi bi-tags me-1"></i>Labels</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+    </div>
+    <div class="offcanvas-body">
+      <form id="addLabelForm" class="mb-3">
+        <div class="row g-2">
+          <div class="col-7">
+            <input type="text" class="form-control form-control-sm" id="newLabelName" placeholder="Label name" required>
+          </div>
+          <div class="col-3">
+            <input type="color" class="form-control form-control-color form-control-sm w-100" id="newLabelColor" value="#6c757d">
+          </div>
+          <div class="col-2">
+            <button type="submit" class="btn btn-primary btn-sm w-100"><i class="bi bi-plus-lg"></i></button>
+          </div>
+        </div>
+      </form>
+      <ul class="list-group list-group-flush" id="labelList"></ul>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="/static/js/app-ux.js"></script>
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="/static/js/notifications.js"></script>
+  <script nonce="{{ csp_nonce }}">
+    const token = sessionStorage.getItem('access_token');
+    if (!token) { window.location.href = '/auth/login'; }
+    const authHeader = { Authorization: 'Bearer ' + token };
+    const projectId = {{ project_id }};
+
+    function showToast(message, variant) {
+      const bg = variant === 'success' ? 'text-bg-success' : 'text-bg-danger';
+      const icon = variant === 'success' ? 'bi-check-circle' : 'bi-exclamation-triangle';
+      const toastEl = $(
+        '<div class="toast align-items-center ' + bg + ' border-0" role="alert">' +
+          '<div class="d-flex">' +
+            '<div class="toast-body"><i class="bi ' + icon + ' me-2"></i>' + message + '</div>' +
+            '<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>' +
+          '</div>' +
+        '</div>'
+      );
+      $('#toastContainer').append(toastEl);
+      const toast = new bootstrap.Toast(toastEl[0], { delay: 4000 });
+      toast.show();
+      toastEl.on('hidden.bs.toast', function () { toastEl.remove(); });
+    }
+    function showError(message) { showToast(message, 'danger'); }
+    function showSuccess(message) { showToast(message, 'success'); }
+    function escapeHtml(str) { return $('<div>').text(str == null ? '' : str).html(); }
+
+    function colorBadge(name, color, icon) {
+      return '<span class="badge" style="background-color: ' + color + '; color: #fff;">' +
+        (icon ? '<i class="bi ' + icon + ' me-1"></i>' : '') + escapeHtml(name) + '</span>';
+    }
+
+    $('#viewTabs').html(
+      ['Board', 'List', 'Backlog', 'Calendar', 'Dashboard'].map(function (v) {
+        const url = v === 'List' ? '/tickets/project/' + projectId : '/tickets/project/' + projectId + '/' + v.toLowerCase();
+        const active = v === 'List' ? ' active' : '';
+        return '<li class="nav-item"><a class="nav-link' + active + '" href="' + url + '">' + v + '</a></li>';
+      }).join('')
+    );
+
+    let statuses = [], issueTypes = [], priorities = [], employees = [];
+
+    function loadProject() {
+      $.ajax({ url: '/api/v1/projects/' + projectId, headers: authHeader }).done(function (p) {
+        $('#projectKeyBadge').text(p.key);
+        $('#projectName').text(p.name);
+        $('#projectDescription').text(p.description || '');
+        document.title = 'Stradit Workforce — ' + p.name;
+        $('#watchProjectLabel').text(p.is_watching ? 'Unwatch' : 'Watch');
+        $('#watchProjectBtn').find('i').attr('class', 'bi ' + (p.is_watching ? 'bi-eye-slash' : 'bi-eye') + ' me-1');
+        $('#watchProjectBtn').data('watching', p.is_watching);
+      }).fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to load project.'); });
+    }
+
+    $('#watchProjectBtn').on('click', function () {
+      const method = $(this).data('watching') ? 'DELETE' : 'POST';
+      $.ajax({ url: '/api/v1/projects/' + projectId + '/watch', method: method, headers: authHeader })
+        .done(loadProject)
+        .fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to update watch status.'); });
+    });
+
+    $('#exportTicketsBtn').on('click', function () {
+      const params = new URLSearchParams(currentFilters());
+      params.delete('page_size');
+      fetch('/api/v1/tickets/export?' + params.toString(), { headers: authHeader })
+        .then(function (r) { if (!r.ok) throw new Error('export failed'); return r.blob(); })
+        .then(function (blob) {
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url; a.download = 'tickets_export.csv';
+          document.body.appendChild(a); a.click(); a.remove();
+          window.URL.revokeObjectURL(url);
+        })
+        .catch(function () { showError('Failed to export tickets.'); });
+    });
+
+    function loadStatuses() {
+      return $.ajax({ url: '/api/v1/projects/' + projectId + '/statuses', headers: authHeader }).done(function (data) {
+        statuses = data;
+        $('#filterStatus').html('<option value="">All statuses</option>' + statuses.map(function (s) {
+          return '<option value="' + s.id + '">' + escapeHtml(s.name) + '</option>';
+        }).join(''));
+        $('#bulkStatusSelect').html('<option value="">Change status&hellip;</option>' + statuses.map(function (s) {
+          return '<option value="' + s.id + '">' + escapeHtml(s.name) + '</option>';
+        }).join(''));
+      });
+    }
+
+    function loadIssueTypes() {
+      return $.ajax({ url: '/api/v1/issue-types', headers: authHeader }).done(function (data) {
+        issueTypes = data;
+        $('#filterIssueType').html('<option value="">Any type</option>' + issueTypes.map(function (t) {
+          return '<option value="' + t.id + '">' + escapeHtml(t.name) + '</option>';
+        }).join(''));
+        $('#ticket_issue_type_id').html(issueTypes.map(function (t) {
+          return '<option value="' + t.id + '">' + escapeHtml(t.name) + '</option>';
+        }).join(''));
+      });
+    }
+
+    function loadPriorities() {
+      return $.ajax({ url: '/api/v1/priorities', headers: authHeader }).done(function (data) {
+        priorities = data;
+        $('#filterPriority').html('<option value="">Any priority</option>' + priorities.map(function (p) {
+          return '<option value="' + p.id + '">' + escapeHtml(p.name) + '</option>';
+        }).join(''));
+        $('#ticket_priority_id').html('<option value="">None</option>' + priorities.map(function (p) {
+          return '<option value="' + p.id + '">' + escapeHtml(p.name) + '</option>';
+        }).join(''));
+      });
+    }
+
+    function loadEmployees() {
+      return $.ajax({ url: '/api/v1/employees', headers: authHeader }).done(function (data) {
+        employees = data;
+        const options = employees.map(function (e) {
+          return '<option value="' + e.id + '">' + escapeHtml(e.employee_code + ' - ' + e.full_name) + '</option>';
+        }).join('');
+        $('#filterAssignee').html('<option value="">Any assignee</option>' + options);
+        $('#ticket_assignee_id').html('<option value="">Unassigned</option>' + options);
+        $('#newMemberEmployeeId').html(options);
+        $('#bulkAssigneeSelect').html('<option value="">Assign to&hellip;</option>' + options);
+      });
+    }
+
+    function currentFilters() {
+      const filters = { project_id: projectId, page_size: 100 };
+      const q = $('#searchQ').val(); if (q) filters.q = q;
+      const s = $('#filterStatus').val(); if (s) filters.status_id = s;
+      const a = $('#filterAssignee').val(); if (a) filters.assignee_id = a;
+      const it = $('#filterIssueType').val(); if (it) filters.issue_type_id = it;
+      const pr = $('#filterPriority').val(); if (pr) filters.priority_id = pr;
+      return filters;
+    }
+
+    function loadTickets() {
+      $.ajax({ url: '/api/v1/tickets', data: currentFilters(), headers: authHeader }).done(function (tickets) {
+        $('#emptyState').toggleClass('d-none', tickets.length > 0);
+        selectedIds = new Set();
+        updateBulkBar();
+        $('#ticketRows').html(tickets.map(function (t) {
+          return '<tr class="ticket-row" data-id="' + t.id + '" style="cursor: pointer;">' +
+            '<td><input type="checkbox" class="row-checkbox" data-id="' + t.id + '"></td>' +
+            '<td><span class="fw-semibold text-primary">' + escapeHtml(t.ticket_key) + '</span></td>' +
+            '<td>' + escapeHtml(t.summary) + ' ' + (t.labels || []).map(function (l) { return colorBadge(l.name, l.color); }).join(' ') + '</td>' +
+            '<td>' + colorBadge(t.issue_type.name, t.issue_type.color, t.issue_type.icon) + '</td>' +
+            '<td>' + colorBadge(t.status.name, t.status.color) + '</td>' +
+            '<td>' + (t.priority ? colorBadge(t.priority.name, t.priority.color, t.priority.icon) : '<span class="text-muted">&mdash;</span>') + '</td>' +
+            '<td>' + escapeHtml(t.assignee_name || 'Unassigned') + '</td>' +
+            '<td>' + (t.story_points != null ? t.story_points : '&mdash;') + '</td>' +
+            '<td>' + (t.due_date || '&mdash;') + '</td>' +
+            '<td class="text-muted small">' + new Date(t.updated_at).toLocaleDateString() + '</td>' +
+          '</tr>';
+        }).join(''));
+      }).fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to load tickets.'); });
+    }
+
+    $(document).on('click', '.ticket-row', function (e) {
+      if ($(e.target).is('input[type=checkbox]')) return;
+      window.location.href = '/tickets/' + $(this).data('id');
+    });
+
+    let selectedIds = new Set();
+
+    function updateBulkBar() {
+      $('#bulkCount').text(selectedIds.size + ' selected');
+      $('#bulkActionBar').toggleClass('d-none', selectedIds.size === 0);
+      $('#selectAllCheckbox').prop('checked', selectedIds.size > 0 && selectedIds.size === $('.row-checkbox').length);
+    }
+
+    $(document).on('change', '.row-checkbox', function () {
+      const id = $(this).data('id');
+      if (this.checked) selectedIds.add(id); else selectedIds.delete(id);
+      updateBulkBar();
+    });
+
+    $('#selectAllCheckbox').on('change', function () {
+      const checked = this.checked;
+      $('.row-checkbox').prop('checked', checked).each(function () {
+        const id = $(this).data('id');
+        if (checked) selectedIds.add(id); else selectedIds.delete(id);
+      });
+      updateBulkBar();
+    });
+
+    $('#bulkClearBtn').on('click', function () {
+      selectedIds.clear();
+      $('.row-checkbox, #selectAllCheckbox').prop('checked', false);
+      updateBulkBar();
+    });
+
+    function runBulkUpdate(payload) {
+      $.ajax({
+        url: '/api/v1/tickets/bulk', method: 'POST', contentType: 'application/json', headers: authHeader,
+        data: JSON.stringify(Object.assign({ ticket_ids: Array.from(selectedIds) }, payload))
+      }).done(function (resp) {
+        showSuccess(resp.updated_count + ' ticket(s) updated.');
+        selectedIds.clear();
+        loadTickets();
+      }).fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Bulk update failed.'); });
+    }
+
+    $('#bulkStatusSelect').on('change', function () {
+      if (!$(this).val()) return;
+      runBulkUpdate({ status_id: parseInt($(this).val(), 10) });
+      $(this).val('');
+    });
+    $('#bulkAssigneeSelect').on('change', function () {
+      if (!$(this).val()) return;
+      runBulkUpdate({ assignee_id: parseInt($(this).val(), 10) });
+      $(this).val('');
+    });
+    $('#bulkDeleteBtn').on('click', function () {
+      if (!confirm('Delete ' + selectedIds.size + ' ticket(s)?')) return;
+      runBulkUpdate({ delete: true });
+    });
+
+    $('#searchQ').on('input', function () { clearTimeout(window._searchDebounce); window._searchDebounce = setTimeout(loadTickets, 300); });
+    $('#filterStatus, #filterAssignee, #filterIssueType, #filterPriority').on('change', loadTickets);
+    $('#clearFiltersBtn').on('click', function () {
+      $('#searchQ').val('');
+      $('#filterStatus, #filterAssignee, #filterIssueType, #filterPriority').val('');
+      loadTickets();
+    });
+
+    $('#newTicketForm').on('submit', function (e) {
+      e.preventDefault();
+      $.ajax({
+        url: '/api/v1/tickets', method: 'POST', contentType: 'application/json', headers: authHeader,
+        data: JSON.stringify({
+          project_id: projectId,
+          summary: $('#ticket_summary').val(),
+          description: $('#ticket_description').val() || null,
+          issue_type_id: parseInt($('#ticket_issue_type_id').val(), 10),
+          priority_id: $('#ticket_priority_id').val() ? parseInt($('#ticket_priority_id').val(), 10) : null,
+          assignee_id: $('#ticket_assignee_id').val() ? parseInt($('#ticket_assignee_id').val(), 10) : null,
+          story_points: $('#ticket_story_points').val() ? parseInt($('#ticket_story_points').val(), 10) : null,
+          due_date: $('#ticket_due_date').val() || null,
+          original_estimate: $('#ticket_original_estimate').val() ? parseInt($('#ticket_original_estimate').val(), 10) : null
+        })
+      }).done(function (ticket) {
+        bootstrap.Modal.getInstance(document.getElementById('newTicketModal')).hide();
+        $('#newTicketForm')[0].reset();
+        showSuccess(ticket.ticket_key + ' created.');
+        loadTickets();
+      }).fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to create ticket.'); });
+    });
+
+    const ROLE_OPTIONS = ['developer', 'tester', 'manager', 'admin', 'viewer'];
+
+    function loadMembers() {
+      $.ajax({ url: '/api/v1/projects/' + projectId + '/members', headers: authHeader }).done(function (members) {
+        $('#memberList').html(members.map(function (m) {
+          return '<li class="list-group-item d-flex justify-content-between align-items-center py-2 gap-2">' +
+            '<span>' + escapeHtml(m.employee_code + ' - ' + m.employee_name) + '</span>' +
+            '<span class="d-flex gap-1">' +
+              '<select class="form-select form-select-sm member-role-select" data-id="' + m.id + '" style="width: auto;">' +
+                ROLE_OPTIONS.map(function (r) { return '<option value="' + r + '"' + (r === m.role ? ' selected' : '') + '>' + r + '</option>'; }).join('') +
+              '</select>' +
+              '<button class="btn btn-sm btn-outline-danger remove-member" data-id="' + m.id + '"><i class="bi bi-trash"></i></button>' +
+            '</span>' +
+          '</li>';
+        }).join('') || '<li class="list-group-item text-muted small">No members yet.</li>');
+      });
+    }
+
+    $('#addMemberForm').on('submit', function (e) {
+      e.preventDefault();
+      $.ajax({
+        url: '/api/v1/projects/' + projectId + '/members', method: 'POST', contentType: 'application/json', headers: authHeader,
+        data: JSON.stringify({ employee_id: parseInt($('#newMemberEmployeeId').val(), 10), role: $('#newMemberRole').val() })
+      }).done(function () { loadMembers(); showSuccess('Member added.'); })
+        .fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to add member.'); });
+    });
+
+    $(document).on('change', '.member-role-select', function () {
+      $.ajax({
+        url: '/api/v1/projects/' + projectId + '/members/' + $(this).data('id'), method: 'PUT',
+        contentType: 'application/json', headers: authHeader, data: JSON.stringify({ role: $(this).val() })
+      }).done(function () { showSuccess('Role updated.'); })
+        .fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to update role.'); loadMembers(); });
+    });
+
+    function loadLabels() {
+      $.ajax({ url: '/api/v1/projects/' + projectId + '/labels', headers: authHeader }).done(function (labels) {
+        $('#labelList').html(labels.map(function (l) {
+          return '<li class="list-group-item d-flex justify-content-between align-items-center py-2">' +
+            '<span class="badge" style="background-color:' + l.color + '; color:#fff;">' + escapeHtml(l.name) + '</span>' +
+            '<button class="btn btn-sm btn-outline-danger remove-label-def" data-id="' + l.id + '"><i class="bi bi-trash"></i></button>' +
+          '</li>';
+        }).join('') || '<li class="list-group-item text-muted small">No labels yet.</li>');
+      });
+    }
+
+    $('#addLabelForm').on('submit', function (e) {
+      e.preventDefault();
+      $.ajax({
+        url: '/api/v1/projects/' + projectId + '/labels', method: 'POST', contentType: 'application/json', headers: authHeader,
+        data: JSON.stringify({ name: $('#newLabelName').val(), color: $('#newLabelColor').val() })
+      }).done(function () { $('#addLabelForm')[0].reset(); loadLabels(); showSuccess('Label created.'); })
+        .fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to create label.'); });
+    });
+
+    $(document).on('click', '.remove-label-def', function () {
+      if (!confirm('Delete this label? It will be removed from all tickets.')) return;
+      $.ajax({ url: '/api/v1/projects/' + projectId + '/labels/' + $(this).data('id'), method: 'DELETE', headers: authHeader })
+        .done(loadLabels)
+        .fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to delete label.'); });
+    });
+
+    $(document).on('click', '.remove-member', function () {
+      $.ajax({ url: '/api/v1/projects/' + projectId + '/members/' + $(this).data('id'), method: 'DELETE', headers: authHeader })
+        .done(function () { loadMembers(); })
+        .fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to remove member.'); });
+    });
+
+    loadProject();
+    $.when(loadStatuses(), loadIssueTypes(), loadPriorities(), loadEmployees()).done(loadTickets);
+    loadMembers();
+    loadLabels();
+
+    $('#logoutLink').on('click', function (e) {
+      e.preventDefault();
+      sessionStorage.clear();
+      window.location.href = '/auth/login';
+    });
+  </script>
+</body>
+</html>

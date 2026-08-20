@@ -16,6 +16,7 @@ class NotificationCategory(str, enum.Enum):
     KRA = "kra"
     PMS = "pms"
     EMPLOYEE = "employee"
+    TICKET = "ticket"
 
 
 class Notification(CreatedAtMixin, Base):

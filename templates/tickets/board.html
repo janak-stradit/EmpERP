@@ -1,0 +1,509 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Stradit Workforce &mdash; Board</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="/static/css/app.css" rel="stylesheet">
+  <style nonce="{{ csp_nonce }}">
+    #viewTabs.nav-pills .nav-link { font-size: .8rem; font-weight: 700; color: var(--emp-text-muted); padding: .4rem .9rem; border: 1px solid transparent; }
+    #viewTabs.nav-pills .nav-link:hover { background: var(--emp-secondary-light); }
+    #viewTabs.nav-pills .nav-link.active { background: var(--emp-primary); color: #fff; }
+
+    .board-toolbar { background: var(--emp-surface); border: 1px solid var(--emp-border); box-shadow: var(--emp-shadow-xs); padding: .85rem 1rem; margin-bottom: 1.25rem; display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; }
+    .board-toolbar .form-control, .board-toolbar .form-select { border-color: var(--emp-border-strong); }
+
+    .board-scroll { overflow-x: auto; padding-bottom: 1rem; }
+    .board-columns { display: flex; gap: 1rem; align-items: flex-start; min-height: 200px; }
+    .board-column { flex: 0 0 288px; width: 288px; }
+    .board-column-header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: .55rem .7rem; background: var(--emp-navy); border-bottom: 3px solid var(--emp-primary);
+    }
+    .board-column-header .col-name {
+      font-size: .72rem; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: #ffffff;
+      display: flex; align-items: center; gap: .4rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .board-column-header .col-name::before { content: ''; width: 8px; height: 8px; flex-shrink: 0; background: var(--dot-color, #94a3b8); }
+    .board-column-header .col-count { font-size: .72rem; font-weight: 700; color: rgba(255,255,255,.85); background: rgba(255,255,255,.12); padding: .1rem .45rem; }
+    .board-column-header .col-count.over-limit { color: #fff; background: var(--emp-danger); }
+    .board-column-header .edit-column-btn { color: rgba(255,255,255,.75) !important; padding: 0 .2rem; }
+    .board-column-header .edit-column-btn:hover { color: #fff !important; }
+
+    .board-column-body { background: var(--emp-neutral-bg); border: 1px solid var(--emp-border); border-top: none; padding: .6rem; min-height: 140px; }
+    .board-column-body.over-limit { outline: 2px solid var(--emp-danger); outline-offset: -2px; }
+
+    .board-card {
+      background: var(--emp-surface); padding: .7rem .8rem; margin-bottom: .55rem;
+      box-shadow: var(--emp-shadow-xs); cursor: grab; border: 1px solid var(--emp-border);
+      border-left: 3px solid var(--card-accent, var(--emp-border-strong));
+      transition: box-shadow .15s ease, border-color .15s ease;
+    }
+    .board-card:hover { box-shadow: var(--emp-shadow); border-left-color: var(--emp-primary); }
+    .board-card .card-key { font-size: .68rem; color: var(--emp-text-subtle); font-weight: 800; letter-spacing: .03em; text-transform: uppercase; }
+    .board-card .card-summary { font-size: .85rem; font-weight: 600; color: var(--emp-text); margin: .3rem 0 .55rem; line-height: 1.35; }
+    .board-card .card-badges { display: flex; flex-wrap: wrap; gap: .3rem; margin-bottom: .5rem; }
+    .board-card .card-meta { display: flex; justify-content: space-between; align-items: center; gap: .5rem; }
+    .board-card .avatar-chip {
+      width: 24px; height: 24px; border-radius: 50%; background: var(--emp-primary); color: #fff;
+      font-size: .65rem; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .sortable-ghost { opacity: .35; }
+    .sortable-drag .board-card { box-shadow: var(--emp-shadow-lg) !important; }
+
+    .swimlane-header {
+      font-weight: 800; font-size: .72rem; text-transform: uppercase; letter-spacing: .06em;
+      padding: .5rem .75rem; margin: .5rem 0; color: var(--emp-text-muted); background: var(--emp-secondary-light);
+      border-left: 3px solid var(--emp-primary);
+    }
+    .swimlane-header:first-child { margin-top: 0; }
+  </style>
+</head>
+<body>
+  <nav class="navbar emp-navbar mb-4">
+    <div class="container-fluid px-4">
+      <a class="navbar-brand" href="/dashboard"><i class="bi bi-buildings me-2"></i><span>Stradit Workforce</span></a>
+      <button class="emp-navbar-toggler ms-auto" id="empNavToggler" aria-label="Toggle navigation">
+        <i class="bi bi-list"></i>
+      </button>
+      <div class="emp-navbar-collapse" id="empNavCollapse">
+        <a class="nav-link" href="/dashboard"><i class="bi bi-grid me-1"></i>Dashboard</a>
+        <a class="nav-link" href="#" id="logoutLink"><i class="bi bi-box-arrow-right me-1"></i>Logout</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="toast-container position-fixed top-0 end-0 p-3" id="toastContainer"></div>
+
+  <div class="container-fluid px-4 pb-5">
+    <a href="/tickets" class="btn btn-sm btn-link ps-0 mb-2 text-decoration-none"><i class="bi bi-arrow-left me-1"></i>All Projects</a>
+
+    <div class="emp-page-header d-flex justify-content-between align-items-end flex-wrap gap-2">
+      <div>
+        <div class="emp-breadcrumb"><i class="bi bi-kanban"></i> Board <span id="sprintGoal"></span></div>
+        <h1><span class="badge bg-secondary" id="projectKeyBadge">&mdash;</span> <span id="projectName"></span></h1>
+      </div>
+    </div>
+
+    <ul class="nav nav-pills mb-3" id="viewTabs"></ul>
+
+    <div class="board-toolbar">
+      <input type="text" class="form-control form-control-sm" style="width: 220px;" id="searchQ" placeholder="Search this board&hellip;">
+      <div class="btn-group btn-group-sm" role="group" id="quickFilters">
+        <button type="button" class="btn btn-outline-secondary" data-filter="mine">My Issues</button>
+        <button type="button" class="btn btn-outline-secondary" data-filter="recent">Recently Updated</button>
+        <button type="button" class="btn btn-outline-secondary" data-filter="done_week">Done This Week</button>
+        <button type="button" class="btn btn-outline-secondary" data-filter="overdue">Overdue</button>
+      </div>
+      <select class="form-select form-select-sm" style="width: auto;" id="swimlaneSelect">
+        <option value="">No swimlanes</option>
+        <option value="assignee">Group by Assignee</option>
+        <option value="epic">Group by Epic</option>
+        <option value="priority">Group by Priority</option>
+        <option value="issue_type">Group by Issue Type</option>
+      </select>
+      <div class="ms-auto d-flex gap-2">
+        <button class="btn btn-sm btn-outline-primary" id="addColumnBtn"><i class="bi bi-plus-lg me-1"></i>Column</button>
+        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#newTicketModal">
+          <i class="bi bi-plus-lg me-1"></i>Create Ticket
+        </button>
+      </div>
+    </div>
+
+    <div class="board-scroll">
+      <div id="boardRoot"></div>
+    </div>
+  </div>
+
+  <!-- New/Edit Column Modal -->
+  <div class="modal fade" id="columnModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <form id="columnForm">
+          <div class="modal-header">
+            <h5 class="modal-title" id="columnModalTitle"><i class="bi bi-columns-gap me-1"></i>Column</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <input type="hidden" id="columnStatusId">
+            <div class="mb-3">
+              <label class="form-label small">Name</label>
+              <input type="text" class="form-control" id="columnName" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label small">Category</label>
+              <select class="form-select" id="columnCategory">
+                <option value="todo">To Do</option>
+                <option value="inprogress">In Progress</option>
+                <option value="done">Done</option>
+              </select>
+            </div>
+            <div class="row g-2">
+              <div class="col-6">
+                <label class="form-label small">Color</label>
+                <input type="color" class="form-control form-control-color w-100" id="columnColor" value="#6c757d">
+              </div>
+              <div class="col-6">
+                <label class="form-label small">WIP limit</label>
+                <input type="number" min="0" class="form-control" id="columnWipLimit" placeholder="None">
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer justify-content-between">
+            <button type="button" class="btn btn-outline-danger d-none" id="deleteColumnBtn"><i class="bi bi-trash me-1"></i>Delete</button>
+            <div>
+              <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+              <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Save</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- New Ticket Modal -->
+  <div class="modal fade" id="newTicketModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <form id="newTicketForm">
+          <div class="modal-header">
+            <h5 class="modal-title"><i class="bi bi-plus-lg me-1"></i>Create Ticket</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-3">
+              <label class="form-label small">Summary</label>
+              <input type="text" class="form-control" id="ticket_summary" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label small">Description</label>
+              <textarea class="form-control" id="ticket_description" rows="3"></textarea>
+            </div>
+            <div class="row g-2">
+              <div class="col-md-4">
+                <label class="form-label small">Issue type</label>
+                <select class="form-select form-select-sm" id="ticket_issue_type_id" required></select>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small">Priority</label>
+                <select class="form-select form-select-sm" id="ticket_priority_id"><option value="">None</option></select>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small">Assignee</label>
+                <select class="form-select form-select-sm" id="ticket_assignee_id"><option value="">Unassigned</option></select>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small">Story points</label>
+                <input type="number" min="0" class="form-control form-control-sm" id="ticket_story_points">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small">Due date</label>
+                <input type="date" class="form-control form-control-sm" id="ticket_due_date">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small">Original estimate (min)</label>
+                <input type="number" min="0" class="form-control form-control-sm" id="ticket_original_estimate">
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Create Ticket</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="/static/js/app-ux.js"></script>
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="/static/js/notifications.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+  <script nonce="{{ csp_nonce }}">
+    const token = sessionStorage.getItem('access_token');
+    if (!token) { window.location.href = '/auth/login'; }
+    const authHeader = { Authorization: 'Bearer ' + token };
+    const projectId = {{ project_id }};
+
+    function showToast(message, variant) {
+      const bg = variant === 'success' ? 'text-bg-success' : 'text-bg-danger';
+      const icon = variant === 'success' ? 'bi-check-circle' : 'bi-exclamation-triangle';
+      const toastEl = $(
+        '<div class="toast align-items-center ' + bg + ' border-0" role="alert">' +
+          '<div class="d-flex">' +
+            '<div class="toast-body"><i class="bi ' + icon + ' me-2"></i>' + message + '</div>' +
+            '<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>' +
+          '</div>' +
+        '</div>'
+      );
+      $('#toastContainer').append(toastEl);
+      const toast = new bootstrap.Toast(toastEl[0], { delay: 4000 });
+      toast.show();
+      toastEl.on('hidden.bs.toast', function () { toastEl.remove(); });
+    }
+    function showError(message) { showToast(message, 'danger'); }
+    function showSuccess(message) { showToast(message, 'success'); }
+    function escapeHtml(str) { return $('<div>').text(str == null ? '' : str).html(); }
+    function initials(name) { return (name || '?').split(' ').map(function (n) { return n[0]; }).join('').substring(0, 2).toUpperCase(); }
+
+    $('#viewTabs').html(
+      ['Board', 'List', 'Backlog', 'Calendar', 'Dashboard'].map(function (v) {
+        const url = v === 'List' ? '/tickets/project/' + projectId : '/tickets/project/' + projectId + '/' + v.toLowerCase();
+        const active = v === 'Board' ? ' active' : '';
+        return '<li class="nav-item"><a class="nav-link' + active + '" href="' + url + '">' + v + '</a></li>';
+      }).join('')
+    );
+
+    let myEmployeeId = null, employees = [], issueTypes = [];
+    let statuses = [], allTickets = [];
+    let activeQuickFilter = null, swimlaneMode = '';
+
+    function loadMe() {
+      return $.ajax({ url: '/api/v1/employees/me', headers: authHeader }).done(function (p) { myEmployeeId = p.id; });
+    }
+    function loadEmployees() {
+      return $.ajax({ url: '/api/v1/employees', headers: authHeader }).done(function (d) {
+        employees = d;
+        const options = d.map(function (e) { return '<option value="' + e.id + '">' + escapeHtml(e.employee_code + ' - ' + e.full_name) + '</option>'; }).join('');
+        $('#ticket_assignee_id').html('<option value="">Unassigned</option>' + options);
+      });
+    }
+    function loadIssueTypes() {
+      return $.ajax({ url: '/api/v1/issue-types', headers: authHeader }).done(function (d) {
+        issueTypes = d;
+        $('#ticket_issue_type_id').html(d.map(function (t) { return '<option value="' + t.id + '">' + escapeHtml(t.name) + '</option>'; }).join(''));
+      });
+    }
+    function loadPriorities() {
+      return $.ajax({ url: '/api/v1/priorities', headers: authHeader }).done(function (d) {
+        $('#ticket_priority_id').html('<option value="">None</option>' + d.map(function (p) { return '<option value="' + p.id + '">' + escapeHtml(p.name) + '</option>'; }).join(''));
+      });
+    }
+
+    function loadProject() {
+      $.ajax({ url: '/api/v1/projects/' + projectId, headers: authHeader }).done(function (p) {
+        $('#projectKeyBadge').text(p.key);
+        $('#projectName').text(p.name);
+        document.title = 'Stradit Workforce — ' + p.name + ' Board';
+      });
+    }
+
+    function colorBadge(name, color, icon) {
+      return '<span class="badge" style="background-color: ' + color + '; color: #fff;">' +
+        (icon ? '<i class="bi ' + icon + ' me-1"></i>' : '') + escapeHtml(name) + '</span>';
+    }
+
+    function loadBoard() {
+      $.ajax({ url: '/api/v1/projects/' + projectId + '/board', headers: authHeader }).done(function (board) {
+        statuses = board.statuses;
+        allTickets = board.tickets;
+        $('#sprintGoal').text(board.sprint ? ('Sprint: ' + board.sprint.name + (board.sprint.goal ? ' — ' + board.sprint.goal : '')) : 'No active sprint — showing unplanned tickets');
+        renderBoard();
+      }).fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to load board.'); });
+    }
+
+    function swimlaneKey(ticket) {
+      if (swimlaneMode === 'assignee') return ticket.assignee_id || 'unassigned';
+      if (swimlaneMode === 'priority') return ticket.priority ? ticket.priority.id : 'none';
+      if (swimlaneMode === 'issue_type') return ticket.issue_type.id;
+      if (swimlaneMode === 'epic') return ticket.epic_id || 'none';
+      return 'all';
+    }
+    function swimlaneLabel(ticket) {
+      if (swimlaneMode === 'assignee') return ticket.assignee_name || 'Unassigned';
+      if (swimlaneMode === 'priority') return ticket.priority ? ticket.priority.name : 'No priority';
+      if (swimlaneMode === 'issue_type') return ticket.issue_type.name;
+      if (swimlaneMode === 'epic') return ticket.epic_id ? ('Epic #' + ticket.epic_id) : 'No epic';
+      return '';
+    }
+
+    function filteredTickets() {
+      const q = $('#searchQ').val().trim().toLowerCase();
+      const now = new Date();
+      const weekAgo = new Date(now.getTime() - 7 * 86400000);
+      return allTickets.filter(function (t) {
+        if (q && t.summary.toLowerCase().indexOf(q) === -1 && t.ticket_key.toLowerCase().indexOf(q) === -1) return false;
+        if (activeQuickFilter === 'mine' && t.assignee_id !== myEmployeeId) return false;
+        if (activeQuickFilter === 'recent' && new Date(t.updated_at) < weekAgo) return false;
+        if (activeQuickFilter === 'done_week') {
+          const doneStatus = statuses.find(function (s) { return s.id === t.status.id; });
+          if (!doneStatus || doneStatus.category !== 'done' || new Date(t.updated_at) < weekAgo) return false;
+        }
+        if (activeQuickFilter === 'overdue') {
+          if (!t.due_date || new Date(t.due_date) >= now) return false;
+          const st = statuses.find(function (s) { return s.id === t.status.id; });
+          if (st && st.category === 'done') return false;
+        }
+        return true;
+      });
+    }
+
+    function cardHtml(t) {
+      const overdue = t.due_date && new Date(t.due_date) < new Date();
+      const accent = t.priority ? t.priority.color : t.issue_type.color;
+      return '<div class="board-card" style="--card-accent: ' + accent + ';" draggable="true" data-id="' + t.id + '">' +
+        '<div class="card-key">' + escapeHtml(t.ticket_key) + '</div>' +
+        '<div class="card-summary">' + escapeHtml(t.summary) + '</div>' +
+        '<div class="card-badges">' + colorBadge(t.issue_type.name, t.issue_type.color, t.issue_type.icon) +
+          (t.priority ? colorBadge(t.priority.name, t.priority.color, t.priority.icon) : '') +
+          (t.labels || []).map(function (l) { return colorBadge(l.name, l.color); }).join('') + '</div>' +
+        '<div class="card-meta">' +
+          '<span class="small ' + (overdue ? 'text-danger fw-semibold' : 'text-muted') + '">' +
+            (t.story_points != null ? ('<i class="bi bi-award me-1"></i>' + t.story_points + ' ') : '') +
+            (t.due_date ? ('<i class="bi bi-calendar-event me-1"></i>' + t.due_date) : '') +
+          '</span>' +
+          (t.assignee_name ? '<span class="avatar-chip" title="' + escapeHtml(t.assignee_name) + '">' + initials(t.assignee_name) + '</span>' : '') +
+        '</div>' +
+      '</div>';
+    }
+
+    function renderBoard() {
+      const tickets = filteredTickets();
+      const lanes = swimlaneMode ? Array.from(new Set(tickets.map(swimlaneKey))) : ['all'];
+      const laneLabels = {};
+      tickets.forEach(function (t) { laneLabels[swimlaneKey(t)] = swimlaneLabel(t); });
+
+      let html = '';
+      lanes.forEach(function (lane) {
+        if (swimlaneMode) html += '<div class="swimlane-header">' + escapeHtml(laneLabels[lane] || 'Ungrouped') + '</div>';
+        html += '<div class="board-columns" data-lane="' + escapeHtml(String(lane)) + '">';
+        statuses.forEach(function (s) {
+          const colTickets = tickets.filter(function (t) { return t.status.id === s.id && (!swimlaneMode || swimlaneKey(t) === lane); });
+          const overLimit = s.wip_limit && colTickets.length > s.wip_limit;
+          html += '<div class="board-column">' +
+            '<div class="board-column-header" style="--dot-color: ' + s.color + ';">' +
+              '<span class="col-name">' + escapeHtml(s.name) + '</span>' +
+              '<span class="d-flex align-items-center gap-2 flex-shrink-0">' +
+                '<span class="col-count' + (overLimit ? ' over-limit' : '') + '">' + colTickets.length + (s.wip_limit ? ('/' + s.wip_limit) : '') + '</span>' +
+                '<button class="btn btn-sm btn-link p-0 edit-column-btn" data-id="' + s.id + '"><i class="bi bi-three-dots"></i></button>' +
+              '</span>' +
+            '</div>' +
+            '<div class="board-column-body' + (overLimit ? ' over-limit' : '') + '" data-status-id="' + s.id + '" data-lane="' + escapeHtml(String(lane)) + '">' +
+              colTickets.map(cardHtml).join('') +
+            '</div>' +
+          '</div>';
+        });
+        html += '</div>';
+      });
+      $('#boardRoot').html(html || '<div class="text-muted small p-3">No tickets to show.</div>');
+
+      document.querySelectorAll('.board-column-body').forEach(function (el) {
+        new Sortable(el, {
+          group: 'board',
+          animation: 150,
+          ghostClass: 'sortable-ghost',
+          onEnd: function (evt) {
+            const ticketId = parseInt(evt.item.getAttribute('data-id'), 10);
+            const statusId = parseInt(evt.to.getAttribute('data-status-id'), 10);
+            const position = evt.newIndex;
+            $.ajax({
+              url: '/api/v1/tickets/' + ticketId + '/position', method: 'POST', contentType: 'application/json',
+              headers: authHeader, data: JSON.stringify({ status_id: statusId, position: position })
+            }).done(function () { loadBoard(); })
+              .fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to move ticket.'); loadBoard(); });
+          }
+        });
+      });
+    }
+
+    $(document).on('click', '.board-card', function (e) {
+      if (e.target.closest('[draggable]') !== this) return;
+      window.location.href = '/tickets/' + $(this).data('id');
+    });
+
+    $('#searchQ').on('input', function () { clearTimeout(window._d); window._d = setTimeout(renderBoard, 200); });
+    $('#swimlaneSelect').on('change', function () { swimlaneMode = $(this).val(); renderBoard(); });
+    $('#quickFilters button').on('click', function () {
+      const filter = $(this).data('filter');
+      activeQuickFilter = activeQuickFilter === filter ? null : filter;
+      $('#quickFilters button').removeClass('active');
+      if (activeQuickFilter) $(this).addClass('active');
+      renderBoard();
+    });
+
+    // ---- Column management ----
+    $('#addColumnBtn').on('click', function () {
+      $('#columnModalTitle').html('<i class="bi bi-plus-lg me-1"></i>New Column');
+      $('#columnForm')[0].reset();
+      $('#columnStatusId').val('');
+      $('#deleteColumnBtn').addClass('d-none');
+      new bootstrap.Modal('#columnModal').show();
+    });
+
+    $(document).on('click', '.edit-column-btn', function () {
+      const statusId = $(this).data('id');
+      const s = statuses.find(function (x) { return x.id === statusId; });
+      if (!s) return;
+      $('#columnModalTitle').html('<i class="bi bi-pencil me-1"></i>Edit Column');
+      $('#columnStatusId').val(s.id);
+      $('#columnName').val(s.name);
+      $('#columnCategory').val(s.category);
+      $('#columnColor').val(s.color);
+      $('#columnWipLimit').val(s.wip_limit != null ? s.wip_limit : '');
+      $('#deleteColumnBtn').removeClass('d-none');
+      new bootstrap.Modal('#columnModal').show();
+    });
+
+    $('#columnForm').on('submit', function (e) {
+      e.preventDefault();
+      const id = $('#columnStatusId').val();
+      const payload = {
+        name: $('#columnName').val(),
+        category: $('#columnCategory').val(),
+        color: $('#columnColor').val(),
+        wip_limit: $('#columnWipLimit').val() ? parseInt($('#columnWipLimit').val(), 10) : null
+      };
+      const url = '/api/v1/projects/' + projectId + '/statuses' + (id ? '/' + id : '');
+      $.ajax({ url: url, method: id ? 'PUT' : 'POST', contentType: 'application/json', headers: authHeader, data: JSON.stringify(payload) })
+        .done(function () { bootstrap.Modal.getInstance(document.getElementById('columnModal')).hide(); loadBoard(); showSuccess('Column saved.'); })
+        .fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to save column.'); });
+    });
+
+    $('#deleteColumnBtn').on('click', function () {
+      const id = $('#columnStatusId').val();
+      if (!id || !confirm('Delete this column?')) return;
+      $.ajax({ url: '/api/v1/projects/' + projectId + '/statuses/' + id, method: 'DELETE', headers: authHeader })
+        .done(function () { bootstrap.Modal.getInstance(document.getElementById('columnModal')).hide(); loadBoard(); })
+        .fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to delete column.'); });
+    });
+
+    // ---- New ticket ----
+    $('#newTicketForm').on('submit', function (e) {
+      e.preventDefault();
+      $.ajax({
+        url: '/api/v1/tickets', method: 'POST', contentType: 'application/json', headers: authHeader,
+        data: JSON.stringify({
+          project_id: projectId,
+          summary: $('#ticket_summary').val(),
+          description: $('#ticket_description').val() || null,
+          issue_type_id: parseInt($('#ticket_issue_type_id').val(), 10),
+          priority_id: $('#ticket_priority_id').val() ? parseInt($('#ticket_priority_id').val(), 10) : null,
+          assignee_id: $('#ticket_assignee_id').val() ? parseInt($('#ticket_assignee_id').val(), 10) : null,
+          story_points: $('#ticket_story_points').val() ? parseInt($('#ticket_story_points').val(), 10) : null,
+          due_date: $('#ticket_due_date').val() || null,
+          original_estimate: $('#ticket_original_estimate').val() ? parseInt($('#ticket_original_estimate').val(), 10) : null
+        })
+      }).done(function (ticket) {
+        bootstrap.Modal.getInstance(document.getElementById('newTicketModal')).hide();
+        $('#newTicketForm')[0].reset();
+        showSuccess(ticket.ticket_key + ' created.');
+        loadBoard();
+      }).fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to create ticket.'); });
+    });
+
+    $.when(loadMe(), loadEmployees(), loadIssueTypes(), loadPriorities()).always(function () {
+      loadProject();
+      loadBoard();
+    });
+
+    $('#logoutLink').on('click', function (e) {
+      e.preventDefault();
+      sessionStorage.clear();
+      window.location.href = '/auth/login';
+    });
+  </script>
+</body>
+</html>

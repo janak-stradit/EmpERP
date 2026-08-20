@@ -19,6 +19,7 @@ def create_user(db_session, company, email, password, role=UserRole.EMPLOYEE, fu
         full_name=full_name,
         role=role,
         is_active=True,
+        must_change_password=False,
     )
     db_session.add(user)
     db_session.commit()

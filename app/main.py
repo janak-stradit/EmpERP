@@ -10,6 +10,7 @@ from fastapi.templating import Jinja2Templates
 from app.api.v1.activities import router as activities_router
 from app.api.v1.attendance import router as attendance_router
 from app.api.v1.auth import router as auth_router
+from app.api.v1.dashboard import router as ticket_dashboard_router
 from app.api.v1.departments import router as departments_router
 from app.api.v1.designations import router as designations_router
 from app.api.v1.documents import router as documents_router
@@ -20,6 +21,10 @@ from app.api.v1.notifications import router as notifications_router
 from app.api.v1.onboarding import router as onboarding_router
 from app.api.v1.pms import router as pms_router
 from app.api.v1.teams import router as teams_router
+from app.api.v1.tickets import catalog_router as ticket_catalog_router
+from app.api.v1.tickets import projects_router as projects_router
+from app.api.v1.tickets import router as tickets_router
+from app.api.v1.tickets import sprints_router as sprints_router
 from app.core.config import get_settings
 
 settings = get_settings()
@@ -219,6 +224,53 @@ def hr_pms_page(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(request, "hr/pms.html", {"csp_nonce": request.state.csp_nonce})
 
 
+@app.get("/tickets", response_class=HTMLResponse, tags=["system"])
+def tickets_projects_page(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(request, "tickets/projects.html", {"csp_nonce": request.state.csp_nonce})
+
+
+@app.get("/tickets/project/{project_id}", response_class=HTMLResponse, tags=["system"])
+def tickets_project_detail_page(request: Request, project_id: int) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request, "tickets/project_detail.html", {"csp_nonce": request.state.csp_nonce, "project_id": project_id}
+    )
+
+
+@app.get("/tickets/project/{project_id}/board", response_class=HTMLResponse, tags=["system"])
+def tickets_board_page(request: Request, project_id: int) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request, "tickets/board.html", {"csp_nonce": request.state.csp_nonce, "project_id": project_id}
+    )
+
+
+@app.get("/tickets/project/{project_id}/backlog", response_class=HTMLResponse, tags=["system"])
+def tickets_backlog_page(request: Request, project_id: int) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request, "tickets/backlog.html", {"csp_nonce": request.state.csp_nonce, "project_id": project_id}
+    )
+
+
+@app.get("/tickets/project/{project_id}/calendar", response_class=HTMLResponse, tags=["system"])
+def tickets_calendar_page(request: Request, project_id: int) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request, "tickets/calendar.html", {"csp_nonce": request.state.csp_nonce, "project_id": project_id}
+    )
+
+
+@app.get("/tickets/project/{project_id}/dashboard", response_class=HTMLResponse, tags=["system"])
+def tickets_dashboard_page(request: Request, project_id: int) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request, "tickets/dashboard.html", {"csp_nonce": request.state.csp_nonce, "project_id": project_id}
+    )
+
+
+@app.get("/tickets/{ticket_id}", response_class=HTMLResponse, tags=["system"])
+def ticket_detail_page(request: Request, ticket_id: int) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request, "tickets/ticket_detail.html", {"csp_nonce": request.state.csp_nonce, "ticket_id": ticket_id}
+    )
+
+
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(departments_router, prefix="/api/v1")
 app.include_router(designations_router, prefix="/api/v1")
@@ -232,3 +284,8 @@ app.include_router(pms_router, prefix="/api/v1")
 app.include_router(activities_router, prefix="/api/v1")
 app.include_router(teams_router, prefix="/api/v1")
 app.include_router(notifications_router, prefix="/api/v1")
+app.include_router(projects_router, prefix="/api/v1")
+app.include_router(tickets_router, prefix="/api/v1")
+app.include_router(sprints_router, prefix="/api/v1")
+app.include_router(ticket_catalog_router, prefix="/api/v1")
+app.include_router(ticket_dashboard_router, prefix="/api/v1")

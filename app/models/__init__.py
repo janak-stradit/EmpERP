@@ -12,6 +12,7 @@ from app.models.leave import LeaveApplication, LeaveApprovalHistory, LeaveBalanc
 from app.models.login_attempt import LoginAttempt
 from app.models.notification import Notification
 from app.models.onboarding import EmployeeOnboarding, EmployeeOnboardingTask, OnboardingTask, OnboardingTemplate
+from app.models.project import Project, ProjectMember, ProjectWatcher, Sprint, SprintStatus, StatusCategory, TicketStatus
 from app.models.pms import (
     Competency,
     PmsEvaluation,
@@ -22,6 +23,18 @@ from app.models.pms import (
 )
 from app.models.refresh_token import RefreshToken
 from app.models.team import TeamMapping
+from app.models.ticket import (
+    IssueType,
+    Label,
+    Ticket,
+    TicketActivity,
+    TicketAttachment,
+    TicketComment,
+    TicketLabel,
+    TicketPriority,
+    TicketWatcher,
+    WorkLog,
+)
 from app.models.user import User
 
 __all__ = [
@@ -43,8 +56,10 @@ __all__ = [
     "EmployeeOnboarding",
     "EmployeeOnboardingTask",
     "EmployeeShift",
+    "IssueType",
     "KraTemplate",
     "KraTemplateItem",
+    "Label",
     "LeaveApplication",
     "LeaveApprovalHistory",
     "LeaveBalance",
@@ -56,10 +71,25 @@ __all__ = [
     "PmsEvaluation",
     "PmsEvaluationItem",
     "PmsReviewRequest",
+    "Project",
+    "ProjectMember",
+    "ProjectWatcher",
     "PromotionRecommendation",
     "RatingScale",
     "RefreshToken",
     "Shift",
+    "Sprint",
+    "SprintStatus",
+    "StatusCategory",
     "TeamMapping",
+    "Ticket",
+    "TicketActivity",
+    "TicketAttachment",
+    "TicketComment",
+    "TicketLabel",
+    "TicketPriority",
+    "TicketStatus",
+    "TicketWatcher",
     "User",
+    "WorkLog",
 ]

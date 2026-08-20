@@ -19,6 +19,9 @@ DOCUMENT_MIME_TYPES = {
 PHOTO_EXTENSIONS = {".jpg", ".jpeg", ".png"}
 PHOTO_MIME_TYPES = {"image/jpeg", "image/png"}
 
+TICKET_ATTACHMENT_EXTENSIONS = DOCUMENT_EXTENSIONS | {".gif", ".txt"}
+TICKET_ATTACHMENT_MIME_TYPES = DOCUMENT_MIME_TYPES | {"image/gif", "text/plain"}
+
 # Deliberately NOT under static/ - uploaded files must only be reachable through
 # authenticated download endpoints, never served directly by StaticFiles.
 UPLOAD_ROOT = Path("uploads")
@@ -114,6 +117,18 @@ def save_leave_attachment(company_id: int, employee_id: int, upload_file: Upload
         allowed_mime_types=DOCUMENT_MIME_TYPES,
         max_size_bytes=MAX_FILE_SIZE_BYTES,
         subdir="leave_attachments",
+    )
+
+
+def save_ticket_attachment(company_id: int, ticket_id: int, upload_file: UploadFile) -> SavedUpload:
+    return _persist_upload(
+        company_id,
+        ticket_id,
+        upload_file,
+        allowed_extensions=TICKET_ATTACHMENT_EXTENSIONS,
+        allowed_mime_types=TICKET_ATTACHMENT_MIME_TYPES,
+        max_size_bytes=MAX_FILE_SIZE_BYTES,
+        subdir="ticket_attachments",
     )
 
 

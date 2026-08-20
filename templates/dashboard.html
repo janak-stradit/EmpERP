@@ -108,6 +108,7 @@
       profile: { title: 'My Profile', desc: 'View and update your personal, contact, and bank details.', icon: 'bi-person-circle', url: '/employee/profile', accent: 'card-accent-indigo', alwaysUnlocked: true },
       activity_tracker: { title: 'Activity Tracker', desc: 'Log your daily tasks and work activities in 30-minute time blocks.', icon: 'bi-stopwatch', url: '/employee/activities', accent: 'card-accent-primary', alwaysUnlocked: true },
       pms: { title: 'My Performance', desc: 'Complete 360° reviews and view performance evaluation results.', icon: 'bi-graph-up-arrow', url: '/employee/pms', accent: 'card-accent-indigo' },
+      tickets: { title: 'Tickets', desc: 'Track bugs, tasks, and stories across your projects.', icon: 'bi-kanban', url: '/tickets', accent: 'card-accent-primary', alwaysUnlocked: true },
       hr_employees: { title: 'Employees', desc: 'Manage employee directory, departments, and designations.', icon: 'bi-people', url: '/hr/employees', accent: 'card-accent-primary', alwaysUnlocked: true },
       admin_team_mapping: { title: 'Team Mapping', desc: 'Map employees to reporting managers for activity tracking.', icon: 'bi-diagram-3', url: '/admin/team-mapping', accent: 'card-accent-warning', alwaysUnlocked: true },
       admin_activity_reports: { title: 'Company Activities', desc: 'View and export activity reports for all employees.', icon: 'bi-file-earmark-excel', url: '/admin/activity-reports', accent: 'card-accent-success', alwaysUnlocked: true },
@@ -194,9 +195,9 @@
             renderTiles(buildModuleList(profile.enabled_modules), isComplete);
           })
           .fail(function () {
-            let fallback = ['profile', 'activity_tracker', 'pms'];
+            let fallback = ['profile', 'activity_tracker', 'pms', 'tickets'];
             if (HR_ROLES.includes(me.role)) {
-                fallback = ['profile', 'activity_tracker', 'hr_employees'];
+                fallback = ['profile', 'activity_tracker', 'hr_employees', 'tickets'];
                 if (['super_admin', 'admin'].includes(me.role)) {
                     fallback.push('admin_team_mapping', 'admin_activity_reports');
                 }
