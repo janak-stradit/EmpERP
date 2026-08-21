@@ -17,7 +17,7 @@
 
     .board-scroll { overflow-x: auto; padding-bottom: 1rem; }
     .board-columns { display: flex; gap: 1rem; align-items: flex-start; min-height: 200px; }
-    .board-column { flex: 0 0 288px; width: 288px; }
+    .board-column { flex: 1 0 288px; min-width: 288px; }
     .board-column-header {
       display: flex; justify-content: space-between; align-items: center;
       padding: .55rem .7rem; background: var(--emp-navy); border-bottom: 3px solid var(--emp-primary);
@@ -91,6 +91,7 @@
 
     <div class="board-toolbar">
       <input type="text" class="form-control form-control-sm" style="width: 220px;" id="searchQ" placeholder="Search this board&hellip;">
+      <select class="form-select form-select-sm" style="width: auto;" id="filterAssignee"><option value="">Any assignee</option></select>
       <div class="btn-group btn-group-sm" role="group" id="quickFilters">
         <button type="button" class="btn btn-outline-secondary" data-filter="mine">My Issues</button>
         <button type="button" class="btn btn-outline-secondary" data-filter="recent">Recently Updated</button>
@@ -269,6 +270,7 @@
         employees = d;
         const options = d.map(function (e) { return '<option value="' + e.id + '">' + escapeHtml(e.employee_code + ' - ' + e.full_name) + '</option>'; }).join('');
         $('#ticket_assignee_id').html('<option value="">Unassigned</option>' + options);
+        $('#filterAssignee').html('<option value="">Any assignee</option>' + options);
       });
     }
     function loadIssueTypes() {
@@ -324,8 +326,10 @@
       const q = $('#searchQ').val().trim().toLowerCase();
       const now = new Date();
       const weekAgo = new Date(now.getTime() - 7 * 86400000);
+      const assigneeFilter = $('#filterAssignee').val();
       return allTickets.filter(function (t) {
         if (q && t.summary.toLowerCase().indexOf(q) === -1 && t.ticket_key.toLowerCase().indexOf(q) === -1) return false;
+        if (assigneeFilter && String(t.assignee_id) !== assigneeFilter) return false;
         if (activeQuickFilter === 'mine' && t.assignee_id !== myEmployeeId) return false;
         if (activeQuickFilter === 'recent' && new Date(t.updated_at) < weekAgo) return false;
         if (activeQuickFilter === 'done_week') {
@@ -415,6 +419,7 @@
     });
 
     $('#searchQ').on('input', function () { clearTimeout(window._d); window._d = setTimeout(renderBoard, 200); });
+    $('#filterAssignee').on('change', renderBoard);
     $('#swimlaneSelect').on('change', function () { swimlaneMode = $(this).val(); renderBoard(); });
     $('#quickFilters button').on('click', function () {
       const filter = $(this).data('filter');

@@ -3,6 +3,85 @@
   if (!token) return;
   const authHeader = { Authorization: 'Bearer ' + token };
 
+  // ---- Keep every request authenticated with the freshest token ----
+  // Every page captures its own `authHeader`/`token` once, as a const, at load time.
+  // Access tokens are short-lived (~15 min); without this, a page left open longer
+  // than that starts sending a stale token on every request and users see
+  // "Invalid or expired token" until they reload. This patches both request paths
+  // used across the app (jQuery's $.ajax and raw fetch) to always attach whatever
+  // token currently lives in sessionStorage, and refreshes it in the background
+  // before it expires.
+
+  if (window.jQuery && !window.jQuery._empAuthPrefilterInstalled) {
+    window.jQuery._empAuthPrefilterInstalled = true;
+    window.jQuery.ajaxPrefilter(function (options) {
+      const current = sessionStorage.getItem('access_token');
+      if (current) {
+        options.headers = options.headers || {};
+        options.headers.Authorization = 'Bearer ' + current;
+      }
+    });
+  }
+
+  if (!window._empFetchPatched) {
+    window._empFetchPatched = true;
+    const originalFetch = window.fetch.bind(window);
+    window.fetch = function (input, init) {
+      init = init || {};
+      const hasAuthHeader = init.headers && (
+        (init.headers instanceof Headers && init.headers.has('Authorization')) ||
+        (typeof init.headers.Authorization !== 'undefined')
+      );
+      if (hasAuthHeader) {
+        const current = sessionStorage.getItem('access_token');
+        if (current) {
+          if (init.headers instanceof Headers) {
+            init.headers.set('Authorization', 'Bearer ' + current);
+          } else {
+            init = Object.assign({}, init, { headers: Object.assign({}, init.headers, { Authorization: 'Bearer ' + current }) });
+          }
+        }
+      }
+      return originalFetch(input, init);
+    };
+  }
+
+  let refreshInFlight = null;
+
+  function refreshAccessToken() {
+    if (refreshInFlight) return refreshInFlight;
+    const refreshToken = sessionStorage.getItem('refresh_token');
+    if (!refreshToken) return Promise.reject(new Error('no refresh token'));
+    refreshInFlight = window.fetch('/api/v1/auth/refresh', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refresh_token: refreshToken })
+    })
+      .then(function (r) { if (!r.ok) throw new Error('refresh failed'); return r.json(); })
+      .then(function (data) {
+        sessionStorage.setItem('access_token', data.access_token);
+        sessionStorage.setItem('refresh_token', data.refresh_token);
+      })
+      .finally(function () { refreshInFlight = null; });
+    return refreshInFlight;
+  }
+
+  // Proactively refresh well before the access token's ~15 minute expiry.
+  setInterval(function () { refreshAccessToken().catch(function () {}); }, 8 * 60 * 1000);
+
+  // Fallback: if a request still 401s (e.g. a long-backgrounded tab where timers
+  // were throttled), try one silent refresh; only force a re-login if the
+  // refresh token itself is dead.
+  if (window.jQuery && !window.jQuery._empAuthErrorHandlerInstalled) {
+    window.jQuery._empAuthErrorHandlerInstalled = true;
+    window.jQuery(document).ajaxError(function (event, jqXHR, ajaxSettings) {
+      if (jqXHR.status !== 401) return;
+      if (ajaxSettings.url && ajaxSettings.url.indexOf('/auth/refresh') !== -1) return;
+      refreshAccessToken().catch(function () {
+        sessionStorage.clear();
+        window.location.href = '/auth/login';
+      });
+    });
+  }
+
   function timeAgo(iso) {
     const diffSeconds = (Date.now() - new Date(iso).getTime()) / 1000;
     if (diffSeconds < 60) return 'just now';
