@@ -222,7 +222,10 @@
       return 'all';
     }
     function swimlaneLabel(t) {
-      if (swimlaneMode === 'project') return t.project_key;
+      if (swimlaneMode === 'project') {
+        const project = allProjects.find(function (p) { return p.id === t.project_id; });
+        return project ? (project.key + ' — ' + project.name) : t.project_key;
+      }
       if (swimlaneMode === 'assignee') return t.assignee_name || 'Unassigned';
       if (swimlaneMode === 'priority') return t.priority ? t.priority.name : 'No priority';
       return '';

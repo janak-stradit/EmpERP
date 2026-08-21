@@ -123,11 +123,17 @@
               '<div class="card h-100 card-accent-primary">' +
                 '<div class="card-body">' +
                   '<div class="emp-tile-arrow"><i class="bi bi-arrow-right-short"></i></div>' +
+                  '<div class="mb-2">' +
+                    '<span class="position-relative d-inline-flex align-items-center justify-content-center" style="width: 2rem; height: 2rem;">' +
+                      '<i class="bi bi-ticket-detailed-fill text-primary fs-4"></i>' +
+                      (p.open_ticket_count > 0 ?
+                        '<span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size: .65rem;">' +
+                          p.open_ticket_count + '<span class="visually-hidden"> active tickets</span>' +
+                        '</span>' : '') +
+                    '</span>' +
+                  '</div>' +
                   '<div class="d-flex align-items-center gap-2 mb-2 flex-wrap">' +
                     '<span class="badge bg-secondary">' + escapeHtml(p.key) + '</span>' +
-                    (p.open_ticket_count > 0 ?
-                      '<span class="badge emp-status emp-status-active"><span class="emp-status-dot"></span> ' + p.open_ticket_count + ' active</span>' :
-                      '<span class="badge bg-light text-muted border">No open tickets</span>') +
                     (p.is_active ? '' : '<span class="badge bg-light text-muted border">Inactive</span>') +
                   '</div>' +
                   '<h5 class="card-title mb-1">' + escapeHtml(p.name) + '</h5>' +
