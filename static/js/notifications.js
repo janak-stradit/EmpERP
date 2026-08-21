@@ -64,8 +64,8 @@
     return refreshInFlight;
   }
 
-  // Proactively refresh well before the access token's ~15 minute expiry.
-  setInterval(function () { refreshAccessToken().catch(function () {}); }, 8 * 60 * 1000);
+  // Proactively refresh well before the access token's ~360 minute (6 hour) expiry.
+  setInterval(function () { refreshAccessToken().catch(function () {}); }, 60 * 60 * 1000);
 
   // Fallback: if a request still 401s (e.g. a long-backgrounded tab where timers
   // were throttled), try one silent refresh; only force a re-login if the

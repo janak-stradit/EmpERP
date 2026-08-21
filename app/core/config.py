@@ -23,8 +23,8 @@ class Settings(BaseSettings):
 
     jwt_secret_key: str
     jwt_algorithm: str = "HS256"
-    access_token_expire_minutes: int = 15
-    refresh_token_expire_days: int = 7
+    access_token_expire_minutes: int = 360
+    refresh_token_expire_days: int = 1
 
     fernet_key: str
     totp_issuer_name: str = "Stradit Workforce"
