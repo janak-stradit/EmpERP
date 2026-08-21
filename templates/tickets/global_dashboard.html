@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Stradit Workforce &mdash; All Projects Dashboard</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="/static/css/app.css" rel="stylesheet">
+  <style nonce="{{ csp_nonce }}">
+    .chart-card-body { height: 280px; position: relative; }
+    .trend-up { color: #198754; }
+    .trend-down { color: #dc3545; }
+    .activity-item { display: flex; gap: .6rem; padding: .5rem 0; border-bottom: 1px solid rgba(0,0,0,.06); }
+    .activity-item:last-child { border-bottom: none; }
+    .activity-avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--emp-primary, #6366f1); color: #fff; font-size: .7rem; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .project-chip { font-size: .65rem; font-weight: 700; background: var(--emp-primary-light, #eef2ff); color: var(--emp-primary-dark, #3730a3); padding: .05rem .4rem; }
+  </style>
+</head>
+<body>
+  <nav class="navbar emp-navbar mb-4">
+    <div class="container-fluid px-4">
+      <a class="navbar-brand" href="/dashboard"><i class="bi bi-buildings me-2"></i><span>Stradit Workforce</span></a>
+      <button class="emp-navbar-toggler ms-auto" id="empNavToggler" aria-label="Toggle navigation">
+        <i class="bi bi-list"></i>
+      </button>
+      <div class="emp-navbar-collapse" id="empNavCollapse">
+        <a class="nav-link" href="/dashboard"><i class="bi bi-grid me-1"></i>Dashboard</a>
+        <a class="nav-link" href="#" id="logoutLink"><i class="bi bi-box-arrow-right me-1"></i>Logout</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="toast-container position-fixed top-0 end-0 p-3" id="toastContainer"></div>
+
+  <div class="container-fluid px-4 pb-5">
+    <a href="/tickets" class="btn btn-sm btn-link ps-0 mb-2 text-decoration-none"><i class="bi bi-arrow-left me-1"></i>All Projects</a>
+
+    <div class="emp-page-header d-flex justify-content-between align-items-end flex-wrap gap-2">
+      <div>
+        <div class="emp-breadcrumb"><i class="bi bi-speedometer2"></i> All Projects</div>
+        <h1>All Projects Dashboard</h1>
+      </div>
+      <a class="btn btn-outline-primary btn-sm" href="/tickets/board"><i class="bi bi-columns-gap me-1"></i>All Tickets Board</a>
+    </div>
+
+    <!-- KPI cards -->
+    <div class="row g-3 mb-4" id="kpiRow"></div>
+
+    <!-- Charts row 1 -->
+    <div class="row g-3 mb-3">
+      <div class="col-lg-6">
+        <div class="card h-100">
+          <div class="card-header fw-semibold"><i class="bi bi-pie-chart me-1"></i>Status Distribution</div>
+          <div class="card-body chart-card-body"><canvas id="categoryChart"></canvas></div>
+        </div>
+      </div>
+      <div class="col-lg-6">
+        <div class="card h-100">
+          <div class="card-header fw-semibold"><i class="bi bi-bar-chart-steps me-1"></i>Open Tickets by Project</div>
+          <div class="card-body chart-card-body"><canvas id="projectChart"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Charts row 2 -->
+    <div class="row g-3 mb-3">
+      <div class="col-lg-6">
+        <div class="card h-100">
+          <div class="card-header fw-semibold"><i class="bi bi-people me-1"></i>Workload Distribution</div>
+          <div class="card-body chart-card-body"><canvas id="workloadChart"></canvas></div>
+        </div>
+      </div>
+      <div class="col-lg-6">
+        <div class="card h-100">
+          <div class="card-header fw-semibold"><i class="bi bi-graph-up me-1"></i>Ticket Creation Trend (30 days)</div>
+          <div class="card-body chart-card-body"><canvas id="creationChart"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Charts row 3 -->
+    <div class="row g-3 mb-3">
+      <div class="col-lg-6">
+        <div class="card h-100">
+          <div class="card-header fw-semibold"><i class="bi bi-hourglass-split me-1"></i>Resolution Time</div>
+          <div class="card-body chart-card-body"><canvas id="resolutionChart"></canvas></div>
+        </div>
+      </div>
+      <div class="col-lg-6">
+        <div class="card h-100">
+          <div class="card-header fw-semibold"><i class="bi bi-flag me-1"></i>Active Sprints</div>
+          <div class="card-body" style="max-height: 280px; overflow-y: auto;" id="activeSprintsList"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Widgets -->
+    <div class="row g-3 mb-3">
+      <div class="col-lg-4">
+        <div class="card h-100">
+          <div class="card-header fw-semibold"><i class="bi bi-person-check me-1"></i>My Open Tickets</div>
+          <div class="card-body p-0" id="myTicketsList"></div>
+        </div>
+      </div>
+      <div class="col-lg-4">
+        <div class="card h-100">
+          <div class="card-header fw-semibold"><i class="bi bi-activity me-1"></i>Recent Activity</div>
+          <div class="card-body" style="max-height: 320px; overflow-y: auto;" id="activityList"></div>
+        </div>
+      </div>
+      <div class="col-lg-4">
+        <div class="card h-100">
+          <div class="card-header fw-semibold"><i class="bi bi-kanban me-1"></i>Project Breakdown</div>
+          <div class="card-body p-0" id="projectBreakdownList" style="max-height: 320px; overflow-y: auto;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="/static/js/app-ux.js"></script>
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="/static/js/notifications.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script nonce="{{ csp_nonce }}">
+    const token = sessionStorage.getItem('access_token');
+    if (!token) { window.location.href = '/auth/login'; }
+    const authHeader = { Authorization: 'Bearer ' + token };
+
+    function showToast(message, variant) {
+      const bg = variant === 'success' ? 'text-bg-success' : 'text-bg-danger';
+      const icon = variant === 'success' ? 'bi-check-circle' : 'bi-exclamation-triangle';
+      const toastEl = $(
+        '<div class="toast align-items-center ' + bg + ' border-0" role="alert">' +
+          '<div class="d-flex">' +
+            '<div class="toast-body"><i class="bi ' + icon + ' me-2"></i>' + message + '</div>' +
+            '<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>' +
+          '</div>' +
+        '</div>'
+      );
+      $('#toastContainer').append(toastEl);
+      const toast = new bootstrap.Toast(toastEl[0], { delay: 4000 });
+      toast.show();
+      toastEl.on('hidden.bs.toast', function () { toastEl.remove(); });
+    }
+    function showError(message) { showToast(message, 'danger'); }
+    function escapeHtml(str) { return $('<div>').text(str == null ? '' : str).html(); }
+    function initials(name) { return (name || '?').split(' ').map(function (n) { return n[0]; }).join('').substring(0, 2).toUpperCase(); }
+    function timeAgo(iso) {
+      const diffMs = new Date() - new Date(iso);
+      const mins = Math.floor(diffMs / 60000);
+      if (mins < 1) return 'just now';
+      if (mins < 60) return mins + 'm ago';
+      const hrs = Math.floor(mins / 60);
+      if (hrs < 24) return hrs + 'h ago';
+      return Math.floor(hrs / 24) + 'd ago';
+    }
+
+    function kpiCard(title, icon, accent, kpi) {
+      const trend = kpi.trend_pct;
+      let trendHtml = '<span class="text-muted small">No change data</span>';
+      if (trend !== null && trend !== undefined) {
+        const up = trend >= 0;
+        const cls = up ? 'trend-up' : 'trend-down';
+        const arrow = up ? 'bi-arrow-up-short' : 'bi-arrow-down-short';
+        trendHtml = '<span class="' + cls + ' small fw-semibold"><i class="bi ' + arrow + '"></i>' + Math.abs(trend) + '% vs last week</span>';
+      }
+      return '<div class="col-sm-6 col-lg-3">' +
+        '<div class="card emp-stat-card shadow-sm border-0 card-accent-' + accent + ' h-100">' +
+          '<div class="card-body p-3">' +
+            '<div class="d-flex align-items-center justify-content-between">' +
+              '<div><span class="text-muted small fw-bold text-uppercase d-block mb-1">' + title + '</span>' +
+              '<h3 class="fw-bold mb-1 text-navy">' + kpi.value + '</h3>' + trendHtml + '</div>' +
+              '<div class="emp-stat-icon ' + accent + '"><i class="bi ' + icon + '"></i></div>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    }
+
+    let charts = {};
+    function destroyChart(key) { if (charts[key]) { charts[key].destroy(); delete charts[key]; } }
+
+    function loadDashboard() {
+      $.ajax({ url: '/api/v1/dashboard', headers: authHeader }).done(function (d) {
+        $('#kpiRow').html(
+          kpiCard('Open Tickets', 'bi-ticket-detailed', 'primary', d.kpis.open) +
+          kpiCard('In Progress', 'bi-arrow-repeat', 'warning', d.kpis.in_progress) +
+          kpiCard('Completed (This Week)', 'bi-check-circle', 'success', d.kpis.completed_this_week) +
+          kpiCard('Overdue', 'bi-exclamation-triangle', 'danger', d.kpis.overdue)
+        );
+
+        // Category distribution
+        destroyChart('category');
+        charts.category = new Chart(document.getElementById('categoryChart'), {
+          type: 'doughnut',
+          data: {
+            labels: d.category_distribution.map(function (c) { return c.label; }),
+            datasets: [{ data: d.category_distribution.map(function (c) { return c.count; }), backgroundColor: d.category_distribution.map(function (c) { return c.color; }), borderWidth: 2, borderColor: '#fff' }]
+          },
+          options: { responsive: true, maintainAspectRatio: false, cutout: '68%', plugins: { legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11 } } } } }
+        });
+
+        // Open tickets by project
+        destroyChart('project');
+        const projects = d.project_breakdown.slice(0, 12);
+        charts.project = new Chart(document.getElementById('projectChart'), {
+          type: 'bar',
+          data: {
+            labels: projects.map(function (p) { return p.project_key; }),
+            datasets: [
+              { label: 'Open', data: projects.map(function (p) { return p.open_count; }), backgroundColor: '#4f46e5', borderRadius: 4 },
+              { label: 'Overdue', data: projects.map(function (p) { return p.overdue_count; }), backgroundColor: '#dc3545', borderRadius: 4 }
+            ]
+          },
+          options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }, plugins: { legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } } } }
+        });
+
+        // Workload distribution
+        destroyChart('workload');
+        const workload = d.workload_distribution.slice(0, 10);
+        charts.workload = new Chart(document.getElementById('workloadChart'), {
+          type: 'bar',
+          data: { labels: workload.map(function (w) { return w.employee_name; }), datasets: [{ label: 'Open tickets', data: workload.map(function (w) { return w.open_count; }), backgroundColor: '#4f46e5', borderRadius: 4 }] },
+          options: {
+            indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+            scales: { x: { beginAtZero: true, ticks: { precision: 0 } }, y: { grid: { display: false } } },
+            plugins: { legend: { display: false } }
+          }
+        });
+
+        // Creation trend
+        destroyChart('creation');
+        charts.creation = new Chart(document.getElementById('creationChart'), {
+          type: 'line',
+          data: { labels: d.creation_trend.map(function (p) { return p.date.slice(5); }), datasets: [{ label: 'Created', data: d.creation_trend.map(function (p) { return p.count; }), borderColor: '#0d6efd', backgroundColor: 'rgba(13,110,253,.1)', fill: true, tension: .3, pointRadius: 0 }] },
+          options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }, plugins: { legend: { display: false } } }
+        });
+
+        // Resolution time buckets
+        destroyChart('resolution');
+        charts.resolution = new Chart(document.getElementById('resolutionChart'), {
+          type: 'bar',
+          data: { labels: d.resolution_time_buckets.map(function (b) { return b.label; }), datasets: [{ label: 'Tickets', data: d.resolution_time_buckets.map(function (b) { return b.count; }), backgroundColor: '#16a34a', borderRadius: 4 }] },
+          options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }, plugins: { legend: { display: false } } }
+        });
+
+        // Active sprints
+        $('#activeSprintsList').html(
+          (d.active_sprints.length ? d.active_sprints.map(function (s) {
+            const pct = s.total_points > 0 ? Math.round(s.completed_points / s.total_points * 100) : 0;
+            return '<div class="mb-3">' +
+              '<div class="d-flex justify-content-between align-items-center">' +
+                '<span><span class="project-chip me-1">' + escapeHtml(s.project_key || '') + '</span><strong class="small">' + escapeHtml(s.name) + '</strong></span>' +
+                '<span class="text-muted small">' + (s.days_remaining !== null ? (s.days_remaining >= 0 ? s.days_remaining + 'd left' : 'ended') : '') + '</span>' +
+              '</div>' +
+              '<div class="progress mb-1" style="height: 8px;"><div class="progress-bar bg-success" style="width:' + pct + '%"></div></div>' +
+              '<div class="small text-muted">' + s.completed_points + ' / ' + s.total_points + ' pts &middot; ' + s.tickets_remaining + ' remaining</div>' +
+            '</div>';
+          }).join('') : '<div class="text-muted small">No active sprints right now.</div>')
+        );
+
+        // My open tickets
+        $('#myTicketsList').html(
+          (d.my_open_tickets.length ? d.my_open_tickets.map(function (t) {
+            const overdue = t.due_date && new Date(t.due_date) < new Date();
+            return '<a class="d-block text-decoration-none text-body px-3 py-2 border-bottom" href="/tickets/' + t.id + '">' +
+              '<div class="d-flex justify-content-between align-items-center">' +
+                '<span class="small"><strong>' + escapeHtml(t.ticket_key) + '</strong> ' + escapeHtml(t.summary) + '</span>' +
+                '<span class="badge" style="background-color:' + t.status_color + '; color:#fff;">' + escapeHtml(t.status_name) + '</span>' +
+              '</div>' +
+              (t.due_date ? '<div class="small ' + (overdue ? 'text-danger fw-semibold' : 'text-muted') + '"><i class="bi bi-calendar-event me-1"></i>' + t.due_date + '</div>' : '') +
+            '</a>';
+          }).join('') : '<div class="text-muted small p-3">Nothing assigned to you right now.</div>')
+        );
+
+        // Recent activity
+        $('#activityList').html(
+          (d.recent_activity.length ? d.recent_activity.map(function (a) {
+            const label = { created: 'created this ticket', commented: 'commented', transitioned: 'changed status', assigned: 'changed assignee', attachment_added: 'added an attachment', attachment_deleted: 'removed an attachment', logged_work: 'logged work', updated: 'updated ' + (a.field_name || 'a field') }[a.action] || a.action;
+            return '<div class="activity-item">' +
+              '<span class="activity-avatar">' + initials(a.actor_name) + '</span>' +
+              '<div><div class="small"><strong>' + escapeHtml(a.actor_name) + '</strong> ' + label + ' on <a href="/tickets/' + a.ticket_id + '">' + escapeHtml(a.ticket_key) + '</a></div>' +
+              '<div class="text-muted small">' + timeAgo(a.created_at) + '</div></div>' +
+            '</div>';
+          }).join('') : '<div class="text-muted small">No recent activity.</div>')
+        );
+
+        // Project breakdown
+        $('#projectBreakdownList').html(
+          (d.project_breakdown.length ? d.project_breakdown.map(function (p) {
+            return '<a class="d-flex justify-content-between align-items-center text-decoration-none text-body px-3 py-2 border-bottom" href="/tickets/project/' + p.project_id + '">' +
+              '<span class="small"><span class="project-chip me-1">' + escapeHtml(p.project_key) + '</span>' + escapeHtml(p.project_name) + '</span>' +
+              '<span class="text-nowrap">' +
+                '<span class="badge bg-primary-subtle text-primary-emphasis me-1">' + p.open_count + ' open</span>' +
+                (p.overdue_count > 0 ? '<span class="badge bg-danger-subtle text-danger-emphasis">' + p.overdue_count + ' overdue</span>' : '') +
+              '</span>' +
+            '</a>';
+          }).join('') : '<div class="text-muted small p-3">No projects yet.</div>')
+        );
+      }).fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to load dashboard.'); });
+    }
+
+    loadDashboard();
+
+    $('#logoutLink').on('click', function (e) {
+      e.preventDefault();
+      sessionStorage.clear();
+      window.location.href = '/auth/login';
+    });
+  </script>
+</body>
+</html>

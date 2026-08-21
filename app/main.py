@@ -234,6 +234,11 @@ def tickets_global_board_page(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(request, "tickets/global_board.html", {"csp_nonce": request.state.csp_nonce})
 
 
+@app.get("/tickets/dashboard", response_class=HTMLResponse, tags=["system"])
+def tickets_global_dashboard_page(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(request, "tickets/global_dashboard.html", {"csp_nonce": request.state.csp_nonce})
+
+
 @app.get("/tickets/project/{project_id}", response_class=HTMLResponse, tags=["system"])
 def tickets_project_detail_page(request: Request, project_id: int) -> HTMLResponse:
     return templates.TemplateResponse(

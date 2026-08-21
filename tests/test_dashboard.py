@@ -168,3 +168,44 @@ def test_workload_report_export_csv(client, db_session):
     assert resp.status_code == 200
     assert resp.headers["content-type"].startswith("text/csv")
     assert "Member" in resp.text
+
+
+def test_global_dashboard_aggregates_across_projects(client, db_session):
+    company = create_company(db_session)
+    _, reporter, token = _setup_user_and_employee(client, db_session, company, "lead@example.com", "EMP-001")
+    _, assignee, _ = _setup_user_and_employee(client, db_session, company, "dev@example.com", "EMP-002")
+    project_a = _create_project(client, token, key="ALPHA")
+    project_b = _create_project(client, token, key="BETA")
+
+    statuses_a = client.get(f"/api/v1/projects/{project_a['id']}/statuses", headers=auth_headers(token)).json()
+    done_a = next(s for s in statuses_a if s["name"] == "Done")
+
+    _create_ticket(client, token, project_a["id"], summary="Alpha open", assignee_id=assignee.id, story_points=2)
+    ticket_a_done = _create_ticket(client, token, project_a["id"], summary="Alpha done")
+    client.post(f"/api/v1/tickets/{ticket_a_done['id']}/transition", json={"status_id": done_a["id"]}, headers=auth_headers(token))
+    _create_ticket(client, token, project_b["id"], summary="Beta open", assignee_id=reporter.id)
+
+    sprint = client.post(
+        f"/api/v1/projects/{project_a['id']}/sprints", json={"name": "Sprint 1"}, headers=auth_headers(token)
+    ).json()
+    client.post(f"/api/v1/sprints/{sprint['id']}/start", headers=auth_headers(token))
+
+    dashboard = client.get("/api/v1/dashboard", headers=auth_headers(token)).json()
+
+    # Open count spans both projects; the one Done ticket in ALPHA is excluded.
+    assert dashboard["kpis"]["open"]["value"] == 2
+
+    category_counts = {c["category"]: c["count"] for c in dashboard["category_distribution"]}
+    assert category_counts["done"] == 1
+    assert category_counts["todo"] == 2
+
+    breakdown_by_key = {p["project_key"]: p for p in dashboard["project_breakdown"]}
+    assert breakdown_by_key["ALPHA"]["open_count"] == 1
+    assert breakdown_by_key["BETA"]["open_count"] == 1
+
+    active_sprint_projects = {s["project_key"] for s in dashboard["active_sprints"]}
+    assert active_sprint_projects == {"ALPHA"}
+
+    workload_by_name = {w["employee_name"]: w for w in dashboard["workload_distribution"]}
+    assert workload_by_name["dev"]["open_count"] == 1
+    assert workload_by_name["lead"]["open_count"] == 1

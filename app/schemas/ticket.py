@@ -465,6 +465,8 @@ class SprintProgress(BaseModel):
     total_points: int
     days_remaining: int | None
     tickets_remaining: int
+    project_id: int | None = None
+    project_key: str | None = None
 
 
 class DashboardResponse(BaseModel):
@@ -476,6 +478,33 @@ class DashboardResponse(BaseModel):
     my_open_tickets: list[MyOpenTicket]
     recent_activity: list[RecentActivityItem]
     sprint_progress: SprintProgress | None
+
+
+class CategoryDistributionSlice(BaseModel):
+    category: StatusCategory
+    label: str
+    color: str
+    count: int
+
+
+class ProjectBreakdownEntry(BaseModel):
+    project_id: int
+    project_key: str
+    project_name: str
+    open_count: int
+    overdue_count: int
+
+
+class GlobalDashboardResponse(BaseModel):
+    kpis: DashboardKpis
+    category_distribution: list[CategoryDistributionSlice]
+    workload_distribution: list[WorkloadEntry]
+    creation_trend: list[TrendPoint]
+    resolution_time_buckets: list[ResolutionBucket]
+    my_open_tickets: list[MyOpenTicket]
+    recent_activity: list[RecentActivityItem]
+    active_sprints: list[SprintProgress]
+    project_breakdown: list[ProjectBreakdownEntry]
 
 
 class BurndownPoint(BaseModel):
