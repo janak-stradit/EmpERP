@@ -6,6 +6,7 @@
   <title>Stradit Workforce &mdash; Sprint</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/quill@2/dist/quill.snow.css" rel="stylesheet">
   <link href="/static/css/app.css" rel="stylesheet">
   <style nonce="{{ csp_nonce }}">
     .avatar-chip {
@@ -15,8 +16,10 @@
     .avatar-chip.unassigned { background: var(--emp-text-subtle); }
     .row-progress { width: 90px; }
     #goalView.is-empty { color: var(--emp-text-subtle); font-style: italic; }
-    #goalView ul { padding-left: 1.25rem; margin-bottom: .5rem; }
-    #goalView div:not(:last-child) { margin-bottom: .25rem; }
+    #goalView p:last-child { margin-bottom: 0; }
+    #goalView ul, #goalView ol { padding-left: 1.25rem; }
+    #goalEditor { background: #fff; }
+    #goalEditor .ql-editor { min-height: 140px; }
   </style>
 </head>
 <body>
@@ -127,7 +130,7 @@
 
   <!-- Edit Sprint Modal -->
   <div class="modal fade" id="editSprintModal" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-lg">
       <div class="modal-content">
         <form id="editSprintForm">
           <div class="modal-header">
@@ -137,8 +140,7 @@
           <div class="modal-body">
             <div class="mb-3">
               <label class="form-label small">Goal</label>
-              <textarea class="form-control" id="editSprintGoal" rows="4" placeholder="What should this sprint achieve?"></textarea>
-              <div class="form-text">Supports **bold**, *italic*, and "- " for bullet lists.</div>
+              <div id="goalEditor"></div>
             </div>
             <div class="mb-1">
               <label class="form-label small">Linked projects</label>
@@ -159,6 +161,8 @@
   <script src="/static/js/app-ux.js"></script>
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <script src="/static/js/notifications.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/quill@2/dist/quill.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
   <script nonce="{{ csp_nonce }}">
     const token = sessionStorage.getItem('access_token');
     if (!token) { window.location.href = '/auth/login'; }
@@ -193,31 +197,23 @@
       closed: '<span class="badge bg-secondary">Closed</span>',
     };
 
-    // Minimal, safe markdown-lite: text is HTML-escaped first, so only our own
-    // generated tags (from the transforms below) ever reach the DOM as real markup.
-    function inlineMarkdown(escapedLine) {
-      return escapedLine
-        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\*(.+?)\*/g, '<em>$1</em>');
-    }
-    function renderMarkdown(text) {
-      if (!text) return '';
-      const lines = escapeHtml(text).split('\n');
-      let html = '';
-      let inList = false;
-      lines.forEach(function (line) {
-        const bulletMatch = line.match(/^[-*]\s+(.*)/);
-        if (bulletMatch) {
-          if (!inList) { html += '<ul>'; inList = true; }
-          html += '<li>' + inlineMarkdown(bulletMatch[1]) + '</li>';
-          return;
-        }
-        if (inList) { html += '</ul>'; inList = false; }
-        html += line.trim() ? ('<div>' + inlineMarkdown(line) + '</div>') : '<br>';
-      });
-      if (inList) html += '</ul>';
-      return html;
-    }
+    // Sprint Goal is stored as rich-text HTML from the Quill editor below. It may
+    // come back from the API unchanged even if someone bypasses the UI and PUTs
+    // raw HTML directly, so always sanitize before ever inserting it into the DOM.
+    function sanitizeGoalHtml(html) { return DOMPurify.sanitize(html || ''); }
+
+    const goalQuill = new Quill('#goalEditor', {
+      theme: 'snow',
+      placeholder: 'What should this sprint achieve?',
+      modules: {
+        toolbar: [
+          ['bold', 'italic', 'underline'],
+          [{ header: [2, 3, false] }],
+          [{ list: 'ordered' }, { list: 'bullet' }],
+          ['clean'],
+        ],
+      },
+    });
 
     function progressBar(completed, total, extraClass) {
       const pct = total > 0 ? Math.min(100, Math.round((completed / total) * 100)) : 0;
@@ -256,7 +252,7 @@
       $('#sprintMeta').html(dateRange + daysNote);
 
       $('#goalView').toggleClass('is-empty', !s.goal)
-        .html(s.goal ? renderMarkdown(s.goal) : 'No goal set. Click Edit to add one.');
+        .html(s.goal ? sanitizeGoalHtml(s.goal) : 'No goal set. Click Edit to add one.');
 
       $('#statTicketCount').text(s.ticket_count);
       $('#statTotalPoints').text(s.total_points);
@@ -294,7 +290,8 @@
 
     $('#editSprintBtn').on('click', function () {
       if (!currentSprint) return;
-      $('#editSprintGoal').val(currentSprint.goal || '');
+      goalQuill.setText('');
+      if (currentSprint.goal) goalQuill.clipboard.dangerouslyPasteHTML(sanitizeGoalHtml(currentSprint.goal));
       const linkedIds = currentSprint.linked_project_ids || [];
       $('#editSprintLinkedProjects').html(
         allProjects
@@ -310,9 +307,10 @@
     $('#editSprintForm').on('submit', function (e) {
       e.preventDefault();
       const linkedProjectIds = $('#editSprintLinkedProjects').val().map(function (v) { return parseInt(v, 10); });
+      const goalHtml = goalQuill.getText().trim() ? goalQuill.root.innerHTML : null;
       $.ajax({
         url: '/api/v1/sprints/' + sprintId, method: 'PUT', contentType: 'application/json', headers: authHeader,
-        data: JSON.stringify({ goal: $('#editSprintGoal').val() || null, linked_project_ids: linkedProjectIds })
+        data: JSON.stringify({ goal: goalHtml, linked_project_ids: linkedProjectIds })
       }).done(function () {
         bootstrap.Modal.getInstance(document.getElementById('editSprintModal')).hide();
         loadSprint();
