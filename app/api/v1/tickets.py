@@ -1,7 +1,7 @@
 import csv
 import io
 
-from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
@@ -31,7 +31,9 @@ from app.models.ticket import (
 from app.models.user import User
 from app.schemas.ticket import (
     BacklogResponse,
+    BoardProjectSummary,
     BoardResponse,
+    GlobalBoardResponse,
     IssueTypeCreate,
     IssueTypeResponse,
     LabelCreate,
@@ -50,6 +52,7 @@ from app.schemas.ticket import (
     TicketAttachmentResponse,
     TicketBulkUpdateRequest,
     TicketBulkUpdateResponse,
+    TicketCategoryUpdate,
     TicketCommentCreate,
     TicketCommentResponse,
     TicketCommentUpdate,
@@ -1032,6 +1035,76 @@ def export_tickets(
         iter([buffer.getvalue()]), media_type="text/csv",
         headers={"Content-Disposition": "attachment; filename=tickets_export.csv"},
     )
+
+
+# ================= Global (cross-project) board =================
+
+@router.get("/board", response_model=GlobalBoardResponse)
+def get_global_board(
+    project_id: list[int] | None = Query(None),
+    assignee_id: int | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> GlobalBoardResponse:
+    all_projects = list(
+        db.scalars(select(Project).where(Project.company_id == current_user.company_id).order_by(Project.name))
+    )
+    projects_by_id = {p.id: p for p in all_projects}
+    selected_ids = set(project_id) if project_id else set(projects_by_id.keys())
+
+    query = select(Ticket).where(Ticket.project_id.in_(selected_ids), Ticket.deleted_at.is_(None))
+    if assignee_id is not None:
+        query = query.where(Ticket.assignee_id == assignee_id)
+    tickets = list(db.scalars(query.order_by(Ticket.updated_at.desc())))
+
+    return GlobalBoardResponse(
+        projects=[BoardProjectSummary(id=p.id, key=p.key, name=p.name) for p in all_projects],
+        tickets=[_to_ticket_list_item(db, t, projects_by_id[t.project_id]) for t in tickets],
+    )
+
+
+@router.post("/{ticket_id}/category", response_model=TicketDetailResponse)
+def update_ticket_category(
+    ticket_id: int,
+    payload: TicketCategoryUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> TicketDetailResponse:
+    """Moves a ticket to the given status category, used by the cross-project global board where
+    columns are categories (not literal per-project statuses). Lands on that category's
+    lowest-position status within the ticket's own project."""
+    ticket = _get_ticket_or_404(db, ticket_id, current_user.company_id)
+    project = db.get(Project, ticket.project_id)
+    require_permission(db, project, current_user, "transition_ticket")
+    actor = _get_own_employee_or_404(db, current_user)
+
+    target_status = db.scalar(
+        select(TicketStatus)
+        .where(TicketStatus.project_id == project.id, TicketStatus.category == payload.category)
+        .order_by(TicketStatus.position)
+    )
+    if target_status is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Project has no '{payload.category.value}' status")
+
+    old_status = db.get(TicketStatus, ticket.status_id)
+    if target_status.id != old_status.id:
+        ticket.status_id = target_status.id
+        if target_status.category == StatusCategory.DONE and old_status.category != StatusCategory.DONE:
+            ticket.resolved_at = utcnow()
+        elif old_status.category == StatusCategory.DONE and target_status.category != StatusCategory.DONE:
+            ticket.resolved_at = None
+        _log_activity(
+            db, ticket_id=ticket.id, actor_id=actor.id, action="transitioned",
+            field_name="status", old_value=old_status.name, new_value=target_status.name,
+        )
+        db.commit()
+        db.refresh(ticket)
+        _notify_watchers(
+            db, ticket, exclude_employee_id=actor.id, title=f"{ticket.ticket_key} moved to {target_status.name}",
+            body=f"{current_user.full_name} moved {ticket.ticket_key} from {old_status.name} to {target_status.name}.",
+            link=f"/tickets/{ticket.id}",
+        )
+    return _to_ticket_detail(db, ticket, project, actor, current_user)
 
 
 @router.post("/bulk", response_model=TicketBulkUpdateResponse)

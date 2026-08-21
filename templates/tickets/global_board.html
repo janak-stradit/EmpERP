@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Stradit Workforce &mdash; All Tickets Board</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="/static/css/app.css" rel="stylesheet">
+  <style nonce="{{ csp_nonce }}">
+    .board-toolbar { background: var(--emp-surface); border: 1px solid var(--emp-border); box-shadow: var(--emp-shadow-xs); padding: .85rem 1rem; margin-bottom: 1.25rem; display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; }
+    .board-toolbar .form-control, .board-toolbar .form-select { border-color: var(--emp-border-strong); }
+
+    .board-scroll { overflow-x: auto; padding-bottom: 1rem; }
+    .board-columns { display: flex; gap: 1rem; align-items: flex-start; min-height: 200px; }
+    .board-column { flex: 1 1 0; min-width: 320px; }
+    .board-column-header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: .55rem .7rem; background: var(--emp-navy); border-bottom: 3px solid var(--dot-color, var(--emp-primary));
+    }
+    .board-column-header .col-name { font-size: .72rem; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: #ffffff; }
+    .board-column-header .col-count { font-size: .72rem; font-weight: 700; color: rgba(255,255,255,.85); background: rgba(255,255,255,.12); padding: .1rem .45rem; }
+
+    .board-column-body { background: var(--emp-neutral-bg); border: 1px solid var(--emp-border); border-top: none; padding: .6rem; min-height: 140px; }
+
+    .board-card {
+      background: var(--emp-surface); padding: .7rem .8rem; margin-bottom: .55rem;
+      box-shadow: var(--emp-shadow-xs); cursor: grab; border: 1px solid var(--emp-border);
+      border-left: 3px solid var(--card-accent, var(--emp-border-strong));
+      transition: box-shadow .15s ease, border-color .15s ease;
+    }
+    .board-card:hover { box-shadow: var(--emp-shadow); border-left-color: var(--emp-primary); }
+    .board-card .card-key { font-size: .68rem; color: var(--emp-text-subtle); font-weight: 800; letter-spacing: .03em; text-transform: uppercase; }
+    .board-card .project-chip { font-size: .65rem; font-weight: 700; background: var(--emp-primary-light); color: var(--emp-primary-dark); padding: .05rem .4rem; }
+    .board-card .card-summary { font-size: .85rem; font-weight: 600; color: var(--emp-text); margin: .3rem 0 .55rem; line-height: 1.35; }
+    .board-card .card-badges { display: flex; flex-wrap: wrap; gap: .3rem; margin-bottom: .5rem; }
+    .board-card .card-meta { display: flex; justify-content: space-between; align-items: center; gap: .5rem; }
+    .board-card .avatar-chip {
+      width: 24px; height: 24px; border-radius: 50%; background: var(--emp-primary); color: #fff;
+      font-size: .65rem; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .sortable-ghost { opacity: .35; }
+    .sortable-drag .board-card { box-shadow: var(--emp-shadow-lg) !important; }
+
+    .swimlane-header {
+      font-weight: 800; font-size: .72rem; text-transform: uppercase; letter-spacing: .06em;
+      padding: .5rem .75rem; margin: .5rem 0; color: var(--emp-text-muted); background: var(--emp-secondary-light);
+      border-left: 3px solid var(--emp-primary);
+    }
+    .swimlane-header:first-child { margin-top: 0; }
+
+    #viewTabs.nav-pills .nav-link { font-size: .8rem; font-weight: 700; color: var(--emp-text-muted); padding: .4rem .9rem; border: 1px solid transparent; }
+    #viewTabs.nav-pills .nav-link:hover { background: var(--emp-secondary-light); }
+    #viewTabs.nav-pills .nav-link.active { background: var(--emp-primary); color: #fff; }
+
+    #projectFilterMenu { max-height: 320px; overflow-y: auto; }
+  </style>
+</head>
+<body>
+  <nav class="navbar emp-navbar mb-4">
+    <div class="container-fluid px-4">
+      <a class="navbar-brand" href="/dashboard"><i class="bi bi-buildings me-2"></i><span>Stradit Workforce</span></a>
+      <button class="emp-navbar-toggler ms-auto" id="empNavToggler" aria-label="Toggle navigation">
+        <i class="bi bi-list"></i>
+      </button>
+      <div class="emp-navbar-collapse" id="empNavCollapse">
+        <a class="nav-link" href="/dashboard"><i class="bi bi-grid me-1"></i>Dashboard</a>
+        <a class="nav-link" href="#" id="logoutLink"><i class="bi bi-box-arrow-right me-1"></i>Logout</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="toast-container position-fixed top-0 end-0 p-3" id="toastContainer"></div>
+
+  <div class="container-fluid px-4 pb-5">
+    <a href="/tickets" class="btn btn-sm btn-link ps-0 mb-2 text-decoration-none"><i class="bi bi-arrow-left me-1"></i>All Projects</a>
+
+    <div class="emp-page-header d-flex justify-content-between align-items-end flex-wrap gap-2">
+      <div>
+        <div class="emp-breadcrumb"><i class="bi bi-collection"></i> All Projects</div>
+        <h1>All Tickets Board</h1>
+      </div>
+    </div>
+
+    <div class="board-toolbar">
+      <input type="text" class="form-control form-control-sm" style="width: 220px;" id="searchQ" placeholder="Search all tickets&hellip;">
+
+      <div class="dropdown">
+        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside">
+          <i class="bi bi-funnel me-1"></i>Projects (<span id="projectFilterCount">All</span>)
+        </button>
+        <div class="dropdown-menu p-2" id="projectFilterMenu"></div>
+      </div>
+
+      <select class="form-select form-select-sm" style="width: auto;" id="filterAssignee"><option value="">Any assignee</option></select>
+
+      <div class="btn-group btn-group-sm" role="group" id="quickFilters">
+        <button type="button" class="btn btn-outline-secondary" data-filter="mine">My Issues</button>
+        <button type="button" class="btn btn-outline-secondary" data-filter="recent">Recently Updated</button>
+        <button type="button" class="btn btn-outline-secondary" data-filter="done_week">Done This Week</button>
+        <button type="button" class="btn btn-outline-secondary" data-filter="overdue">Overdue</button>
+      </div>
+
+      <select class="form-select form-select-sm" style="width: auto;" id="swimlaneSelect">
+        <option value="">No swimlanes</option>
+        <option value="project" selected>Group by Project</option>
+        <option value="assignee">Group by Assignee</option>
+        <option value="priority">Group by Priority</option>
+      </select>
+    </div>
+
+    <div class="board-scroll">
+      <div id="boardRoot"></div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="/static/js/app-ux.js"></script>
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="/static/js/notifications.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+  <script nonce="{{ csp_nonce }}">
+    const token = sessionStorage.getItem('access_token');
+    if (!token) { window.location.href = '/auth/login'; }
+    const authHeader = { Authorization: 'Bearer ' + token };
+
+    function showToast(message, variant) {
+      const bg = variant === 'success' ? 'text-bg-success' : 'text-bg-danger';
+      const icon = variant === 'success' ? 'bi-check-circle' : 'bi-exclamation-triangle';
+      const toastEl = $(
+        '<div class="toast align-items-center ' + bg + ' border-0" role="alert">' +
+          '<div class="d-flex">' +
+            '<div class="toast-body"><i class="bi ' + icon + ' me-2"></i>' + message + '</div>' +
+            '<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>' +
+          '</div>' +
+        '</div>'
+      );
+      $('#toastContainer').append(toastEl);
+      const toast = new bootstrap.Toast(toastEl[0], { delay: 4000 });
+      toast.show();
+      toastEl.on('hidden.bs.toast', function () { toastEl.remove(); });
+    }
+    function showError(message) { showToast(message, 'danger'); }
+    function escapeHtml(str) { return $('<div>').text(str == null ? '' : str).html(); }
+    function initials(name) { return (name || '?').split(' ').map(function (n) { return n[0]; }).join('').substring(0, 2).toUpperCase(); }
+
+    const CATEGORIES = [
+      { key: 'todo', label: 'To Do', color: '#6c757d' },
+      { key: 'inprogress', label: 'In Progress', color: '#0d6efd' },
+      { key: 'done', label: 'Done', color: '#198754' }
+    ];
+
+    let myEmployeeId = null;
+    let allProjects = [], allTickets = [];
+    let selectedProjectIds = null; // null = all
+    let activeQuickFilter = null, swimlaneMode = 'project';
+
+    function loadMe() {
+      return $.ajax({ url: '/api/v1/employees/me', headers: authHeader }).done(function (p) { myEmployeeId = p.id; });
+    }
+    function loadEmployees() {
+      return $.ajax({ url: '/api/v1/employees/directory', headers: authHeader }).done(function (d) {
+        const options = d.map(function (e) { return '<option value="' + e.id + '">' + escapeHtml(e.employee_code + ' - ' + e.full_name) + '</option>'; }).join('');
+        $('#filterAssignee').html('<option value="">Any assignee</option>' + options);
+      });
+    }
+
+    function colorBadge(name, color, icon) {
+      return '<span class="badge" style="background-color: ' + color + '; color: #fff;">' +
+        (icon ? '<i class="bi ' + icon + ' me-1"></i>' : '') + escapeHtml(name) + '</span>';
+    }
+
+    function loadBoard() {
+      const params = {};
+      if (selectedProjectIds && selectedProjectIds.length) params.project_id = selectedProjectIds;
+      const assignee = $('#filterAssignee').val();
+      if (assignee) params.assignee_id = assignee;
+      $.ajax({
+        url: '/api/v1/tickets/board', headers: authHeader, traditional: true, data: params
+      }).done(function (data) {
+        allProjects = data.projects;
+        allTickets = data.tickets;
+        renderProjectFilterMenu();
+        renderBoard();
+      }).fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to load board.'); });
+    }
+
+    function renderProjectFilterMenu() {
+      if ($('#projectFilterMenu').data('rendered')) return;
+      $('#projectFilterMenu').data('rendered', true);
+      $('#projectFilterMenu').html(
+        '<div class="form-check"><input class="form-check-input" type="checkbox" id="projFilterAll" checked>' +
+          '<label class="form-check-label small fw-semibold" for="projFilterAll">All projects</label></div><hr class="my-1">' +
+        allProjects.map(function (p) {
+          return '<div class="form-check"><input class="form-check-input proj-filter-cb" type="checkbox" value="' + p.id + '" id="projFilter' + p.id + '" checked>' +
+            '<label class="form-check-label small" for="projFilter' + p.id + '">' + escapeHtml(p.key) + ' &mdash; ' + escapeHtml(p.name) + '</label></div>';
+        }).join('')
+      );
+    }
+
+    $(document).on('change', '#projFilterAll', function () {
+      $('.proj-filter-cb').prop('checked', this.checked);
+      applyProjectFilter();
+    });
+    $(document).on('change', '.proj-filter-cb', function () {
+      const allChecked = $('.proj-filter-cb:checked').length === $('.proj-filter-cb').length;
+      $('#projFilterAll').prop('checked', allChecked);
+      applyProjectFilter();
+    });
+    function applyProjectFilter() {
+      const checked = $('.proj-filter-cb:checked').map(function () { return parseInt($(this).val(), 10); }).get();
+      const total = $('.proj-filter-cb').length;
+      selectedProjectIds = checked.length === total ? null : checked;
+      $('#projectFilterCount').text(selectedProjectIds === null ? 'All' : checked.length);
+      loadBoard();
+    }
+
+    function swimlaneKey(t) {
+      if (swimlaneMode === 'project') return t.project_id;
+      if (swimlaneMode === 'assignee') return t.assignee_id || 'unassigned';
+      if (swimlaneMode === 'priority') return t.priority ? t.priority.id : 'none';
+      return 'all';
+    }
+    function swimlaneLabel(t) {
+      if (swimlaneMode === 'project') return t.project_key;
+      if (swimlaneMode === 'assignee') return t.assignee_name || 'Unassigned';
+      if (swimlaneMode === 'priority') return t.priority ? t.priority.name : 'No priority';
+      return '';
+    }
+
+    function filteredTickets() {
+      const q = $('#searchQ').val().trim().toLowerCase();
+      const now = new Date();
+      const weekAgo = new Date(now.getTime() - 7 * 86400000);
+      return allTickets.filter(function (t) {
+        if (q && t.summary.toLowerCase().indexOf(q) === -1 && t.ticket_key.toLowerCase().indexOf(q) === -1) return false;
+        if (activeQuickFilter === 'mine' && t.assignee_id !== myEmployeeId) return false;
+        if (activeQuickFilter === 'recent' && new Date(t.updated_at) < weekAgo) return false;
+        if (activeQuickFilter === 'done_week') {
+          if (t.status.category !== 'done' || new Date(t.updated_at) < weekAgo) return false;
+        }
+        if (activeQuickFilter === 'overdue') {
+          if (!t.due_date || new Date(t.due_date) >= now || t.status.category === 'done') return false;
+        }
+        return true;
+      });
+    }
+
+    function cardHtml(t) {
+      const overdue = t.due_date && new Date(t.due_date) < new Date();
+      const accent = t.priority ? t.priority.color : t.issue_type.color;
+      return '<div class="board-card" style="--card-accent: ' + accent + ';" draggable="true" data-id="' + t.id + '">' +
+        '<div class="d-flex justify-content-between align-items-start">' +
+          '<div class="card-key">' + escapeHtml(t.ticket_key) + '</div>' +
+          '<span class="project-chip">' + escapeHtml(t.project_key) + '</span>' +
+        '</div>' +
+        '<div class="card-summary">' + escapeHtml(t.summary) + '</div>' +
+        '<div class="card-badges">' + colorBadge(t.issue_type.name, t.issue_type.color, t.issue_type.icon) +
+          (t.priority ? colorBadge(t.priority.name, t.priority.color, t.priority.icon) : '') +
+          (t.labels || []).map(function (l) { return colorBadge(l.name, l.color); }).join('') + '</div>' +
+        '<div class="card-meta">' +
+          '<span class="small ' + (overdue ? 'text-danger fw-semibold' : 'text-muted') + '">' +
+            (t.story_points != null ? ('<i class="bi bi-award me-1"></i>' + t.story_points + ' ') : '') +
+            (t.due_date ? ('<i class="bi bi-calendar-event me-1"></i>' + t.due_date) : '') +
+          '</span>' +
+          (t.assignee_name ? '<span class="avatar-chip" title="' + escapeHtml(t.assignee_name) + '">' + initials(t.assignee_name) + '</span>' : '') +
+        '</div>' +
+      '</div>';
+    }
+
+    function renderBoard() {
+      const tickets = filteredTickets();
+      const lanes = swimlaneMode ? Array.from(new Set(tickets.map(swimlaneKey))) : ['all'];
+      const laneLabels = {};
+      tickets.forEach(function (t) { laneLabels[swimlaneKey(t)] = swimlaneLabel(t); });
+      if (swimlaneMode === 'project') {
+        lanes.sort(function (a, b) { return (laneLabels[a] || '').localeCompare(laneLabels[b] || ''); });
+      }
+
+      let html = '';
+      lanes.forEach(function (lane) {
+        if (swimlaneMode) html += '<div class="swimlane-header">' + escapeHtml(laneLabels[lane] || 'Ungrouped') + '</div>';
+        html += '<div class="board-columns" data-lane="' + escapeHtml(String(lane)) + '">';
+        CATEGORIES.forEach(function (cat) {
+          const colTickets = tickets.filter(function (t) { return t.status.category === cat.key && (!swimlaneMode || swimlaneKey(t) === lane); });
+          html += '<div class="board-column">' +
+            '<div class="board-column-header" style="--dot-color: ' + cat.color + ';">' +
+              '<span class="col-name">' + cat.label + '</span>' +
+              '<span class="col-count">' + colTickets.length + '</span>' +
+            '</div>' +
+            '<div class="board-column-body" data-category="' + cat.key + '" data-lane="' + escapeHtml(String(lane)) + '">' +
+              colTickets.map(cardHtml).join('') +
+            '</div>' +
+          '</div>';
+        });
+        html += '</div>';
+      });
+      $('#boardRoot').html(html || '<div class="text-muted small p-3">No tickets to show.</div>');
+
+      document.querySelectorAll('.board-column-body').forEach(function (el) {
+        new Sortable(el, {
+          group: 'global-board',
+          animation: 150,
+          ghostClass: 'sortable-ghost',
+          onEnd: function (evt) {
+            const ticketId = parseInt(evt.item.getAttribute('data-id'), 10);
+            const fromCategory = evt.from.getAttribute('data-category');
+            const toCategory = evt.to.getAttribute('data-category');
+            if (fromCategory === toCategory) { loadBoard(); return; }
+            $.ajax({
+              url: '/api/v1/tickets/' + ticketId + '/category', method: 'POST', contentType: 'application/json',
+              headers: authHeader, data: JSON.stringify({ category: toCategory })
+            }).done(function () { loadBoard(); })
+              .fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to move ticket.'); loadBoard(); });
+          }
+        });
+      });
+    }
+
+    $(document).on('click', '.board-card', function (e) {
+      if (e.target.closest('[draggable]') !== this) return;
+      window.location.href = '/tickets/' + $(this).data('id');
+    });
+
+    $('#searchQ').on('input', function () { clearTimeout(window._d); window._d = setTimeout(renderBoard, 200); });
+    $('#swimlaneSelect').on('change', function () { swimlaneMode = $(this).val(); renderBoard(); });
+    $('#filterAssignee').on('change', loadBoard);
+    $('#quickFilters button').on('click', function () {
+      const filter = $(this).data('filter');
+      activeQuickFilter = activeQuickFilter === filter ? null : filter;
+      $('#quickFilters button').removeClass('active');
+      if (activeQuickFilter) $(this).addClass('active');
+      renderBoard();
+    });
+
+    $.when(loadMe(), loadEmployees()).always(loadBoard);
+
+    $('#logoutLink').on('click', function (e) {
+      e.preventDefault();
+      sessionStorage.clear();
+      window.location.href = '/auth/login';
+    });
+  </script>
+</body>
+</html>

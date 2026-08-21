@@ -251,3 +251,39 @@ def test_plain_employee_can_use_directory_but_not_hr_employee_list(client, db_se
     names = [e["full_name"] for e in directory_resp.json()]
     assert "plain" in names
     assert set(directory_resp.json()[0].keys()) == {"id", "employee_code", "full_name"}
+
+
+def test_global_board_aggregates_tickets_across_projects_by_category(client, db_session):
+    company = create_company(db_session)
+    _, _, token = _setup_user_and_employee(client, db_session, company, "lead@example.com", "EMP-001")
+    project_a = _create_project(client, token, key="ALPHA")
+    project_b = _create_project(client, token, key="BETA")
+
+    ticket_a = _create_ticket(client, token, project_a["id"], summary="Alpha task")
+    ticket_b = _create_ticket(client, token, project_b["id"], summary="Beta task")
+
+    board = client.get("/api/v1/tickets/board", headers=auth_headers(token)).json()
+    project_keys = {p["key"] for p in board["projects"]}
+    assert {"ALPHA", "BETA"}.issubset(project_keys)
+    ticket_ids = {t["id"] for t in board["tickets"]}
+    assert ticket_a["id"] in ticket_ids
+    assert ticket_b["id"] in ticket_ids
+
+    # Filter down to a single project
+    filtered = client.get(
+        "/api/v1/tickets/board", params={"project_id": [project_a["id"]]}, headers=auth_headers(token)
+    ).json()
+    filtered_ids = {t["id"] for t in filtered["tickets"]}
+    assert filtered_ids == {ticket_a["id"]}
+
+    # Moving a ticket's category lands it on the lowest-position status in that category,
+    # within the ticket's OWN project (not the other project's statuses).
+    move_resp = client.post(
+        f"/api/v1/tickets/{ticket_a['id']}/category", json={"category": "done"}, headers=auth_headers(token)
+    )
+    assert move_resp.status_code == 200
+    moved = move_resp.json()
+    assert moved["status"]["category"] == "done"
+    assert moved["status"]["name"] == "Done"
+    assert moved["project_id"] == project_a["id"]
+    assert moved["resolved_at"] is not None

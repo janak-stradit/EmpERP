@@ -383,6 +383,21 @@ class BacklogResponse(BaseModel):
     backlog_tickets: list[TicketListItem]
 
 
+class BoardProjectSummary(BaseModel):
+    id: int
+    key: str
+    name: str
+
+
+class GlobalBoardResponse(BaseModel):
+    projects: list[BoardProjectSummary]
+    tickets: list[TicketListItem]
+
+
+class TicketCategoryUpdate(BaseModel):
+    category: StatusCategory
+
+
 # ---- Dashboard ----
 
 class KpiCard(BaseModel):
