@@ -12,7 +12,16 @@ from app.models.leave import LeaveApplication, LeaveApprovalHistory, LeaveBalanc
 from app.models.login_attempt import LoginAttempt
 from app.models.notification import Notification
 from app.models.onboarding import EmployeeOnboarding, EmployeeOnboardingTask, OnboardingTask, OnboardingTemplate
-from app.models.project import Project, ProjectMember, ProjectWatcher, Sprint, SprintStatus, StatusCategory, TicketStatus
+from app.models.project import (
+    Project,
+    ProjectMember,
+    ProjectWatcher,
+    Sprint,
+    SprintProject,
+    SprintStatus,
+    StatusCategory,
+    TicketStatus,
+)
 from app.models.pms import (
     Competency,
     PmsEvaluation,
@@ -79,6 +88,7 @@ __all__ = [
     "RefreshToken",
     "Shift",
     "Sprint",
+    "SprintProject",
     "SprintStatus",
     "StatusCategory",
     "TeamMapping",

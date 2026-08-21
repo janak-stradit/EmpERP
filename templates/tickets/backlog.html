@@ -34,13 +34,13 @@
 
   <div class="toast-container position-fixed top-0 end-0 p-3" id="toastContainer"></div>
 
-  <div class="container pb-5">
+  <div class="container-fluid px-4 pb-5">
     <a href="/tickets" class="btn btn-sm btn-link ps-0 mb-2"><i class="bi bi-arrow-left me-1"></i>All Projects</a>
 
-    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
+    <div class="emp-page-header d-flex justify-content-between align-items-end flex-wrap gap-2">
       <div>
-        <span class="badge bg-secondary" id="projectKeyBadge">&mdash;</span>
-        <h3 class="d-inline ms-2" id="projectName"></h3>
+        <div class="emp-breadcrumb"><i class="bi bi-collection"></i> Backlog</div>
+        <h1><span class="badge bg-secondary" id="projectKeyBadge">&mdash;</span> <span id="projectName"></span></h1>
       </div>
       <button class="btn btn-outline-primary btn-sm" id="newSprintBtn"><i class="bi bi-plus-lg me-1"></i>New Sprint</button>
     </div>
@@ -100,6 +100,11 @@
                 <label class="form-label small">End date</label>
                 <input type="date" class="form-control" id="sprintEnd">
               </div>
+            </div>
+            <div class="mb-1 mt-3">
+              <label class="form-label small">Additional projects (optional)</label>
+              <select class="form-select" id="sprintLinkedProjects" multiple size="4"></select>
+              <div class="form-text">Tickets from these projects can also be added to this sprint.</div>
             </div>
           </div>
           <div class="modal-footer">
@@ -239,12 +244,30 @@
     let selectedIds = new Set();
     let backlogData = null;
 
+    let projectsById = {};
+
     function loadProject() {
       $.ajax({ url: '/api/v1/projects/' + projectId, headers: authHeader }).done(function (p) {
         $('#projectKeyBadge').text(p.key);
         $('#projectName').text(p.name);
         document.title = 'Stradit Workforce — ' + p.name + ' Backlog';
       });
+      $.ajax({ url: '/api/v1/projects', headers: authHeader }).done(function (projects) {
+        projectsById = {};
+        projects.forEach(function (p) { projectsById[p.id] = p; });
+        const others = projects.filter(function (p) { return p.id !== projectId; });
+        $('#sprintLinkedProjects').html(
+          others.map(function (p) { return '<option value="' + p.id + '">' + escapeHtml(p.key + ' — ' + p.name) + '</option>'; }).join('')
+        );
+      });
+    }
+
+    function linkedProjectBadges(s) {
+      if (!s.linked_project_ids || !s.linked_project_ids.length) return '';
+      return s.linked_project_ids.map(function (id) {
+        const p = projectsById[id];
+        return '<span class="badge bg-light text-dark border ms-1">' + escapeHtml(p ? p.key : ('#' + id)) + '</span>';
+      }).join('');
     }
 
     function loadIssueTypesAndEmployees() {
@@ -285,7 +308,7 @@
         const s = data.active_sprint;
         html += '<div class="card mb-3">' +
           '<div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">' +
-            '<div><span class="badge bg-success me-2">Active</span><strong>' + escapeHtml(s.name) + '</strong> ' +
+            '<div><span class="badge bg-success me-2">Active</span><strong>' + escapeHtml(s.name) + '</strong>' + linkedProjectBadges(s) + ' ' +
               (s.goal ? '<span class="text-muted small">— ' + escapeHtml(s.goal) + '</span>' : '') + '<br>' + sprintStatsHtml(s) + '</div>' +
             '<button class="btn btn-sm btn-outline-primary complete-sprint-btn" data-id="' + s.id + '"><i class="bi bi-flag me-1"></i>Complete Sprint</button>' +
           '</div>' +
@@ -298,7 +321,7 @@
         const tickets = data.future_sprint_tickets[s.id] || [];
         html += '<div class="card mb-3">' +
           '<div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">' +
-            '<div><strong>' + escapeHtml(s.name) + '</strong> ' + (s.goal ? '<span class="text-muted small">— ' + escapeHtml(s.goal) + '</span>' : '') +
+            '<div><strong>' + escapeHtml(s.name) + '</strong>' + linkedProjectBadges(s) + ' ' + (s.goal ? '<span class="text-muted small">— ' + escapeHtml(s.goal) + '</span>' : '') +
               '<br>' + sprintStatsHtml(s) + '</div>' +
             '<span>' +
               (!data.active_sprint ? '<button class="btn btn-sm btn-outline-success start-sprint-btn" data-id="' + s.id + '"><i class="bi bi-play-fill me-1"></i>Start Sprint</button> ' : '') +
@@ -389,15 +412,18 @@
     $('#newSprintBtn').on('click', function () { new bootstrap.Modal('#newSprintModal').show(); });
     $('#newSprintForm').on('submit', function (e) {
       e.preventDefault();
+      const linkedProjectIds = $('#sprintLinkedProjects').val().map(function (v) { return parseInt(v, 10); });
       $.ajax({
         url: '/api/v1/projects/' + projectId + '/sprints', method: 'POST', contentType: 'application/json', headers: authHeader,
         data: JSON.stringify({
           name: $('#sprintName').val(), goal: $('#sprintGoal').val() || null,
-          start_date: $('#sprintStart').val() || null, end_date: $('#sprintEnd').val() || null
+          start_date: $('#sprintStart').val() || null, end_date: $('#sprintEnd').val() || null,
+          linked_project_ids: linkedProjectIds
         })
       }).done(function () {
         bootstrap.Modal.getInstance(document.getElementById('newSprintModal')).hide();
         $('#newSprintForm')[0].reset();
+        $('#sprintLinkedProjects').val([]);
         showSuccess('Sprint created.');
         loadBacklog();
       }).fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to create sprint.'); });

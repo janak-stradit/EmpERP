@@ -5,13 +5,13 @@ from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db
 from app.models.employee import Employee
 from app.models.mixins import utcnow
-from app.models.project import Project, ProjectMember, Sprint, SprintStatus, StatusCategory, TicketStatus
+from app.models.project import Project, ProjectMember, Sprint, SprintProject, SprintStatus, StatusCategory, TicketStatus
 from app.models.ticket import IssueType, Ticket, TicketActivity, TicketPriority
 from app.models.user import User
 from app.schemas.ticket import (
@@ -60,9 +60,14 @@ def _get_project_or_404(db: Session, project_id: int, company_id: int | None) ->
     return project
 
 
+def _sprint_project_ids(db: Session, sprint: Sprint) -> set[int]:
+    linked = db.scalars(select(SprintProject.project_id).where(SprintProject.sprint_id == sprint.id))
+    return {sprint.project_id, *linked}
+
+
 def _get_sprint_or_404(db: Session, project_id: int, sprint_id: int) -> Sprint:
-    sprint = db.scalar(select(Sprint).where(Sprint.id == sprint_id, Sprint.project_id == project_id))
-    if sprint is None:
+    sprint = db.get(Sprint, sprint_id)
+    if sprint is None or project_id not in _sprint_project_ids(db, sprint):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sprint not found")
     return sprint
 
@@ -601,25 +606,32 @@ def get_velocity(
     project_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
 ) -> VelocityResponse:
     project = _get_project_or_404(db, project_id, current_user.company_id)
+    linked_sprint_ids = select(SprintProject.sprint_id).where(SprintProject.project_id == project.id)
     sprints = list(
         db.scalars(
             select(Sprint)
-            .where(Sprint.project_id == project.id, Sprint.status.in_([SprintStatus.COMPLETED, SprintStatus.CLOSED]))
+            .where(
+                or_(Sprint.project_id == project.id, Sprint.id.in_(linked_sprint_ids)),
+                Sprint.status.in_([SprintStatus.COMPLETED, SprintStatus.CLOSED]),
+            )
             .order_by(Sprint.id.desc())
             .limit(6)
         )
     )
     sprints.reverse()
 
-    statuses = list(db.scalars(select(TicketStatus).where(TicketStatus.project_id == project.id)))
-    status_by_id = {s.id: s for s in statuses}
-
     entries = []
     for sprint in sprints:
         tickets = list(db.scalars(select(Ticket).where(Ticket.sprint_id == sprint.id, Ticket.deleted_at.is_(None))))
-        completed_points = sum(
-            t.story_points or 0 for t in tickets if status_by_id[t.status_id].category == StatusCategory.DONE
-        )
+        done_status_ids = {
+            s.id
+            for s in db.scalars(
+                select(TicketStatus).where(
+                    TicketStatus.project_id.in_(_sprint_project_ids(db, sprint)), TicketStatus.category == StatusCategory.DONE
+                )
+            )
+        }
+        completed_points = sum(t.story_points or 0 for t in tickets if t.status_id in done_status_ids)
         entries.append(VelocityEntry(sprint_id=sprint.id, sprint_name=sprint.name, committed_points=sprint.committed_points, completed_points=completed_points))
 
     average = round(sum(e.completed_points for e in entries) / len(entries), 1) if entries else 0.0
@@ -639,9 +651,11 @@ def sprint_report(
     )
     if sprint is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sprint not found")
-    project = db.get(Project, sprint.project_id)
+    project_ids = _sprint_project_ids(db, sprint)
+    projects_by_id = {p.id: p for p in db.scalars(select(Project).where(Project.id.in_(project_ids)))}
+    project = projects_by_id[sprint.project_id]
 
-    statuses = list(db.scalars(select(TicketStatus).where(TicketStatus.project_id == project.id)))
+    statuses = list(db.scalars(select(TicketStatus).where(TicketStatus.project_id.in_(project_ids))))
     status_by_id = {s.id: s for s in statuses}
     types = {t.id: t for t in db.scalars(select(IssueType).where(IssueType.company_id == project.company_id))}
     priorities = {p.id: p for p in db.scalars(select(TicketPriority).where(TicketPriority.company_id == project.company_id))}
@@ -665,8 +679,12 @@ def sprint_report(
         sprint_id=sprint.id, sprint_name=sprint.name, goal=sprint.goal,
         start_date=sprint.start_date, end_date=sprint.end_date,
         committed_points=sprint.committed_points, completed_points=completed_points,
-        completed_tickets=[_to_ticket_list_item(db, t, project, status_by_id, types, priorities) for t in completed],
-        incomplete_tickets=[_to_ticket_list_item(db, t, project, status_by_id, types, priorities) for t in incomplete],
+        completed_tickets=[
+            _to_ticket_list_item(db, t, projects_by_id[t.project_id], status_by_id, types, priorities) for t in completed
+        ],
+        incomplete_tickets=[
+            _to_ticket_list_item(db, t, projects_by_id[t.project_id], status_by_id, types, priorities) for t in incomplete
+        ],
         average_cycle_time_hours=avg_cycle_time, contribution=dict(contribution),
     )
 

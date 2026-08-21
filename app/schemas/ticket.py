@@ -147,6 +147,7 @@ class SprintCreate(BaseModel):
     goal: str | None = None
     start_date: date | None = None
     end_date: date | None = None
+    linked_project_ids: list[int] | None = None
 
 
 class SprintUpdate(BaseModel):
@@ -154,6 +155,7 @@ class SprintUpdate(BaseModel):
     goal: str | None = None
     start_date: date | None = None
     end_date: date | None = None
+    linked_project_ids: list[int] | None = None
 
 
 class SprintResponse(BaseModel):
@@ -168,6 +170,7 @@ class SprintResponse(BaseModel):
     completed_points: int = 0
     total_points: int = 0
     committed_points: int = 0
+    linked_project_ids: list[int] = []
 
     model_config = {"from_attributes": True}
 

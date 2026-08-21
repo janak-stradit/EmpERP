@@ -80,3 +80,14 @@ class Sprint(TimestampMixin, Base):
     start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     committed_points: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+
+class SprintProject(CreatedAtMixin, Base):
+    """Additional projects linked to a sprint beyond its owning project (Sprint.project_id)."""
+
+    __tablename__ = "sprint_projects"
+    __table_args__ = (UniqueConstraint("sprint_id", "project_id", name="uq_sprint_project"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    sprint_id: Mapped[int] = mapped_column(ForeignKey("sprints.id"), nullable=False, index=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), nullable=False, index=True)

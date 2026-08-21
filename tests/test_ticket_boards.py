@@ -156,6 +156,93 @@ def test_backlog_endpoint_sections_tickets_by_sprint(client, db_session):
     assert {t["id"] for t in future_tickets} == {future_ticket["id"]}
 
 
+def test_sprint_with_linked_project_accepts_and_scopes_tickets(client, db_session):
+    company = create_company(db_session)
+    _, _, token = _setup_user_and_employee(client, db_session, company, "lead@example.com", "EMP-001")
+    project_a = _create_project(client, token, key="DEV")
+    project_b = _create_project(client, token, key="OPS")
+
+    sprint = client.post(
+        f"/api/v1/projects/{project_a['id']}/sprints",
+        json={"name": "Shared Sprint", "linked_project_ids": [project_b["id"]]},
+        headers=auth_headers(token),
+    )
+    assert sprint.status_code == 201, sprint.text
+    sprint = sprint.json()
+    assert sprint["linked_project_ids"] == [project_b["id"]]
+
+    # Project B can see the shared sprint in its own sprint list.
+    project_b_sprints = client.get(f"/api/v1/projects/{project_b['id']}/sprints", headers=auth_headers(token)).json()
+    assert {s["id"] for s in project_b_sprints} == {sprint["id"]}
+
+    # Creating a ticket on the linked project directly into the sprint works.
+    ticket_b = _create_ticket(client, token, project_b["id"], summary="From B", sprint_id=sprint["id"])
+    assert ticket_b["sprint_id"] == sprint["id"]
+
+    # Assigning an existing project B ticket to the sprint via the dedicated endpoint works.
+    other_ticket_b = _create_ticket(client, token, project_b["id"], summary="Also from B")
+    assign_resp = client.post(
+        f"/api/v1/tickets/{other_ticket_b['id']}/sprint", json={"sprint_id": sprint["id"]}, headers=auth_headers(token)
+    )
+    assert assign_resp.status_code == 200
+    assert assign_resp.json()["sprint_id"] == sprint["id"]
+
+    # Bulk-assigning a project B ticket to the sprint works too.
+    bulk_ticket_b = _create_ticket(client, token, project_b["id"], summary="Bulk from B")
+    bulk_resp = client.post(
+        "/api/v1/tickets/bulk",
+        json={"ticket_ids": [bulk_ticket_b["id"]], "sprint_id": sprint["id"]},
+        headers=auth_headers(token),
+    )
+    assert bulk_resp.status_code == 200
+    bulk_ticket_after = client.get(f"/api/v1/tickets/{bulk_ticket_b['id']}", headers=auth_headers(token)).json()
+    assert bulk_ticket_after["sprint_id"] == sprint["id"]
+
+    # Project B's own backlog only shows project B's tickets in the shared sprint.
+    backlog_b = client.get(f"/api/v1/projects/{project_b['id']}/backlog", headers=auth_headers(token)).json()
+    assert backlog_b["active_sprint"] is None
+    future_tickets_b = backlog_b["future_sprint_tickets"][str(sprint["id"])]
+    assert {t["id"] for t in future_tickets_b} == {ticket_b["id"], other_ticket_b["id"], bulk_ticket_b["id"]}
+
+
+def test_sprint_rejects_ticket_from_unlinked_project(client, db_session):
+    company = create_company(db_session)
+    _, _, token = _setup_user_and_employee(client, db_session, company, "lead@example.com", "EMP-001")
+    project_a = _create_project(client, token, key="DEV")
+    project_c = _create_project(client, token, key="OTHER")  # never linked to the sprint
+
+    sprint = client.post(
+        f"/api/v1/projects/{project_a['id']}/sprints", json={"name": "Sprint 1"}, headers=auth_headers(token)
+    ).json()
+
+    # Creating a ticket in the unlinked project directly into the sprint is rejected.
+    issue_types = client.get("/api/v1/issue-types", headers=auth_headers(token)).json()
+    create_resp = client.post(
+        "/api/v1/tickets",
+        json={
+            "project_id": project_c["id"], "summary": "Should fail", "issue_type_id": issue_types[0]["id"],
+            "sprint_id": sprint["id"],
+        },
+        headers=auth_headers(token),
+    )
+    assert create_resp.status_code == 404
+
+    # Assigning an existing unlinked-project ticket to the sprint is rejected.
+    ticket_c = _create_ticket(client, token, project_c["id"], summary="Unrelated")
+    assign_resp = client.post(
+        f"/api/v1/tickets/{ticket_c['id']}/sprint", json={"sprint_id": sprint["id"]}, headers=auth_headers(token)
+    )
+    assert assign_resp.status_code == 404
+
+    # Bulk-assigning it is rejected too.
+    bulk_resp = client.post(
+        "/api/v1/tickets/bulk",
+        json={"ticket_ids": [ticket_c["id"]], "sprint_id": sprint["id"]},
+        headers=auth_headers(token),
+    )
+    assert bulk_resp.status_code == 400
+
+
 def test_bulk_update_status_and_delete(client, db_session):
     company = create_company(db_session)
     _, _, token = _setup_user_and_employee(client, db_session, company, "lead@example.com", "EMP-001")

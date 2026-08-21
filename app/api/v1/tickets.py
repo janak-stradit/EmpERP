@@ -15,7 +15,16 @@ from app.core.notifications import notify
 from app.models.employee import Employee
 from app.models.mixins import utcnow
 from app.models.notification import NotificationCategory
-from app.models.project import Project, ProjectMember, ProjectWatcher, Sprint, SprintStatus, StatusCategory, TicketStatus
+from app.models.project import (
+    Project,
+    ProjectMember,
+    ProjectWatcher,
+    Sprint,
+    SprintProject,
+    SprintStatus,
+    StatusCategory,
+    TicketStatus,
+)
 from app.models.ticket import (
     IssueType,
     Label,
@@ -152,9 +161,25 @@ def _get_status_or_404(db: Session, project_id: int, status_id: int) -> TicketSt
     return ticket_status
 
 
+def _sprint_project_ids(db: Session, sprint: Sprint) -> set[int]:
+    linked = db.scalars(select(SprintProject.project_id).where(SprintProject.sprint_id == sprint.id))
+    return {sprint.project_id, *linked}
+
+
+def _set_sprint_linked_projects(db: Session, sprint: Sprint, company_id: int | None, project_ids: list[int]) -> None:
+    db.query(SprintProject).filter(SprintProject.sprint_id == sprint.id).delete()
+    seen: set[int] = set()
+    for project_id in project_ids:
+        if project_id == sprint.project_id or project_id in seen:
+            continue
+        _get_project_or_404(db, project_id, company_id)
+        db.add(SprintProject(sprint_id=sprint.id, project_id=project_id))
+        seen.add(project_id)
+
+
 def _get_sprint_or_404(db: Session, project_id: int, sprint_id: int) -> Sprint:
-    sprint = db.scalar(select(Sprint).where(Sprint.id == sprint_id, Sprint.project_id == project_id))
-    if sprint is None:
+    sprint = db.get(Sprint, sprint_id)
+    if sprint is None or project_id not in _sprint_project_ids(db, sprint):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sprint not found")
     return sprint
 
@@ -171,11 +196,12 @@ def _get_sprint_with_project_or_404(db: Session, sprint_id: int, company_id: int
 
 
 def _to_sprint_response(db: Session, sprint: Sprint) -> SprintResponse:
+    project_ids = _sprint_project_ids(db, sprint)
     tickets = list(db.scalars(select(Ticket).where(Ticket.sprint_id == sprint.id, Ticket.deleted_at.is_(None))))
     done_status_ids = {
         s.id
         for s in db.scalars(
-            select(TicketStatus).where(TicketStatus.project_id == sprint.project_id, TicketStatus.category == StatusCategory.DONE)
+            select(TicketStatus).where(TicketStatus.project_id.in_(project_ids), TicketStatus.category == StatusCategory.DONE)
         )
     }
     total_points = sum(t.story_points or 0 for t in tickets)
@@ -192,6 +218,7 @@ def _to_sprint_response(db: Session, sprint: Sprint) -> SprintResponse:
         completed_points=completed_points,
         total_points=total_points,
         committed_points=sprint.committed_points,
+        linked_project_ids=sorted(project_ids - {sprint.project_id}),
     )
 
 
@@ -650,7 +677,14 @@ def list_sprints(
     project_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
 ) -> list[SprintResponse]:
     project = _get_project_or_404(db, project_id, current_user.company_id)
-    sprints = list(db.scalars(select(Sprint).where(Sprint.project_id == project.id).order_by(Sprint.id)))
+    linked_sprint_ids = select(SprintProject.sprint_id).where(SprintProject.project_id == project.id)
+    sprints = list(
+        db.scalars(
+            select(Sprint)
+            .where(or_(Sprint.project_id == project.id, Sprint.id.in_(linked_sprint_ids)))
+            .order_by(Sprint.id)
+        )
+    )
     return [_to_sprint_response(db, s) for s in sprints]
 
 
@@ -670,6 +704,9 @@ def create_sprint(
         start_date=payload.start_date, end_date=payload.end_date, status=SprintStatus.FUTURE,
     )
     db.add(sprint)
+    db.flush()
+    if payload.linked_project_ids:
+        _set_sprint_linked_projects(db, sprint, current_user.company_id, payload.linked_project_ids)
     db.commit()
     db.refresh(sprint)
     return _to_sprint_response(db, sprint)
@@ -684,10 +721,14 @@ def update_sprint(
 ) -> SprintResponse:
     sprint, project = _get_sprint_with_project_or_404(db, sprint_id, current_user.company_id)
     require_permission(db, project, current_user, "manage_sprints")
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    updates = payload.model_dump(exclude_unset=True)
+    linked_project_ids = updates.pop("linked_project_ids", None)
+    for field, value in updates.items():
         setattr(sprint, field, value)
     if sprint.start_date and sprint.end_date and sprint.end_date < sprint.start_date:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="end_date must be on or after start_date")
+    if linked_project_ids is not None:
+        _set_sprint_linked_projects(db, sprint, current_user.company_id, linked_project_ids)
     db.commit()
     db.refresh(sprint)
     return _to_sprint_response(db, sprint)
@@ -745,7 +786,9 @@ def complete_sprint(
     done_status_ids = {
         s.id
         for s in db.scalars(
-            select(TicketStatus).where(TicketStatus.project_id == sprint.project_id, TicketStatus.category == StatusCategory.DONE)
+            select(TicketStatus).where(
+                TicketStatus.project_id.in_(_sprint_project_ids(db, sprint)), TicketStatus.category == StatusCategory.DONE
+            )
         )
     }
     incomplete_tickets = list(
@@ -793,8 +836,12 @@ def get_board(
         sprint = _get_sprint_or_404(db, project.id, sprint_id)
         query = query.where(Ticket.sprint_id == sprint.id)
     else:
+        linked_sprint_ids = select(SprintProject.sprint_id).where(SprintProject.project_id == project.id)
         active_sprint = db.scalar(
-            select(Sprint).where(Sprint.project_id == project.id, Sprint.status == SprintStatus.ACTIVE)
+            select(Sprint).where(
+                or_(Sprint.project_id == project.id, Sprint.id.in_(linked_sprint_ids)),
+                Sprint.status == SprintStatus.ACTIVE,
+            )
         )
         if active_sprint is not None:
             sprint = active_sprint
@@ -816,10 +863,12 @@ def get_backlog(
 ) -> BacklogResponse:
     project = _get_project_or_404(db, project_id, current_user.company_id)
 
-    active_sprint = db.scalar(select(Sprint).where(Sprint.project_id == project.id, Sprint.status == SprintStatus.ACTIVE))
+    linked_sprint_ids = select(SprintProject.sprint_id).where(SprintProject.project_id == project.id)
+    project_or_linked = or_(Sprint.project_id == project.id, Sprint.id.in_(linked_sprint_ids))
+    active_sprint = db.scalar(select(Sprint).where(project_or_linked, Sprint.status == SprintStatus.ACTIVE))
     future_sprints = list(
         db.scalars(
-            select(Sprint).where(Sprint.project_id == project.id, Sprint.status == SprintStatus.FUTURE).order_by(Sprint.id)
+            select(Sprint).where(project_or_linked, Sprint.status == SprintStatus.FUTURE).order_by(Sprint.id)
         )
     )
 
@@ -829,7 +878,7 @@ def get_backlog(
             _to_ticket_list_item(db, t, project)
             for t in db.scalars(
                 select(Ticket)
-                .where(Ticket.sprint_id == active_sprint.id, Ticket.deleted_at.is_(None))
+                .where(Ticket.project_id == project.id, Ticket.sprint_id == active_sprint.id, Ticket.deleted_at.is_(None))
                 .order_by(Ticket.board_position)
             )
         ]
@@ -839,7 +888,9 @@ def get_backlog(
         future_sprint_tickets[fs.id] = [
             _to_ticket_list_item(db, t, project)
             for t in db.scalars(
-                select(Ticket).where(Ticket.sprint_id == fs.id, Ticket.deleted_at.is_(None)).order_by(Ticket.board_position)
+                select(Ticket)
+                .where(Ticket.project_id == project.id, Ticket.sprint_id == fs.id, Ticket.deleted_at.is_(None))
+                .order_by(Ticket.board_position)
             )
         ]
 
@@ -1155,8 +1206,16 @@ def bulk_update_tickets(
             ticket.assignee_id = payload.assignee_id
             _log_activity(db, ticket_id=ticket.id, actor_id=actor.id, action="assigned", new_value=str(payload.assignee_id))
     if payload.sprint_id is not None:
+        sprint, _sprint_project = _get_sprint_with_project_or_404(db, payload.sprint_id, current_user.company_id)
+        valid_project_ids = _sprint_project_ids(db, sprint)
         for ticket in tickets:
-            ticket.sprint_id = payload.sprint_id
+            if ticket.project_id not in valid_project_ids:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Ticket {ticket.ticket_key} does not belong to this sprint's project(s)",
+                )
+        for ticket in tickets:
+            ticket.sprint_id = sprint.id
 
     db.commit()
     return TicketBulkUpdateResponse(updated_count=len(tickets))

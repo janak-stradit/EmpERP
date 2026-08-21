@@ -158,6 +158,41 @@ def test_burndown_and_velocity_and_sprint_report(client, db_session):
     assert report["incomplete_tickets"] == []
 
 
+def test_velocity_and_sprint_report_include_linked_project_tickets(client, db_session):
+    company = create_company(db_session)
+    _, _, token = _setup_user_and_employee(client, db_session, company, "lead@example.com", "EMP-001")
+    project_a = _create_project(client, token, key="DEV")
+    project_b = _create_project(client, token, key="OPS")
+    statuses_b = client.get(f"/api/v1/projects/{project_b['id']}/statuses", headers=auth_headers(token)).json()
+    done_b = next(s for s in statuses_b if s["name"] == "Done")
+
+    sprint = client.post(
+        f"/api/v1/projects/{project_a['id']}/sprints",
+        json={"name": "Shared Sprint", "linked_project_ids": [project_b["id"]]},
+        headers=auth_headers(token),
+    ).json()
+
+    t_a = _create_ticket(client, token, project_a["id"], summary="A", sprint_id=sprint["id"], story_points=5)
+    t_b = _create_ticket(client, token, project_b["id"], summary="B", sprint_id=sprint["id"], story_points=3)
+
+    client.post(f"/api/v1/sprints/{sprint['id']}/start", headers=auth_headers(token))
+    # Complete the project B ticket using project B's own "Done" status.
+    client.post(f"/api/v1/tickets/{t_b['id']}/transition", json={"status_id": done_b["id"]}, headers=auth_headers(token))
+    client.post(f"/api/v1/sprints/{sprint['id']}/complete", json={"incomplete_action": "backlog"}, headers=auth_headers(token))
+
+    velocity = client.get(f"/api/v1/dashboard/{project_a['id']}/velocity", headers=auth_headers(token)).json()
+    assert len(velocity["sprints"]) == 1
+    assert velocity["sprints"][0]["committed_points"] == 8
+    assert velocity["sprints"][0]["completed_points"] == 3  # only the project B ticket was marked done
+
+    report = client.get(f"/api/v1/reports/sprint/{sprint['id']}", headers=auth_headers(token)).json()
+    assert report["completed_points"] == 3
+    assert {t["ticket_key"] for t in report["completed_tickets"]} == {t_b["ticket_key"]}
+    assert {t["project_key"] for t in report["completed_tickets"]} == {"OPS"}
+    # t_a moved to the backlog on completion since it was never marked done.
+    assert report["incomplete_tickets"] == []
+
+
 def test_workload_report_export_csv(client, db_session):
     company = create_company(db_session)
     _, _, token = _setup_user_and_employee(client, db_session, company, "lead@example.com", "EMP-001")

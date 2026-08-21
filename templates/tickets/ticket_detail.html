@@ -7,10 +7,28 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
   <link href="/static/css/app.css" rel="stylesheet">
+  <style nonce="{{ csp_nonce }}">
+    #ticketSummary, #descriptionView {
+      cursor: text; padding: .35rem .5rem; margin: -.35rem -.5rem;
+      border: 1px dashed transparent; transition: background-color .15s ease, border-color .15s ease;
+    }
+    #ticketSummary:hover, #descriptionView:hover {
+      border-color: var(--emp-border-strong); background: var(--emp-secondary-light);
+    }
+    #descriptionView.is-empty { color: var(--emp-text-subtle); font-style: italic; }
+
+    .activity-item { display: flex; gap: .6rem; padding: .6rem 0; border-bottom: 1px solid rgba(0,0,0,.06); }
+    .activity-item:last-child { border-bottom: none; }
+    .activity-avatar {
+      width: 28px; height: 28px; background: var(--emp-primary); color: #fff;
+      font-size: .7rem; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .activity-avatar.comment { background: #6366f1; }
+  </style>
 </head>
 <body>
   <nav class="navbar emp-navbar mb-4">
-    <div class="container">
+    <div class="container-fluid px-4">
       <a class="navbar-brand" href="/dashboard"><i class="bi bi-buildings me-2"></i><span>Stradit Workforce</span></a>
       <button class="emp-navbar-toggler ms-auto" id="empNavToggler" aria-label="Toggle navigation">
         <i class="bi bi-list"></i>
@@ -24,13 +42,13 @@
 
   <div class="toast-container position-fixed top-0 end-0 p-3" id="toastContainer"></div>
 
-  <div class="container pb-5">
+  <div class="container-fluid px-4 pb-5">
     <div class="emp-breadcrumb mb-2" id="breadcrumb">
       <a href="/tickets">Projects</a> &rsaquo; <a href="#" id="projectLink">&hellip;</a> &rsaquo; <span id="ticketKeyCrumb">&hellip;</span>
     </div>
 
     <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
-      <h2 id="ticketSummary" class="mb-0" contenteditable="true" spellcheck="false"></h2>
+      <h2 id="ticketSummary" class="mb-0" contenteditable="true" spellcheck="false" title="Click to edit"></h2>
       <div class="d-flex gap-2 flex-shrink-0">
         <button class="btn btn-sm btn-outline-primary" id="assignToMeBtn"><i class="bi bi-person-check me-1"></i>Assign to Me</button>
         <button class="btn btn-sm btn-outline-secondary" id="watchBtn"><i class="bi bi-eye me-1"></i><span id="watchLabel">Watch</span></button>
@@ -44,7 +62,7 @@
         <div class="card mb-3">
           <div class="card-body">
             <h6 class="text-muted text-uppercase small mb-2">Description</h6>
-            <div id="descriptionView" style="white-space: pre-wrap; cursor: text;"></div>
+            <div id="descriptionView" style="white-space: pre-wrap;" title="Click to edit"></div>
             <textarea class="form-control d-none" id="descriptionEdit" rows="5"></textarea>
           </div>
         </div>
@@ -82,6 +100,7 @@
       <div class="col-lg-4">
         <div class="card">
           <div class="card-body">
+            <h6 class="text-muted text-uppercase small mb-3">Details</h6>
             <div class="mb-3">
               <label class="form-label small text-muted">Status</label>
               <select class="form-select form-select-sm" id="fieldStatus"></select>
@@ -94,24 +113,28 @@
               <label class="form-label small text-muted">Priority</label>
               <select class="form-select form-select-sm" id="fieldPriority"><option value="">None</option></select>
             </div>
-            <div class="mb-3">
+            <div class="mb-0">
               <label class="form-label small text-muted">Issue Type</label>
               <select class="form-select form-select-sm" id="fieldIssueType"></select>
             </div>
+
+            <hr class="my-3">
             <div class="mb-3">
               <label class="form-label small text-muted">Due date</label>
               <input type="date" class="form-control form-control-sm" id="fieldDueDate">
             </div>
-            <div class="mb-3">
+            <div class="mb-0">
               <label class="form-label small text-muted">Story points</label>
               <input type="number" min="0" class="form-control form-control-sm" id="fieldStoryPoints">
             </div>
+
+            <hr class="my-3">
             <div class="mb-3">
               <label class="form-label small text-muted">Labels</label>
               <div class="mb-1" id="labelBadges"></div>
               <select class="form-select form-select-sm" id="addLabelSelect"><option value="">Add label&hellip;</option></select>
             </div>
-            <div class="mb-3">
+            <div class="mb-0">
               <div class="d-flex justify-content-between align-items-center">
                 <label class="form-label small text-muted mb-0">Time tracking</label>
                 <button class="btn btn-sm btn-link p-0" id="logWorkBtn"><i class="bi bi-plus-lg"></i> Log work</button>
@@ -119,7 +142,8 @@
               <div class="small" id="timeTracking">&mdash;</div>
               <div id="workLogList" class="small text-muted mt-1"></div>
             </div>
-            <hr>
+
+            <hr class="my-3">
             <div class="small text-muted">
               <div class="mb-1"><i class="bi bi-person me-1"></i>Reporter: <span id="metaReporter">&mdash;</span></div>
               <div class="mb-1"><i class="bi bi-calendar-plus me-1"></i>Created: <span id="metaCreated">&mdash;</span></div>
@@ -196,6 +220,7 @@
     function showSuccess(message) { showToast(message, 'success'); }
     function escapeHtml(str) { return $('<div>').text(str == null ? '' : str).html(); }
     function fmtDateTime(iso) { return iso ? new Date(iso).toLocaleString() : '&mdash;'; }
+    function initials(name) { return (name || '?').split(' ').map(function (n) { return n[0]; }).join('').substring(0, 2).toUpperCase(); }
 
     let currentTicket = null, myEmployeeId = null, employees = [], issueTypes = [], priorities = [];
 
@@ -218,7 +243,7 @@
       $('#ticketSummary').text(t.summary);
       $('#ticketKeyCrumb').text(t.ticket_key);
       $('#projectLink').text(t.project_key).attr('href', '/tickets/project/' + t.project_id);
-      $('#descriptionView').text(t.description || 'No description provided.');
+      $('#descriptionView').text(t.description || 'No description provided.').toggleClass('is-empty', !t.description);
       $('#descriptionEdit').val(t.description || '');
 
       $('#fieldIssueType').html(issueTypes.map(function (it) {
@@ -449,17 +474,27 @@
         const items = activities
           .filter(function (a) { return a.action !== 'commented'; })
           .map(function (a) {
-            return { time: a.created_at, html: '<div class="mb-3"><div class="small"><strong>' + escapeHtml(a.actor_name) + '</strong> ' + actionLabel(a) +
-              '</div><div class="text-muted small">' + fmtDateTime(a.created_at) + '</div></div>' };
+            return {
+              time: a.created_at,
+              html: '<div class="activity-item">' +
+                '<span class="activity-avatar">' + initials(a.actor_name) + '</span>' +
+                '<div class="flex-grow-1"><div class="small"><strong>' + escapeHtml(a.actor_name) + '</strong> ' + actionLabel(a) + '</div>' +
+                '<div class="text-muted small">' + fmtDateTime(a.created_at) + '</div></div>' +
+              '</div>'
+            };
           })
           .concat(comments.map(function (c) {
             return {
               time: c.created_at,
-              html: '<div class="mb-3 p-2 rounded' + (c.is_internal ? ' bg-warning-subtle' : ' bg-light') + '">' +
-                '<div class="d-flex justify-content-between"><strong class="small">' + escapeHtml(c.author_name) +
-                (c.is_internal ? ' <span class="badge bg-warning text-dark">Internal</span>' : '') + '</strong>' +
-                '<span class="text-muted small">' + fmtDateTime(c.created_at) + '</span></div>' +
-                '<div class="small mt-1" style="white-space: pre-wrap;">' + escapeHtml(c.body) + '</div></div>'
+              html: '<div class="activity-item">' +
+                '<span class="activity-avatar comment">' + initials(c.author_name) + '</span>' +
+                '<div class="flex-grow-1 p-2' + (c.is_internal ? ' bg-warning-subtle' : ' bg-light') + '">' +
+                  '<div class="d-flex justify-content-between"><strong class="small">' + escapeHtml(c.author_name) +
+                  (c.is_internal ? ' <span class="badge bg-warning text-dark">Internal</span>' : '') + '</strong>' +
+                  '<span class="text-muted small">' + fmtDateTime(c.created_at) + '</span></div>' +
+                  '<div class="small mt-1" style="white-space: pre-wrap;">' + escapeHtml(c.body) + '</div>' +
+                '</div>' +
+              '</div>'
             };
           }));
         items.sort(function (a, b) { return new Date(a.time) - new Date(b.time); });

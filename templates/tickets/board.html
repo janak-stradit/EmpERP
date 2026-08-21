@@ -302,7 +302,10 @@
       $.ajax({ url: '/api/v1/projects/' + projectId + '/board', headers: authHeader }).done(function (board) {
         statuses = board.statuses;
         allTickets = board.tickets;
-        $('#sprintGoal').text(board.sprint ? ('Sprint: ' + board.sprint.name + (board.sprint.goal ? ' — ' + board.sprint.goal : '')) : 'No active sprint — showing unplanned tickets');
+        const sharedNote = board.sprint && board.sprint.linked_project_ids && board.sprint.linked_project_ids.length
+          ? ' (shared with ' + board.sprint.linked_project_ids.length + ' other project' + (board.sprint.linked_project_ids.length === 1 ? '' : 's') + ')'
+          : '';
+        $('#sprintGoal').text(board.sprint ? ('Sprint: ' + board.sprint.name + (board.sprint.goal ? ' — ' + board.sprint.goal : '') + sharedNote) : 'No active sprint — showing unplanned tickets');
         renderBoard();
       }).fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to load board.'); });
     }
