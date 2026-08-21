@@ -281,6 +281,13 @@ def ticket_detail_page(request: Request, ticket_id: int) -> HTMLResponse:
     )
 
 
+@app.get("/sprints/{sprint_id}", response_class=HTMLResponse, tags=["system"])
+def sprint_detail_page(request: Request, sprint_id: int) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request, "tickets/sprint_detail.html", {"csp_nonce": request.state.csp_nonce, "sprint_id": sprint_id}
+    )
+
+
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(departments_router, prefix="/api/v1")
 app.include_router(designations_router, prefix="/api/v1")

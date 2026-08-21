@@ -180,6 +180,29 @@ class SprintCompleteRequest(BaseModel):
     target_sprint_id: int | None = None
 
 
+class SprintProjectBreakdown(BaseModel):
+    project_id: int
+    project_key: str
+    project_name: str
+    ticket_count: int
+    total_points: int
+    completed_points: int
+
+
+class SprintMemberWorkload(BaseModel):
+    employee_id: int | None
+    employee_name: str
+    employee_code: str | None
+    ticket_count: int
+    total_points: int
+    completed_points: int
+
+
+class SprintDetailResponse(SprintResponse):
+    project_breakdown: list[SprintProjectBreakdown] = []
+    member_workload: list[SprintMemberWorkload] = []
+
+
 class TicketSprintAssign(BaseModel):
     sprint_id: int | None = None
 

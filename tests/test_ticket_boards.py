@@ -243,6 +243,57 @@ def test_sprint_rejects_ticket_from_unlinked_project(client, db_session):
     assert bulk_resp.status_code == 400
 
 
+def test_sprint_detail_reports_project_breakdown_and_member_workload(client, db_session):
+    company = create_company(db_session)
+    _, employee, token = _setup_user_and_employee(client, db_session, company, "lead@example.com", "EMP-001")
+    project_a = _create_project(client, token, key="DEV")
+    project_b = _create_project(client, token, key="OPS")
+
+    sprint = client.post(
+        f"/api/v1/projects/{project_a['id']}/sprints",
+        json={"name": "Shared Sprint", "linked_project_ids": [project_b["id"]]},
+        headers=auth_headers(token),
+    ).json()
+
+    ticket_a = _create_ticket(
+        client, token, project_a["id"], summary="Assigned in A", sprint_id=sprint["id"],
+        story_points=5, assignee_id=employee.id,
+    )
+    _create_ticket(client, token, project_b["id"], summary="Unassigned in B", sprint_id=sprint["id"], story_points=3)
+
+    statuses_a = client.get(f"/api/v1/projects/{project_a['id']}/statuses", headers=auth_headers(token)).json()
+    done_a = next(s for s in statuses_a if s["name"] == "Done")
+    client.post(f"/api/v1/tickets/{ticket_a['id']}/transition", json={"status_id": done_a["id"]}, headers=auth_headers(token))
+
+    detail = client.get(f"/api/v1/sprints/{sprint['id']}", headers=auth_headers(token))
+    assert detail.status_code == 200, detail.text
+    detail = detail.json()
+
+    assert detail["ticket_count"] == 2
+    assert detail["total_points"] == 8
+    assert detail["completed_points"] == 5
+
+    breakdown_by_key = {p["project_key"]: p for p in detail["project_breakdown"]}
+    assert breakdown_by_key["DEV"]["ticket_count"] == 1
+    assert breakdown_by_key["DEV"]["total_points"] == 5
+    assert breakdown_by_key["DEV"]["completed_points"] == 5
+    assert breakdown_by_key["OPS"]["ticket_count"] == 1
+    assert breakdown_by_key["OPS"]["total_points"] == 3
+    assert breakdown_by_key["OPS"]["completed_points"] == 0
+
+    assert len(detail["member_workload"]) == 2
+    named = next(m for m in detail["member_workload"] if m["employee_id"] == employee.id)
+    assert named["ticket_count"] == 1
+    assert named["total_points"] == 5
+    assert named["completed_points"] == 5
+    unassigned = next(m for m in detail["member_workload"] if m["employee_id"] is None)
+    assert unassigned["employee_name"] == "Unassigned"
+    assert unassigned["ticket_count"] == 1
+    assert unassigned["total_points"] == 3
+    # Named member (higher points) sorts before the Unassigned bucket
+    assert detail["member_workload"][0]["employee_id"] == employee.id
+
+
 def test_bulk_update_status_and_delete(client, db_session):
     company = create_company(db_session)
     _, _, token = _setup_user_and_employee(client, db_session, company, "lead@example.com", "EMP-001")

@@ -55,6 +55,9 @@ from app.schemas.ticket import (
     ProjectUpdate,
     SprintCompleteRequest,
     SprintCreate,
+    SprintDetailResponse,
+    SprintMemberWorkload,
+    SprintProjectBreakdown,
     SprintResponse,
     SprintUpdate,
     TicketActivityResponse,
@@ -710,6 +713,66 @@ def create_sprint(
     db.commit()
     db.refresh(sprint)
     return _to_sprint_response(db, sprint)
+
+
+@sprints_router.get("/{sprint_id}", response_model=SprintDetailResponse)
+def get_sprint_detail(
+    sprint_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
+) -> SprintDetailResponse:
+    sprint, _owning_project = _get_sprint_with_project_or_404(db, sprint_id, current_user.company_id)
+    base = _to_sprint_response(db, sprint)
+
+    project_ids = _sprint_project_ids(db, sprint)
+    projects_by_id = {p.id: p for p in db.scalars(select(Project).where(Project.id.in_(project_ids)))}
+    tickets = list(db.scalars(select(Ticket).where(Ticket.sprint_id == sprint.id, Ticket.deleted_at.is_(None))))
+    done_status_ids = {
+        s.id
+        for s in db.scalars(
+            select(TicketStatus).where(TicketStatus.project_id.in_(project_ids), TicketStatus.category == StatusCategory.DONE)
+        )
+    }
+
+    tickets_by_project: dict[int, list[Ticket]] = {}
+    for t in tickets:
+        tickets_by_project.setdefault(t.project_id, []).append(t)
+    project_breakdown = [
+        SprintProjectBreakdown(
+            project_id=pid,
+            project_key=projects_by_id[pid].key if pid in projects_by_id else "?",
+            project_name=projects_by_id[pid].name if pid in projects_by_id else "Unknown",
+            ticket_count=len(pid_tickets),
+            total_points=sum(t.story_points or 0 for t in pid_tickets),
+            completed_points=sum(t.story_points or 0 for t in pid_tickets if t.status_id in done_status_ids),
+        )
+        for pid, pid_tickets in sorted(tickets_by_project.items(), key=lambda kv: projects_by_id[kv[0]].key if kv[0] in projects_by_id else "")
+    ]
+
+    tickets_by_assignee: dict[int | None, list[Ticket]] = {}
+    for t in tickets:
+        tickets_by_assignee.setdefault(t.assignee_id, []).append(t)
+    assignee_ids = [aid for aid in tickets_by_assignee if aid is not None]
+    employee_info: dict[int, tuple[str, str]] = {}
+    if assignee_ids:
+        for row in db.execute(
+            select(Employee.id, Employee.employee_code, User.full_name)
+            .join(User, User.id == Employee.user_id)
+            .where(Employee.id.in_(assignee_ids))
+        ):
+            employee_info[row[0]] = (row[1], row[2])
+    member_workload = [
+        SprintMemberWorkload(
+            employee_id=aid,
+            employee_name=employee_info[aid][1] if aid in employee_info else "Unassigned",
+            employee_code=employee_info[aid][0] if aid in employee_info else None,
+            ticket_count=len(aid_tickets),
+            total_points=sum(t.story_points or 0 for t in aid_tickets),
+            completed_points=sum(t.story_points or 0 for t in aid_tickets if t.status_id in done_status_ids),
+        )
+        for aid, aid_tickets in tickets_by_assignee.items()
+    ]
+    member_workload.sort(key=lambda m: (m.employee_id is None, -m.total_points, m.employee_name))
+
+    return SprintDetailResponse(**base.model_dump(), project_breakdown=project_breakdown, member_workload=member_workload)
 
 
 @sprints_router.put("/{sprint_id}", response_model=SprintResponse)

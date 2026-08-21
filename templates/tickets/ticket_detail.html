@@ -24,6 +24,8 @@
       font-size: .7rem; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
     }
     .activity-avatar.comment { background: #6366f1; }
+
+    #attachmentList .download-attachment { min-width: 0; }
   </style>
 </head>
 <body>
@@ -70,9 +72,13 @@
         <div class="card mb-3">
           <div class="card-body">
             <h6 class="text-muted text-uppercase small mb-3">Attachments</h6>
-            <form id="uploadForm" class="d-flex gap-2 mb-3">
-              <input type="file" class="form-control form-control-sm" id="attachmentFile" required>
-              <button type="submit" class="btn btn-sm btn-outline-primary flex-shrink-0"><i class="bi bi-upload me-1"></i>Upload</button>
+            <form id="uploadForm" class="mb-3">
+              <div id="attachmentDropZone" class="emp-dropzone mb-2">
+                <i class="bi bi-cloud-arrow-up d-block mb-1" style="font-size: 1.5rem;"></i>
+                <div class="small fw-semibold" id="attachmentDropZoneText">Drag &amp; drop a file here, or click to browse</div>
+              </div>
+              <input type="file" class="d-none" id="attachmentFile">
+              <button type="submit" class="btn btn-sm btn-outline-primary w-100"><i class="bi bi-upload me-1"></i>Upload</button>
             </form>
             <ul class="list-group list-group-flush" id="attachmentList"></ul>
           </div>
@@ -140,7 +146,10 @@
                 <button class="btn btn-sm btn-link p-0" id="logWorkBtn"><i class="bi bi-plus-lg"></i> Log work</button>
               </div>
               <div class="small" id="timeTracking">&mdash;</div>
-              <div id="workLogList" class="small text-muted mt-1"></div>
+              <div class="progress mt-2 d-none" id="timeProgressWrap" style="height: 5px;">
+                <div class="progress-bar" id="timeProgressBar"></div>
+              </div>
+              <ul class="list-group list-group-flush mt-2" id="workLogList"></ul>
             </div>
 
             <hr class="my-3">
@@ -221,6 +230,15 @@
     function escapeHtml(str) { return $('<div>').text(str == null ? '' : str).html(); }
     function fmtDateTime(iso) { return iso ? new Date(iso).toLocaleString() : '&mdash;'; }
     function initials(name) { return (name || '?').split(' ').map(function (n) { return n[0]; }).join('').substring(0, 2).toUpperCase(); }
+    function fileIcon(fileName) {
+      const ext = (fileName.split('.').pop() || '').toLowerCase();
+      if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) return 'bi-file-earmark-image';
+      if (ext === 'pdf') return 'bi-file-earmark-pdf';
+      if (['doc', 'docx'].includes(ext)) return 'bi-file-earmark-word';
+      if (['xls', 'xlsx', 'csv'].includes(ext)) return 'bi-file-earmark-spreadsheet';
+      if (['zip', 'rar', '7z'].includes(ext)) return 'bi-file-earmark-zip';
+      return 'bi-file-earmark-text';
+    }
 
     let currentTicket = null, myEmployeeId = null, employees = [], issueTypes = [], priorities = [];
 
@@ -261,6 +279,13 @@
       const spent = t.time_spent || 0;
       const orig = t.original_estimate;
       $('#timeTracking').text(orig ? (spent + ' / ' + orig + ' min logged') : (spent ? (spent + ' min logged') : 'No estimate set'));
+      if (orig) {
+        const pct = Math.min(100, Math.round((spent / orig) * 100));
+        $('#timeProgressWrap').removeClass('d-none');
+        $('#timeProgressBar').css('width', pct + '%').toggleClass('bg-danger', spent > orig);
+      } else {
+        $('#timeProgressWrap').addClass('d-none');
+      }
 
       $('#metaReporter').text(t.reporter_name);
       $('#metaCreated').text(new Date(t.created_at).toLocaleString());
@@ -418,9 +443,12 @@
       $.ajax({ url: '/api/v1/tickets/' + ticketId + '/worklogs', headers: authHeader }).done(function (logs) {
         $('#workLogList').html(
           logs.map(function (w) {
-            return '<div>' + w.log_date + ' &mdash; ' + escapeHtml(w.author_name) + ': ' + w.minutes_spent + 'm' +
-              (w.description ? ' (' + escapeHtml(w.description) + ')' : '') + '</div>';
-          }).join('')
+            return '<li class="list-group-item py-2 small">' +
+              '<i class="bi bi-stopwatch me-1 text-muted"></i><strong>' + w.minutes_spent + 'm</strong> ' +
+              '<span class="text-muted">by ' + escapeHtml(w.author_name) + ' on ' + w.log_date + '</span>' +
+              (w.description ? '<div class="text-muted mt-1">' + escapeHtml(w.description) + '</div>' : '') +
+            '</li>';
+          }).join('') || '<li class="list-group-item py-2 small text-muted">No work logged yet.</li>'
         );
       });
     }
@@ -521,27 +549,54 @@
       $.ajax({ url: '/api/v1/tickets/' + ticketId + '/attachments', headers: authHeader }).done(function (attachments) {
         $('#attachmentList').html(attachments.map(function (a) {
           const sizeKb = Math.round(a.file_size / 1024);
-          return '<li class="list-group-item d-flex justify-content-between align-items-center py-2">' +
-            '<a href="#" class="download-attachment" data-id="' + a.id + '" data-filename="' + escapeHtml(a.file_name) + '">' +
-              '<i class="bi bi-paperclip me-1"></i>' + escapeHtml(a.file_name) + '</a>' +
-            '<span class="text-muted small">' + sizeKb + ' KB &middot; ' + escapeHtml(a.uploader_name) +
+          return '<li class="list-group-item d-flex justify-content-between align-items-center py-2 gap-2">' +
+            '<a href="#" class="download-attachment text-truncate" data-id="' + a.id + '" data-filename="' + escapeHtml(a.file_name) + '">' +
+              '<i class="bi ' + fileIcon(a.file_name) + ' me-1"></i>' + escapeHtml(a.file_name) + '</a>' +
+            '<span class="text-muted small flex-shrink-0">' + sizeKb + ' KB &middot; ' + escapeHtml(a.uploader_name) +
               ' <button class="btn btn-sm btn-outline-danger ms-2 remove-attachment" data-id="' + a.id + '"><i class="bi bi-trash"></i></button></span>' +
           '</li>';
         }).join('') || '<li class="list-group-item text-muted small">No attachments yet.</li>');
       });
     }
 
+    let selectedAttachmentFile = null;
+    const attachmentDropZone = document.getElementById('attachmentDropZone');
+
+    function setSelectedAttachmentFile(file) {
+      selectedAttachmentFile = file;
+      $('#attachmentDropZoneText').text(file ? file.name : 'Drag & drop a file here, or click to browse');
+    }
+
+    ['dragenter', 'dragover'].forEach(function (evt) {
+      attachmentDropZone.addEventListener(evt, function (e) { e.preventDefault(); attachmentDropZone.classList.add('dragover'); });
+    });
+    ['dragleave', 'drop'].forEach(function (evt) {
+      attachmentDropZone.addEventListener(evt, function (e) { e.preventDefault(); attachmentDropZone.classList.remove('dragover'); });
+    });
+    attachmentDropZone.addEventListener('drop', function (e) {
+      const file = e.dataTransfer.files[0];
+      if (file) setSelectedAttachmentFile(file);
+    });
+    attachmentDropZone.addEventListener('click', function () { document.getElementById('attachmentFile').click(); });
+    $('#attachmentFile').on('change', function (e) {
+      const file = e.target.files[0];
+      if (file) setSelectedAttachmentFile(file);
+    });
+
     $('#uploadForm').on('submit', function (e) {
       e.preventDefault();
-      const fileInput = document.getElementById('attachmentFile');
-      if (!fileInput.files.length) return;
+      if (!selectedAttachmentFile) {
+        showError('Please choose a file to upload.');
+        return;
+      }
       const formData = new FormData();
-      formData.append('file', fileInput.files[0]);
+      formData.append('file', selectedAttachmentFile);
       $.ajax({
         url: '/api/v1/tickets/' + ticketId + '/attachments', method: 'POST', headers: authHeader,
         data: formData, processData: false, contentType: false
       }).done(function () {
         $('#uploadForm')[0].reset();
+        setSelectedAttachmentFile(null);
         loadAttachments();
         loadActivity();
         showSuccess('Attachment uploaded.');
