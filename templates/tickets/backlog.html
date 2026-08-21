@@ -254,7 +254,7 @@
       $.ajax({ url: '/api/v1/priorities', headers: authHeader }).done(function (d) {
         $('#ticket_priority_id').html('<option value="">None</option>' + d.map(function (p) { return '<option value="' + p.id + '">' + escapeHtml(p.name) + '</option>'; }).join(''));
       });
-      $.ajax({ url: '/api/v1/employees', headers: authHeader }).done(function (d) {
+      $.ajax({ url: '/api/v1/employees/directory', headers: authHeader }).done(function (d) {
         const options = d.map(function (e) { return '<option value="' + e.id + '">' + escapeHtml(e.employee_code + ' - ' + e.full_name) + '</option>'; }).join('');
         $('#ticket_assignee_id').html('<option value="">Unassigned</option>' + options);
       });

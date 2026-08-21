@@ -18,6 +18,7 @@ from app.schemas.employee import (
     EmployeeAdminUpdate,
     EmployeeCreate,
     EmployeeDetail,
+    EmployeeDirectoryItem,
     EmployeeListItem,
     EmployeePasswordReset,
     EmployeeSelfUpdate,
@@ -306,6 +307,21 @@ def upload_my_photo(
 @router.get("/module-catalog")
 def get_module_catalog(current_user: User = Depends(get_current_user)) -> list[dict[str, str]]:
     return [{"key": key, "label": label} for key, label in MODULE_CATALOG.items()]
+
+
+@router.get("/directory", response_model=list[EmployeeDirectoryItem])
+def list_employee_directory(
+    db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
+) -> list[EmployeeDirectoryItem]:
+    """A lightweight, non-HR-gated employee picker (id/code/name only) for features like
+    ticket assignment that any authenticated company member needs, not just HR."""
+    rows = db.execute(
+        select(Employee.id, Employee.employee_code, User.full_name)
+        .join(User, User.id == Employee.user_id)
+        .where(Employee.company_id == current_user.company_id, Employee.deleted_at.is_(None), User.is_active.is_(True))
+        .order_by(User.full_name)
+    ).all()
+    return [EmployeeDirectoryItem(id=eid, employee_code=code, full_name=name) for eid, code, name in rows]
 
 
 @router.get("/{employee_id}/photo")

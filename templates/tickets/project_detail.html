@@ -336,7 +336,7 @@
     }
 
     function loadEmployees() {
-      return $.ajax({ url: '/api/v1/employees', headers: authHeader }).done(function (data) {
+      return $.ajax({ url: '/api/v1/employees/directory', headers: authHeader }).done(function (data) {
         employees = data;
         const options = employees.map(function (e) {
           return '<option value="' + e.id + '">' + escapeHtml(e.employee_code + ' - ' + e.full_name) + '</option>';

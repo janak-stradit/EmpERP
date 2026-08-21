@@ -234,3 +234,20 @@ def test_project_member_role_update(client, db_session):
         f"/api/v1/projects/{project['id']}/members/{member_id}", json={"role": "viewer"}, headers=auth_headers(dev_token)
     )
     assert other_resp.status_code == 403
+
+
+def test_plain_employee_can_use_directory_but_not_hr_employee_list(client, db_session):
+    company = create_company(db_session)
+    _, _, employee_token = _setup_user_and_employee(client, db_session, company, "plain@example.com", "EMP-001")
+
+    # The full HR employee roster stays HR-only.
+    hr_only_resp = client.get("/api/v1/employees", headers=auth_headers(employee_token))
+    assert hr_only_resp.status_code == 403
+
+    # But any authenticated company member can use the lightweight directory
+    # that ticket assignee/reporter pickers rely on.
+    directory_resp = client.get("/api/v1/employees/directory", headers=auth_headers(employee_token))
+    assert directory_resp.status_code == 200
+    names = [e["full_name"] for e in directory_resp.json()]
+    assert "plain" in names
+    assert set(directory_resp.json()[0].keys()) == {"id", "employee_code", "full_name"}

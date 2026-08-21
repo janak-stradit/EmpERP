@@ -265,7 +265,7 @@
       return $.ajax({ url: '/api/v1/employees/me', headers: authHeader }).done(function (p) { myEmployeeId = p.id; });
     }
     function loadEmployees() {
-      return $.ajax({ url: '/api/v1/employees', headers: authHeader }).done(function (d) {
+      return $.ajax({ url: '/api/v1/employees/directory', headers: authHeader }).done(function (d) {
         employees = d;
         const options = d.map(function (e) { return '<option value="' + e.id + '">' + escapeHtml(e.employee_code + ' - ' + e.full_name) + '</option>'; }).join('');
         $('#ticket_assignee_id').html('<option value="">Unassigned</option>' + options);

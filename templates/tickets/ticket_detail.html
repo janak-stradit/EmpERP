@@ -209,7 +209,7 @@
       return $.when(
         $.ajax({ url: '/api/v1/issue-types', headers: authHeader }).done(function (d) { issueTypes = d; }),
         $.ajax({ url: '/api/v1/priorities', headers: authHeader }).done(function (d) { priorities = d; }),
-        $.ajax({ url: '/api/v1/employees', headers: authHeader }).done(function (d) { employees = d; })
+        $.ajax({ url: '/api/v1/employees/directory', headers: authHeader }).done(function (d) { employees = d; })
       );
     }
 
