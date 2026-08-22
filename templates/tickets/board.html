@@ -321,7 +321,7 @@
       if (swimlaneMode === 'assignee') return ticket.assignee_name || 'Unassigned';
       if (swimlaneMode === 'priority') return ticket.priority ? ticket.priority.name : 'No priority';
       if (swimlaneMode === 'issue_type') return ticket.issue_type.name;
-      if (swimlaneMode === 'epic') return ticket.epic_id ? ('Epic #' + ticket.epic_id) : 'No epic';
+      if (swimlaneMode === 'epic') return ticket.epic_id ? (ticket.epic_key + ' — ' + ticket.epic_summary) : 'No epic';
       return '';
     }
 

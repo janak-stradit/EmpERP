@@ -72,6 +72,7 @@ from app.schemas.ticket import (
     TicketDetailResponse,
     TicketLabelAssign,
     TicketListItem,
+    TicketRelationSummary,
     TicketPositionUpdate,
     TicketPriorityCreate,
     TicketPriorityResponse,
@@ -307,6 +308,9 @@ def _to_ticket_list_item(db: Session, ticket: Ticket, project: Project) -> Ticke
     issue_type = db.get(IssueType, ticket.issue_type_id)
     ticket_status = db.get(TicketStatus, ticket.status_id)
     priority = db.get(TicketPriority, ticket.priority_id) if ticket.priority_id else None
+    epic = db.get(Ticket, ticket.epic_id) if ticket.epic_id else None
+    if epic is not None and epic.deleted_at is not None:
+        epic = None
     return TicketListItem(
         id=ticket.id,
         project_id=ticket.project_id,
@@ -320,6 +324,9 @@ def _to_ticket_list_item(db: Session, ticket: Ticket, project: Project) -> Ticke
         assignee_name=_employee_name(db, ticket.assignee_id),
         reporter_id=ticket.reporter_id,
         reporter_name=_employee_name(db, ticket.reporter_id) or "Unknown",
+        epic_id=epic.id if epic else None,
+        epic_key=epic.ticket_key if epic else None,
+        epic_summary=epic.summary if epic else None,
         sprint_id=ticket.sprint_id,
         board_position=ticket.board_position,
         story_points=ticket.story_points,
@@ -329,12 +336,35 @@ def _to_ticket_list_item(db: Session, ticket: Ticket, project: Project) -> Ticke
     )
 
 
+def _to_relation_summary(ticket: Ticket, status_by_id: dict[int, TicketStatus]) -> TicketRelationSummary:
+    ticket_status = status_by_id[ticket.status_id]
+    return TicketRelationSummary(
+        id=ticket.id, ticket_key=ticket.ticket_key, summary=ticket.summary,
+        status_name=ticket_status.name, status_color=ticket_status.color,
+    )
+
+
 def _to_ticket_detail(
     db: Session, ticket: Ticket, project: Project, current_employee: Employee | None, current_user: User | None = None
 ) -> TicketDetailResponse:
     issue_type = db.get(IssueType, ticket.issue_type_id)
     ticket_status = db.get(TicketStatus, ticket.status_id)
     priority = db.get(TicketPriority, ticket.priority_id) if ticket.priority_id else None
+
+    parent = db.get(Ticket, ticket.parent_id) if ticket.parent_id else None
+    if parent is not None and parent.deleted_at is not None:
+        parent = None
+    epic = db.get(Ticket, ticket.epic_id) if ticket.epic_id else None
+    if epic is not None and epic.deleted_at is not None:
+        epic = None
+    subtasks = list(db.scalars(select(Ticket).where(Ticket.parent_id == ticket.id, Ticket.deleted_at.is_(None))))
+    epic_tickets = list(db.scalars(select(Ticket).where(Ticket.epic_id == ticket.id, Ticket.deleted_at.is_(None))))
+
+    related_tickets = [t for t in (parent, epic) if t is not None] + subtasks + epic_tickets
+    status_by_id: dict[int, TicketStatus] = {}
+    if related_tickets:
+        status_ids = {t.status_id for t in related_tickets}
+        status_by_id = {s.id: s for s in db.scalars(select(TicketStatus).where(TicketStatus.id.in_(status_ids)))}
     watcher_count = db.scalar(select(func.count(TicketWatcher.id)).where(TicketWatcher.ticket_id == ticket.id)) or 0
     is_watching = False
     if current_employee is not None:
@@ -363,6 +393,10 @@ def _to_ticket_detail(
         assignee_name=_employee_name(db, ticket.assignee_id),
         parent_id=ticket.parent_id,
         epic_id=ticket.epic_id,
+        parent=_to_relation_summary(parent, status_by_id) if parent else None,
+        epic=_to_relation_summary(epic, status_by_id) if epic else None,
+        subtasks=[_to_relation_summary(t, status_by_id) for t in subtasks],
+        epic_tickets=[_to_relation_summary(t, status_by_id) for t in epic_tickets],
         sprint_id=ticket.sprint_id,
         board_position=ticket.board_position,
         story_points=ticket.story_points,
@@ -1402,6 +1436,19 @@ def update_ticket(
     actor = _get_own_employee_or_404(db, current_user)
     is_own = actor.id in (ticket.reporter_id, ticket.assignee_id)
     require_permission(db, project, current_user, "edit_own_ticket" if is_own else "edit_any_ticket")
+
+    if payload.parent_id is not None:
+        if payload.parent_id == ticket.id:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="A ticket cannot be its own parent")
+        parent = db.scalar(select(Ticket).where(Ticket.id == payload.parent_id, Ticket.project_id == project.id))
+        if parent is None:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Parent ticket not found in this project")
+    if payload.epic_id is not None:
+        if payload.epic_id == ticket.id:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="A ticket cannot be its own epic")
+        epic = db.scalar(select(Ticket).where(Ticket.id == payload.epic_id, Ticket.project_id == project.id))
+        if epic is None:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Epic not found in this project")
 
     updates = payload.model_dump(exclude_unset=True)
     old_assignee_id = ticket.assignee_id

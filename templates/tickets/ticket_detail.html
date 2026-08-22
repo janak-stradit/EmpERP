@@ -50,7 +50,10 @@
     </div>
 
     <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
-      <h2 id="ticketSummary" class="mb-0" contenteditable="true" spellcheck="false" title="Click to edit"></h2>
+      <div>
+        <h2 id="ticketSummary" class="mb-0" contenteditable="true" spellcheck="false" title="Click to edit"></h2>
+        <div class="mt-1" id="epicChipRow"></div>
+      </div>
       <div class="d-flex gap-2 flex-shrink-0">
         <button class="btn btn-sm btn-outline-primary" id="assignToMeBtn"><i class="bi bi-person-check me-1"></i>Assign to Me</button>
         <button class="btn btn-sm btn-outline-secondary" id="watchBtn"><i class="bi bi-eye me-1"></i><span id="watchLabel">Watch</span></button>
@@ -66,6 +69,26 @@
             <h6 class="text-muted text-uppercase small mb-2">Description</h6>
             <div id="descriptionView" style="white-space: pre-wrap;" title="Click to edit"></div>
             <textarea class="form-control d-none" id="descriptionEdit" rows="5"></textarea>
+          </div>
+        </div>
+
+        <div class="card mb-3">
+          <div class="card-body">
+            <h6 class="text-muted text-uppercase small mb-2">Parent</h6>
+            <div id="parentRow" class="mb-3"></div>
+            <h6 class="text-muted text-uppercase small mb-2">Sub-tasks</h6>
+            <ul class="list-group list-group-flush mb-2" id="subtaskList"></ul>
+            <form id="addSubtaskForm" class="d-flex gap-2">
+              <input type="text" class="form-control form-control-sm" id="subtaskSummary" placeholder="Add a sub-task&hellip;">
+              <button type="submit" class="btn btn-sm btn-outline-primary flex-shrink-0"><i class="bi bi-plus-lg me-1"></i>Add</button>
+            </form>
+          </div>
+        </div>
+
+        <div class="card mb-3 d-none" id="epicTicketsCard">
+          <div class="card-body">
+            <h6 class="text-muted text-uppercase small mb-2">Epic Tickets</h6>
+            <ul class="list-group list-group-flush" id="epicTicketList"></ul>
           </div>
         </div>
 
@@ -199,6 +222,26 @@
     </div>
   </div>
 
+  <!-- Link Ticket Modal (used for both "Set Parent" and "Set Epic") -->
+  <div class="modal fade" id="linkTicketModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="linkTicketModalTitle"><i class="bi bi-link-45deg me-1"></i>Link Ticket</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <input type="text" class="form-control mb-2" id="linkTicketSearch" placeholder="Search by key or summary&hellip;">
+          <div class="list-group" id="linkTicketResults" style="max-height: 280px; overflow-y: auto;"></div>
+        </div>
+        <div class="modal-footer justify-content-between">
+          <button type="button" class="btn btn-outline-danger" id="linkTicketClearBtn"><i class="bi bi-x-lg me-1"></i>Clear</button>
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="/static/js/app-ux.js"></script>
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
@@ -295,12 +338,46 @@
       $('#watchBtn').find('i').attr('class', 'bi ' + (t.is_watching ? 'bi-eye-slash' : 'bi-eye') + ' me-1');
 
       const canEdit = t.my_role !== 'viewer';
-      $('#assignToMeBtn, #deleteTicketBtn, #fieldStatus, #fieldAssignee, #fieldPriority, #fieldIssueType, #fieldDueDate, #fieldStoryPoints, #addLabelSelect, #logWorkBtn').prop('disabled', !canEdit);
+      $('#assignToMeBtn, #deleteTicketBtn, #fieldStatus, #fieldAssignee, #fieldPriority, #fieldIssueType, #fieldDueDate, #fieldStoryPoints, #addLabelSelect, #logWorkBtn, #subtaskSummary, #addSubtaskForm button').prop('disabled', !canEdit);
       $('#ticketSummary').attr('contenteditable', canEdit ? 'true' : 'false');
 
       renderLabels(t);
+      renderRelations(t, canEdit);
       loadStatuses(t.project_id, t.status.id);
       loadProjectLabels(t.project_id);
+    }
+
+    function relationDisplayHtml(rel, mode, canEdit) {
+      const label = mode === 'parent' ? 'Parent' : 'Epic';
+      if (!rel) {
+        if (!canEdit) return '<span class="text-muted small">No ' + label.toLowerCase() + ' set.</span>';
+        return '<button type="button" class="btn btn-sm btn-outline-secondary set-relation-btn" data-mode="' + mode + '">' +
+          '<i class="bi bi-plus-lg me-1"></i>Set ' + label + '</button>';
+      }
+      return '<a href="/tickets/' + rel.id + '" class="text-decoration-none fw-semibold">' + escapeHtml(rel.ticket_key) + '</a> ' +
+        '<span class="badge" style="background-color:' + escapeHtml(rel.status_color) + '; color:#fff;">' + escapeHtml(rel.status_name) + '</span> ' +
+        '<span class="text-muted small">' + escapeHtml(rel.summary) + '</span>' +
+        (canEdit ? ' <button type="button" class="btn btn-sm btn-link p-0 ms-1 set-relation-btn" data-mode="' + mode + '" title="Change ' + label.toLowerCase() + '"><i class="bi bi-pencil"></i></button>' : '');
+    }
+
+    function relationListItem(rel) {
+      return '<li class="list-group-item d-flex justify-content-between align-items-center py-2 gap-2">' +
+        '<a href="/tickets/' + rel.id + '" class="text-decoration-none text-truncate">' +
+          '<span class="text-muted small me-1">' + escapeHtml(rel.ticket_key) + '</span>' + escapeHtml(rel.summary) +
+        '</a>' +
+        '<span class="badge flex-shrink-0" style="background-color:' + escapeHtml(rel.status_color) + '; color:#fff;">' + escapeHtml(rel.status_name) + '</span>' +
+      '</li>';
+    }
+
+    function renderRelations(t, canEdit) {
+      $('#epicChipRow').html(relationDisplayHtml(t.epic, 'epic', canEdit));
+      $('#parentRow').html(relationDisplayHtml(t.parent, 'parent', canEdit));
+      $('#subtaskList').html(
+        (t.subtasks || []).map(relationListItem).join('') || '<li class="list-group-item text-muted small">No sub-tasks yet.</li>'
+      );
+      const epicTickets = t.epic_tickets || [];
+      $('#epicTicketsCard').toggleClass('d-none', epicTickets.length === 0);
+      $('#epicTicketList').html(epicTickets.map(relationListItem).join(''));
     }
 
     function renderLabels(t) {
@@ -416,6 +493,74 @@
       $.ajax({ url: '/api/v1/tickets/' + ticketId, method: 'DELETE', headers: authHeader })
         .done(function () { showSuccess('Ticket deleted.'); window.location.href = '/tickets/project/' + currentTicket.project_id; })
         .fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to delete ticket.'); });
+    });
+
+    // ---- Parent / Epic / Sub-tasks ----
+
+    let linkPickerMode = null;
+
+    function searchLinkableTickets(q) {
+      $.ajax({
+        url: '/api/v1/tickets', headers: authHeader,
+        data: { project_id: currentTicket.project_id, q: q, page_size: 15 }
+      }).done(function (tickets) {
+        const filtered = tickets.filter(function (t) { return t.id !== currentTicket.id; });
+        $('#linkTicketResults').html(
+          filtered.map(function (t) {
+            return '<a href="#" class="list-group-item list-group-item-action link-ticket-result" data-id="' + t.id + '">' +
+              '<span class="text-muted small me-1">' + escapeHtml(t.ticket_key) + '</span>' + escapeHtml(t.summary) +
+            '</a>';
+          }).join('') || '<div class="text-muted small p-2">No matching tickets.</div>'
+        );
+      });
+    }
+
+    $(document).on('click', '.set-relation-btn', function () {
+      linkPickerMode = $(this).data('mode');
+      $('#linkTicketModalTitle').html('<i class="bi bi-link-45deg me-1"></i>Set ' + (linkPickerMode === 'parent' ? 'Parent' : 'Epic'));
+      $('#linkTicketSearch').val('');
+      searchLinkableTickets('');
+      new bootstrap.Modal('#linkTicketModal').show();
+    });
+
+    $('#linkTicketSearch').on('input', function () {
+      const q = $(this).val();
+      clearTimeout(window._linkSearchDebounce);
+      window._linkSearchDebounce = setTimeout(function () { searchLinkableTickets(q); }, 250);
+    });
+
+    $(document).on('click', '.link-ticket-result', function (e) {
+      e.preventDefault();
+      const payload = {};
+      payload[linkPickerMode + '_id'] = parseInt($(this).data('id'), 10);
+      bootstrap.Modal.getInstance(document.getElementById('linkTicketModal')).hide();
+      updateTicket(payload);
+    });
+
+    $('#linkTicketClearBtn').on('click', function () {
+      const payload = {};
+      payload[linkPickerMode + '_id'] = null;
+      bootstrap.Modal.getInstance(document.getElementById('linkTicketModal')).hide();
+      updateTicket(payload);
+    });
+
+    $('#addSubtaskForm').on('submit', function (e) {
+      e.preventDefault();
+      const summary = $('#subtaskSummary').val().trim();
+      if (!summary) return;
+      const defaultIssueType = issueTypes[0];
+      if (!defaultIssueType) { showError('No issue types configured for this project.'); return; }
+      $.ajax({
+        url: '/api/v1/tickets', method: 'POST', contentType: 'application/json', headers: authHeader,
+        data: JSON.stringify({
+          project_id: currentTicket.project_id, summary: summary,
+          issue_type_id: defaultIssueType.id, parent_id: currentTicket.id
+        })
+      }).done(function () {
+        $('#subtaskSummary').val('');
+        loadTicket();
+        showSuccess('Sub-task created.');
+      }).fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to create sub-task.'); });
     });
 
     // ---- Labels ----

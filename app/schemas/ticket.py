@@ -310,6 +310,9 @@ class TicketListItem(BaseModel):
     assignee_name: str | None
     reporter_id: int
     reporter_name: str
+    epic_id: int | None = None
+    epic_key: str | None = None
+    epic_summary: str | None = None
     sprint_id: int | None
     board_position: int
     story_points: int | None
@@ -318,6 +321,14 @@ class TicketListItem(BaseModel):
     labels: list[LabelResponse] = []
 
     model_config = {"from_attributes": True}
+
+
+class TicketRelationSummary(BaseModel):
+    id: int
+    ticket_key: str
+    summary: str
+    status_name: str
+    status_color: str
 
 
 class TicketDetailResponse(BaseModel):
@@ -336,6 +347,10 @@ class TicketDetailResponse(BaseModel):
     assignee_name: str | None
     parent_id: int | None
     epic_id: int | None
+    parent: TicketRelationSummary | None = None
+    epic: TicketRelationSummary | None = None
+    subtasks: list[TicketRelationSummary] = []
+    epic_tickets: list[TicketRelationSummary] = []
     sprint_id: int | None
     board_position: int
     story_points: int | None

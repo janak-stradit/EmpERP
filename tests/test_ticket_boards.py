@@ -103,6 +103,24 @@ def test_board_shows_active_sprint_tickets_grouped_by_status(client, db_session)
     assert board["sprint"]["id"] == sprint["id"]
 
 
+def test_board_ticket_list_item_carries_epic_key_and_summary(client, db_session):
+    company = create_company(db_session)
+    _, _, token = _setup_user_and_employee(client, db_session, company, "lead@example.com", "EMP-001")
+    project = _create_project(client, token)
+
+    epic = _create_ticket(client, token, project["id"], summary="Epic ticket")
+    child = _create_ticket(client, token, project["id"], summary="Child ticket", epic_id=epic["id"])
+
+    board = client.get(f"/api/v1/projects/{project['id']}/board", headers=auth_headers(token)).json()
+    child_on_board = next(t for t in board["tickets"] if t["id"] == child["id"])
+    assert child_on_board["epic_id"] == epic["id"]
+    assert child_on_board["epic_key"] == epic["ticket_key"]
+    assert child_on_board["epic_summary"] == "Epic ticket"
+
+    epic_on_board = next(t for t in board["tickets"] if t["id"] == epic["id"])
+    assert epic_on_board["epic_id"] is None
+
+
 def test_ticket_position_reorders_within_and_across_columns(client, db_session):
     company = create_company(db_session)
     _, _, token = _setup_user_and_employee(client, db_session, company, "lead@example.com", "EMP-001")
@@ -292,6 +310,75 @@ def test_sprint_detail_reports_project_breakdown_and_member_workload(client, db_
     assert unassigned["total_points"] == 3
     # Named member (higher points) sorts before the Unassigned bucket
     assert detail["member_workload"][0]["employee_id"] == employee.id
+
+
+def test_create_ticket_validates_parent_and_epic_project_scope(client, db_session):
+    company = create_company(db_session)
+    _, _, token = _setup_user_and_employee(client, db_session, company, "lead@example.com", "EMP-001")
+    project_a = _create_project(client, token, key="DEV")
+    project_b = _create_project(client, token, key="OPS")
+
+    epic = _create_ticket(client, token, project_a["id"], summary="Epic in A")
+    linked = _create_ticket(client, token, project_a["id"], summary="Child in A", epic_id=epic["id"])
+    assert linked["epic_id"] == epic["id"]
+
+    issue_types = client.get("/api/v1/issue-types", headers=auth_headers(token)).json()
+    cross_project_resp = client.post(
+        "/api/v1/tickets",
+        json={
+            "project_id": project_b["id"], "summary": "Should fail", "issue_type_id": issue_types[0]["id"],
+            "epic_id": epic["id"],
+        },
+        headers=auth_headers(token),
+    )
+    assert cross_project_resp.status_code == 400
+
+
+def test_update_ticket_validates_parent_and_epic(client, db_session):
+    company = create_company(db_session)
+    _, _, token = _setup_user_and_employee(client, db_session, company, "lead@example.com", "EMP-001")
+    project_a = _create_project(client, token, key="DEV")
+    project_b = _create_project(client, token, key="OPS")
+
+    epic = _create_ticket(client, token, project_a["id"], summary="Epic in A")
+    child = _create_ticket(client, token, project_a["id"], summary="Child in A")
+    other_project_ticket = _create_ticket(client, token, project_b["id"], summary="In B")
+
+    # Cross-project parent/epic is rejected.
+    cross_project = client.put(
+        f"/api/v1/tickets/{child['id']}", json={"parent_id": other_project_ticket["id"]}, headers=auth_headers(token)
+    )
+    assert cross_project.status_code == 400
+    cross_project_epic = client.put(
+        f"/api/v1/tickets/{child['id']}", json={"epic_id": other_project_ticket["id"]}, headers=auth_headers(token)
+    )
+    assert cross_project_epic.status_code == 400
+
+    # Self-reference is rejected.
+    self_parent = client.put(
+        f"/api/v1/tickets/{child['id']}", json={"parent_id": child["id"]}, headers=auth_headers(token)
+    )
+    assert self_parent.status_code == 400
+    self_epic = client.put(
+        f"/api/v1/tickets/{child['id']}", json={"epic_id": child["id"]}, headers=auth_headers(token)
+    )
+    assert self_epic.status_code == 400
+
+    # A valid same-project link succeeds and shows up in both directions.
+    ok = client.put(
+        f"/api/v1/tickets/{child['id']}", json={"parent_id": epic["id"], "epic_id": epic["id"]},
+        headers=auth_headers(token),
+    )
+    assert ok.status_code == 200, ok.text
+
+    child_detail = client.get(f"/api/v1/tickets/{child['id']}", headers=auth_headers(token)).json()
+    assert child_detail["parent"]["id"] == epic["id"]
+    assert child_detail["parent"]["ticket_key"] == epic["ticket_key"]
+    assert child_detail["epic"]["id"] == epic["id"]
+
+    epic_detail = client.get(f"/api/v1/tickets/{epic['id']}", headers=auth_headers(token)).json()
+    assert {t["id"] for t in epic_detail["subtasks"]} == {child["id"]}
+    assert {t["id"] for t in epic_detail["epic_tickets"]} == {child["id"]}
 
 
 def test_bulk_update_status_and_delete(client, db_session):
