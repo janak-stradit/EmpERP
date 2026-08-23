@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_client_ip, get_current_user, get_db
 from app.api.v1.ticket_permissions import PROJECT_ROLES, get_project_role, require_permission
 from app.core.audit import log_audit
-from app.core.files import delete_file_if_exists, save_ticket_attachment
+from app.core.files import copy_ticket_attachment, delete_file_if_exists, save_ticket_attachment
 from app.core.notifications import notify
 from app.models.employee import Employee
 from app.models.mixins import utcnow
@@ -65,6 +65,7 @@ from app.schemas.ticket import (
     TicketBulkUpdateRequest,
     TicketBulkUpdateResponse,
     TicketCategoryUpdate,
+    TicketCloneRequest,
     TicketCommentCreate,
     TicketCommentResponse,
     TicketCommentUpdate,
@@ -422,6 +423,25 @@ def _generate_ticket_key(db: Session, project: Project) -> str:
 def _next_board_position(db: Session, status_id: int) -> int:
     max_position = db.scalar(select(func.max(Ticket.board_position)).where(Ticket.status_id == status_id, Ticket.deleted_at.is_(None)))
     return (max_position + 1) if max_position is not None else 0
+
+
+def _insert_ticket(db: Session, project: Project, status_id: int, board_position: int, **fields) -> Ticket:
+    """Allocates a fresh ticket key with retry-on-collision, same as create_ticket's original loop."""
+    ticket = None
+    for _attempt in range(5):
+        ticket_key = _generate_ticket_key(db, project)
+        ticket = Ticket(project_id=project.id, ticket_key=ticket_key, status_id=status_id, board_position=board_position, **fields)
+        db.add(ticket)
+        try:
+            db.commit()
+            break
+        except IntegrityError:
+            db.rollback()
+            ticket = None
+    if ticket is None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Could not allocate a ticket key, please retry")
+    db.refresh(ticket)
+    return ticket
 
 
 def _auto_watch(db: Session, ticket_id: int, employee_id: int | None) -> None:
@@ -1362,39 +1382,22 @@ def create_ticket(
         _get_sprint_or_404(db, project.id, payload.sprint_id)
 
     board_position = _next_board_position(db, default_status.id)
-    ticket = None
-    for _attempt in range(5):
-        ticket_key = _generate_ticket_key(db, project)
-        ticket = Ticket(
-            project_id=project.id,
-            ticket_key=ticket_key,
-            summary=payload.summary,
-            description=payload.description,
-            issue_type_id=payload.issue_type_id,
-            status_id=default_status.id,
-            priority_id=payload.priority_id,
-            reporter_id=reporter.id,
-            assignee_id=payload.assignee_id,
-            parent_id=payload.parent_id,
-            epic_id=payload.epic_id,
-            sprint_id=payload.sprint_id,
-            board_position=board_position,
-            story_points=payload.story_points,
-            original_estimate=payload.original_estimate,
-            remaining_estimate=payload.original_estimate,
-            due_date=payload.due_date,
-        )
-        db.add(ticket)
-        try:
-            db.commit()
-            break
-        except IntegrityError:
-            db.rollback()
-            ticket = None
-    if ticket is None:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Could not allocate a ticket key, please retry")
-
-    db.refresh(ticket)
+    ticket = _insert_ticket(
+        db, project, default_status.id, board_position,
+        summary=payload.summary,
+        description=payload.description,
+        issue_type_id=payload.issue_type_id,
+        priority_id=payload.priority_id,
+        reporter_id=reporter.id,
+        assignee_id=payload.assignee_id,
+        parent_id=payload.parent_id,
+        epic_id=payload.epic_id,
+        sprint_id=payload.sprint_id,
+        story_points=payload.story_points,
+        original_estimate=payload.original_estimate,
+        remaining_estimate=payload.original_estimate,
+        due_date=payload.due_date,
+    )
     _log_activity(db, ticket_id=ticket.id, actor_id=reporter.id, action="created")
     _auto_watch(db, ticket.id, reporter.id)
     _auto_watch(db, ticket.id, payload.assignee_id)
@@ -1412,6 +1415,130 @@ def create_ticket(
                 body=ticket.summary, link=f"/tickets/{ticket.id}",
             )
     return _to_ticket_detail(db, ticket, project, reporter, current_user)
+
+
+@router.post("/{ticket_id}/clone", response_model=TicketDetailResponse, status_code=status.HTTP_201_CREATED)
+def clone_ticket(
+    ticket_id: int,
+    payload: TicketCloneRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> TicketDetailResponse:
+    source = _get_ticket_or_404(db, ticket_id, current_user.company_id)
+    project = db.get(Project, source.project_id)
+    require_permission(db, project, current_user, "create_ticket")
+    reporter = _get_own_employee_or_404(db, current_user)
+
+    default_status = db.scalar(
+        select(TicketStatus).where(TicketStatus.project_id == project.id, TicketStatus.is_default.is_(True))
+    ) or db.scalar(select(TicketStatus).where(TicketStatus.project_id == project.id).order_by(TicketStatus.position))
+    if default_status is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Project has no statuses configured")
+
+    board_position = _next_board_position(db, default_status.id)
+    clone = _insert_ticket(
+        db, project, default_status.id, board_position,
+        summary=payload.summary or f"Copy of {source.summary}",
+        description=source.description,
+        issue_type_id=source.issue_type_id,
+        priority_id=source.priority_id,
+        reporter_id=reporter.id,
+        assignee_id=source.assignee_id,
+        parent_id=source.parent_id if payload.include_parent_epic else None,
+        epic_id=source.epic_id if payload.include_parent_epic else None,
+        sprint_id=None,
+        story_points=source.story_points,
+        original_estimate=source.original_estimate,
+        remaining_estimate=source.original_estimate,
+        due_date=source.due_date,
+    )
+    _log_activity(
+        db, ticket_id=clone.id, actor_id=reporter.id, action="created",
+        field_name="cloned_from", new_value=source.ticket_key,
+    )
+    _auto_watch(db, clone.id, reporter.id)
+    _auto_watch(db, clone.id, clone.assignee_id)
+
+    label_ids = db.scalars(select(TicketLabel.label_id).where(TicketLabel.ticket_id == source.id)).all()
+    for label_id in label_ids:
+        db.add(TicketLabel(ticket_id=clone.id, label_id=label_id))
+    if label_ids:
+        db.commit()
+
+    if payload.include_subtasks:
+        subtasks = list(
+            db.scalars(select(Ticket).where(Ticket.parent_id == source.id, Ticket.deleted_at.is_(None)))
+        )
+        for sub in subtasks:
+            sub_position = _next_board_position(db, default_status.id)
+            sub_clone = _insert_ticket(
+                db, project, default_status.id, sub_position,
+                summary=sub.summary,
+                description=sub.description,
+                issue_type_id=sub.issue_type_id,
+                priority_id=sub.priority_id,
+                reporter_id=reporter.id,
+                assignee_id=sub.assignee_id,
+                parent_id=clone.id,
+                epic_id=None,
+                sprint_id=None,
+                story_points=sub.story_points,
+                original_estimate=sub.original_estimate,
+                remaining_estimate=sub.original_estimate,
+                due_date=sub.due_date,
+            )
+            _log_activity(
+                db, ticket_id=sub_clone.id, actor_id=reporter.id, action="created",
+                field_name="cloned_from", new_value=sub.ticket_key,
+            )
+            _auto_watch(db, sub_clone.id, reporter.id)
+            _auto_watch(db, sub_clone.id, sub_clone.assignee_id)
+
+    if payload.include_comments:
+        comments = list(
+            db.scalars(
+                select(TicketComment)
+                .where(TicketComment.ticket_id == source.id, TicketComment.deleted_at.is_(None))
+                .order_by(TicketComment.created_at)
+            )
+        )
+        for comment in comments:
+            db.add(TicketComment(ticket_id=clone.id, author_id=comment.author_id, body=comment.body, is_internal=comment.is_internal))
+        if comments:
+            db.commit()
+
+    if payload.include_attachments:
+        attachments = list(db.scalars(select(TicketAttachment).where(TicketAttachment.ticket_id == source.id)))
+        copied_any = False
+        for attachment in attachments:
+            new_path = copy_ticket_attachment(current_user.company_id, clone.id, attachment.file_path, attachment.file_name)
+            if new_path is None:
+                continue
+            db.add(
+                TicketAttachment(
+                    ticket_id=clone.id, uploader_id=reporter.id, file_path=new_path,
+                    file_name=attachment.file_name, file_size=attachment.file_size, mime_type=attachment.mime_type,
+                )
+            )
+            copied_any = True
+        if copied_any:
+            db.commit()
+
+    log_audit(
+        db, user_id=current_user.id, action="ticket_cloned", entity_type="ticket",
+        entity_id=clone.id, ip_address=get_client_ip(request),
+    )
+    if clone.assignee_id and clone.assignee_id != reporter.id:
+        assignee = db.get(Employee, clone.assignee_id)
+        if assignee is not None:
+            notify(
+                db, user_id=assignee.user_id, category=NotificationCategory.TICKET,
+                title=f"You were assigned {clone.ticket_key}",
+                body=clone.summary, link=f"/tickets/{clone.id}",
+            )
+    db.refresh(clone)
+    return _to_ticket_detail(db, clone, project, reporter, current_user)
 
 
 @router.get("/{ticket_id}", response_model=TicketDetailResponse)

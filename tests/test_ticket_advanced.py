@@ -68,6 +68,53 @@ def test_labels_crud_and_ticket_assignment(client, db_session):
     assert delete_label_resp.status_code == 204
 
 
+def test_clone_ticket_copies_fields_labels_subtasks_and_comments(client, db_session):
+    company = create_company(db_session)
+    _, _, token = _setup_user_and_employee(client, db_session, company, "lead@example.com", "EMP-001")
+    project = _create_project(client, token)
+    ticket = _create_ticket(client, token, project["id"], summary="Original ticket", story_points=5)
+
+    label = client.post(
+        f"/api/v1/projects/{project['id']}/labels", json={"name": "urgent", "color": "#dc3545"}, headers=auth_headers(token)
+    ).json()
+    client.post(f"/api/v1/tickets/{ticket['id']}/labels", json={"label_id": label["id"]}, headers=auth_headers(token))
+
+    comment = client.post(
+        f"/api/v1/tickets/{ticket['id']}/comments", json={"body": "a note", "is_internal": False}, headers=auth_headers(token)
+    )
+    assert comment.status_code == 201
+
+    subtask = _create_ticket(client, token, project["id"], summary="Sub of original", parent_id=ticket["id"])
+    assert subtask["parent_id"] == ticket["id"]
+
+    clone_resp = client.post(f"/api/v1/tickets/{ticket['id']}/clone", json={}, headers=auth_headers(token))
+    assert clone_resp.status_code == 201, clone_resp.text
+    clone = clone_resp.json()
+
+    assert clone["id"] != ticket["id"]
+    assert clone["ticket_key"] != ticket["ticket_key"]
+    assert clone["summary"] == "Copy of Original ticket"
+    assert clone["story_points"] == 5
+    assert [lbl["name"] for lbl in clone["labels"]] == ["urgent"]
+    assert len(clone["subtasks"]) == 1
+    assert clone["subtasks"][0]["summary"] == "Sub of original"
+
+    clone_comments = client.get(f"/api/v1/tickets/{clone['id']}/comments", headers=auth_headers(token)).json()
+    assert [c["body"] for c in clone_comments] == ["a note"]
+
+    # Custom summary override
+    custom_resp = client.post(
+        f"/api/v1/tickets/{ticket['id']}/clone",
+        json={"summary": "My custom clone", "include_subtasks": False, "include_comments": False},
+        headers=auth_headers(token),
+    )
+    assert custom_resp.status_code == 201
+    custom = custom_resp.json()
+    assert custom["summary"] == "My custom clone"
+    assert custom["subtasks"] == []
+    assert client.get(f"/api/v1/tickets/{custom['id']}/comments", headers=auth_headers(token)).json() == []
+
+
 def test_project_watch_and_unwatch(client, db_session):
     company = create_company(db_session)
     _, _, token = _setup_user_and_employee(client, db_session, company, "lead@example.com", "EMP-001")

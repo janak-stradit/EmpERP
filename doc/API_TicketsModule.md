@@ -202,6 +202,7 @@ POST /api/v1/tickets/{ticket_id}/transition
 | `PUT /tickets/{id}` | Partial update — any subset of `summary`, `description`, `issue_type_id`, `priority_id`, `assignee_id`, `parent_id`, `epic_id`, `story_points`, `original_estimate`, `remaining_estimate`, `due_date` |
 | `DELETE /tickets/{id}` | Soft delete (`delete_ticket`) |
 | `POST /tickets/{id}/transition` | Change status (§4.4) |
+| `POST /tickets/{id}/clone` | Duplicate a ticket: `{"summary": str\|null, "include_parent_epic": bool, "include_subtasks": bool, "include_comments": bool, "include_attachments": bool}` (all flags default `true`; `summary` defaults to `"Copy of {original}"`). The clone gets a new key, the project's default status, an empty sprint, and the current user as reporter; requires `create_ticket` |
 | `POST /tickets/{id}/position` | Reorder on the board: `{"status_id": int, "position": int}` |
 | `POST /tickets/{id}/sprint` | Move to a sprint (or `null` for backlog): `{"sprint_id": int\|null}` — requires `manage_sprints` (admin/manager), unlike most other single-field ticket edits which only need `edit_own_ticket`/`edit_any_ticket` |
 | `POST /tickets/{id}/watch` / `DELETE .../watch` | Watch / unwatch |

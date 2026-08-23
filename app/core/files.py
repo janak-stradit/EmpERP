@@ -132,6 +132,25 @@ def save_ticket_attachment(company_id: int, ticket_id: int, upload_file: UploadF
     )
 
 
+def copy_ticket_attachment(company_id: int, ticket_id: int, source_path: str, original_name: str) -> str | None:
+    """Copies an existing ticket attachment's file to a new ticket's upload directory.
+
+    Returns None (instead of raising) if the source file is missing, so callers can skip
+    a stale attachment record without failing the whole clone operation.
+    """
+    source = Path(source_path)
+    if not source.exists():
+        return None
+
+    target_dir = UPLOAD_ROOT / "ticket_attachments" / str(company_id) / str(ticket_id)
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    stored_name = f"{uuid.uuid4().hex}_{Path(original_name).name}"
+    target_path = target_dir / stored_name
+    target_path.write_bytes(source.read_bytes())
+    return str(target_path)
+
+
 def delete_file_if_exists(file_path: str | None) -> None:
     if not file_path:
         return

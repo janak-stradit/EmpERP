@@ -293,6 +293,14 @@ class TicketUpdate(BaseModel):
     due_date: date | None = None
 
 
+class TicketCloneRequest(BaseModel):
+    summary: str | None = None
+    include_parent_epic: bool = True
+    include_subtasks: bool = True
+    include_comments: bool = True
+    include_attachments: bool = True
+
+
 class TicketTransitionRequest(BaseModel):
     status_id: int
 

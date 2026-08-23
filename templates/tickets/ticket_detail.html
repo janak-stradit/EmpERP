@@ -57,6 +57,7 @@
       <div class="d-flex gap-2 flex-shrink-0">
         <button class="btn btn-sm btn-outline-primary" id="assignToMeBtn"><i class="bi bi-person-check me-1"></i>Assign to Me</button>
         <button class="btn btn-sm btn-outline-secondary" id="watchBtn"><i class="bi bi-eye me-1"></i><span id="watchLabel">Watch</span></button>
+        <button class="btn btn-sm btn-outline-secondary" id="cloneTicketBtn"><i class="bi bi-copy me-1"></i>Clone</button>
         <button class="btn btn-sm btn-outline-danger" id="deleteTicketBtn"><i class="bi bi-trash me-1"></i>Delete</button>
       </div>
     </div>
@@ -338,7 +339,7 @@
       $('#watchBtn').find('i').attr('class', 'bi ' + (t.is_watching ? 'bi-eye-slash' : 'bi-eye') + ' me-1');
 
       const canEdit = t.my_role !== 'viewer';
-      $('#assignToMeBtn, #deleteTicketBtn, #fieldStatus, #fieldAssignee, #fieldPriority, #fieldIssueType, #fieldDueDate, #fieldStoryPoints, #addLabelSelect, #logWorkBtn, #subtaskSummary, #addSubtaskForm button').prop('disabled', !canEdit);
+      $('#assignToMeBtn, #cloneTicketBtn, #deleteTicketBtn, #fieldStatus, #fieldAssignee, #fieldPriority, #fieldIssueType, #fieldDueDate, #fieldStoryPoints, #addLabelSelect, #logWorkBtn, #subtaskSummary, #addSubtaskForm button').prop('disabled', !canEdit);
       $('#ticketSummary').attr('contenteditable', canEdit ? 'true' : 'false');
 
       renderLabels(t);
@@ -486,6 +487,20 @@
       $.ajax({ url: '/api/v1/tickets/' + ticketId + '/watch', method: method, headers: authHeader })
         .done(loadTicket)
         .fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to update watch status.'); });
+    });
+
+    $('#cloneTicketBtn').on('click', function () {
+      if (!confirm('Clone ' + currentTicket.ticket_key + '? This creates a new ticket with the same fields, sub-tasks, comments and attachments.')) return;
+      $(this).prop('disabled', true);
+      $.ajax({ url: '/api/v1/tickets/' + ticketId + '/clone', method: 'POST', contentType: 'application/json', headers: authHeader, data: JSON.stringify({}) })
+        .done(function (ticket) {
+          showSuccess(ticket.ticket_key + ' created from clone.');
+          window.location.href = '/tickets/' + ticket.id;
+        })
+        .fail(function (xhr) {
+          showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to clone ticket.');
+          $('#cloneTicketBtn').prop('disabled', false);
+        });
     });
 
     $('#deleteTicketBtn').on('click', function () {
