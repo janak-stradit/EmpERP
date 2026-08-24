@@ -116,6 +116,7 @@ DEFAULT_STATUSES = [
     ("To Do", StatusCategory.TODO, "#6c757d"),
     ("In Progress", StatusCategory.INPROGRESS, "#0d6efd"),
     ("Done", StatusCategory.DONE, "#198754"),
+    ("Closed", StatusCategory.DONE, "#495057"),
 ]
 
 
