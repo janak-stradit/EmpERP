@@ -298,6 +298,15 @@
         (icon ? '<i class="bi ' + icon + ' me-1"></i>' : '') + escapeHtml(name) + '</span>';
     }
 
+    // Sprint goal is stored as rich-text HTML (authored via Quill on the sprint detail page).
+    // This banner is a one-line summary, not a rich display area, so strip tags down to plain
+    // text and truncate rather than rendering it — full HTML in a single line would blow up the
+    // layout. String-only regex strip (no innerHTML parsing) so nothing here can execute markup.
+    function plainTextSummary(html, maxLen) {
+      const text = (html || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+      return text.length > maxLen ? text.slice(0, maxLen - 1).trim() + '…' : text;
+    }
+
     function loadBoard() {
       $.ajax({ url: '/api/v1/projects/' + projectId + '/board', headers: authHeader }).done(function (board) {
         statuses = board.statuses;
@@ -305,7 +314,8 @@
         const sharedNote = board.sprint && board.sprint.linked_project_ids && board.sprint.linked_project_ids.length
           ? ' (shared with ' + board.sprint.linked_project_ids.length + ' other project' + (board.sprint.linked_project_ids.length === 1 ? '' : 's') + ')'
           : '';
-        $('#sprintGoal').text(board.sprint ? ('Sprint: ' + board.sprint.name + (board.sprint.goal ? ' — ' + board.sprint.goal : '') + sharedNote) : 'No active sprint — showing unplanned tickets');
+        const goalText = board.sprint && board.sprint.goal ? plainTextSummary(board.sprint.goal, 140) : '';
+        $('#sprintGoal').text(board.sprint ? ('Sprint: ' + board.sprint.name + (goalText ? ' — ' + goalText : '') + sharedNote) : 'No active sprint — showing unplanned tickets');
         renderBoard();
       }).fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to load board.'); });
     }
