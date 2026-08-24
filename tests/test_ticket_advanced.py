@@ -334,3 +334,15 @@ def test_global_board_aggregates_tickets_across_projects_by_category(client, db_
     assert moved["status"]["name"] == "Done"
     assert moved["project_id"] == project_a["id"]
     assert moved["resolved_at"] is not None
+
+    # status_name disambiguates same-category statuses: "Close" vs "Done" (both category=done)
+    # is exactly how the global board's separate Close column moves a card.
+    close_resp = client.post(
+        f"/api/v1/tickets/{ticket_a['id']}/category",
+        json={"category": "done", "status_name": "Close"},
+        headers=auth_headers(token),
+    )
+    assert close_resp.status_code == 200
+    closed = close_resp.json()
+    assert closed["status"]["name"] == "Close"
+    assert closed["status"]["category"] == "done"

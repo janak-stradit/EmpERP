@@ -116,7 +116,7 @@ DEFAULT_STATUSES = [
     ("To Do", StatusCategory.TODO, "#6c757d"),
     ("In Progress", StatusCategory.INPROGRESS, "#0d6efd"),
     ("Done", StatusCategory.DONE, "#198754"),
-    ("Closed", StatusCategory.DONE, "#495057"),
+    ("Close", StatusCategory.DONE, "#495057"),
 ]
 
 
@@ -1241,17 +1241,21 @@ def update_ticket_category(
 ) -> TicketDetailResponse:
     """Moves a ticket to the given status category, used by the cross-project global board where
     columns are categories (not literal per-project statuses). Lands on that category's
-    lowest-position status within the ticket's own project."""
+    lowest-position status within the ticket's own project, unless status_name picks out a
+    specific same-category status (e.g. distinguishing "Close" from "Done", both category=done)."""
     ticket = _get_ticket_or_404(db, ticket_id, current_user.company_id)
     project = db.get(Project, ticket.project_id)
     require_permission(db, project, current_user, "transition_ticket")
     actor = _get_own_employee_or_404(db, current_user)
 
-    target_status = db.scalar(
-        select(TicketStatus)
-        .where(TicketStatus.project_id == project.id, TicketStatus.category == payload.category)
-        .order_by(TicketStatus.position)
+    category_statuses = select(TicketStatus).where(
+        TicketStatus.project_id == project.id, TicketStatus.category == payload.category
     )
+    target_status = None
+    if payload.status_name:
+        target_status = db.scalar(category_statuses.where(TicketStatus.name == payload.status_name))
+    if target_status is None:
+        target_status = db.scalar(category_statuses.order_by(TicketStatus.position))
     if target_status is None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Project has no '{payload.category.value}' status")
 

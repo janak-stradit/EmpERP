@@ -445,6 +445,7 @@ class GlobalBoardResponse(BaseModel):
 
 class TicketCategoryUpdate(BaseModel):
     category: StatusCategory
+    status_name: str | None = None
 
 
 # ---- Dashboard ----

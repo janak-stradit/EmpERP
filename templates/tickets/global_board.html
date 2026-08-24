@@ -144,11 +144,20 @@
     function escapeHtml(str) { return $('<div>').text(str == null ? '' : str).html(); }
     function initials(name) { return (name || '?').split(' ').map(function (n) { return n[0]; }).join('').substring(0, 2).toUpperCase(); }
 
+    // 'done' and 'close' are both backend category "done" (a project's Close status is just
+    // its lowest-position done-status by name "Close"); status_name disambiguates which one
+    // a drag-and-drop move should land on.
     const CATEGORIES = [
-      { key: 'todo', label: 'To Do', color: '#6c757d' },
-      { key: 'inprogress', label: 'In Progress', color: '#0d6efd' },
-      { key: 'done', label: 'Done', color: '#198754' }
+      { key: 'todo', label: 'To Do', color: '#6c757d', category: 'todo' },
+      { key: 'inprogress', label: 'In Progress', color: '#0d6efd', category: 'inprogress' },
+      { key: 'done', label: 'Done', color: '#198754', category: 'done' },
+      { key: 'close', label: 'Close', color: '#495057', category: 'done', statusName: 'Close' }
     ];
+
+    function ticketColumnKey(t) {
+      if (t.status.category === 'done') return t.status.name === 'Close' ? 'close' : 'done';
+      return t.status.category;
+    }
 
     let myEmployeeId = null;
     let allProjects = [], allTickets = [];
@@ -285,7 +294,7 @@
         if (swimlaneMode) html += '<div class="swimlane-header">' + escapeHtml(laneLabels[lane] || 'Ungrouped') + '</div>';
         html += '<div class="board-columns" data-lane="' + escapeHtml(String(lane)) + '">';
         CATEGORIES.forEach(function (cat) {
-          const colTickets = tickets.filter(function (t) { return t.status.category === cat.key && (!swimlaneMode || swimlaneKey(t) === lane); });
+          const colTickets = tickets.filter(function (t) { return ticketColumnKey(t) === cat.key && (!swimlaneMode || swimlaneKey(t) === lane); });
           html += '<div class="board-column">' +
             '<div class="board-column-header" style="--dot-color: ' + cat.color + ';">' +
               '<span class="col-name">' + cat.label + '</span>' +
@@ -310,9 +319,10 @@
             const fromCategory = evt.from.getAttribute('data-category');
             const toCategory = evt.to.getAttribute('data-category');
             if (fromCategory === toCategory) { loadBoard(); return; }
+            const toCat = CATEGORIES.find(function (c) { return c.key === toCategory; });
             $.ajax({
               url: '/api/v1/tickets/' + ticketId + '/category', method: 'POST', contentType: 'application/json',
-              headers: authHeader, data: JSON.stringify({ category: toCategory })
+              headers: authHeader, data: JSON.stringify({ category: toCat.category, status_name: toCat.statusName || null })
             }).done(function () { loadBoard(); })
               .fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to move ticket.'); loadBoard(); });
           }

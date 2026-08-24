@@ -38,7 +38,7 @@ def test_project_creation_seeds_default_statuses_and_catalog(client, db_session)
     assert project["open_ticket_count"] == 0
 
     statuses = client.get(f"/api/v1/projects/{project['id']}/statuses", headers=auth_headers(token)).json()
-    assert [s["name"] for s in statuses] == ["To Do", "In Progress", "Done", "Closed"]
+    assert [s["name"] for s in statuses] == ["To Do", "In Progress", "Done", "Close"]
     assert statuses[0]["is_default"] is True
 
     issue_types = client.get("/api/v1/issue-types", headers=auth_headers(token)).json()
