@@ -59,6 +59,12 @@
       border-left: 3px solid var(--emp-primary);
     }
     .swimlane-header:first-child { margin-top: 0; }
+
+    #sprintDropdownMenu .dropdown-header { font-size: .68rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; }
+    #sprintDropdownMenu li.sprint-item-row { display: flex; align-items: stretch; }
+    #sprintDropdownMenu li.sprint-item-row .dropdown-item { white-space: normal; }
+    #sprintDropdownMenu li.sprint-item-row .sprint-details-link { flex: 0 0 auto; width: auto; display: flex; align-items: center; }
+    .board-scroll.board-readonly .board-card { cursor: default; }
   </style>
 </head>
 <body>
@@ -85,6 +91,19 @@
         <div class="emp-breadcrumb"><i class="bi bi-kanban"></i> Board <span id="sprintGoal"></span></div>
         <h1><span class="badge bg-secondary" id="projectKeyBadge">&mdash;</span> <span id="projectName"></span></h1>
       </div>
+      <div class="dropdown">
+        <button class="btn btn-outline-primary btn-sm dropdown-toggle" type="button" id="sprintDropdownBtn" data-bs-toggle="dropdown" aria-expanded="false">
+          <i class="bi bi-flag me-1"></i><span id="sprintDropdownLabel">Sprint</span>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end p-0" id="sprintDropdownMenu" style="min-width: 320px; max-height: 420px; overflow-y: auto;">
+          <li class="px-3 py-2 text-muted small">Loading sprints&hellip;</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="alert alert-warning py-2 px-3 small d-none mb-3" id="readOnlySprintNotice">
+      <i class="bi bi-lock me-1"></i>Viewing a past sprint &mdash; board is read-only.
+      <a href="#" id="backToCurrentSprintLink">Back to current sprint</a>
     </div>
 
     <ul class="nav nav-pills mb-3" id="viewTabs"></ul>
@@ -261,6 +280,9 @@
     let myEmployeeId = null, employees = [], issueTypes = [];
     let statuses = [], allTickets = [];
     let activeQuickFilter = null, swimlaneMode = '';
+    let allSprints = [], boardReadOnly = false;
+    const initialSprintId = new URLSearchParams(window.location.search).get('sprint_id');
+    let viewingSprintId = initialSprintId ? parseInt(initialSprintId, 10) : null;
 
     function loadMe() {
       return $.ajax({ url: '/api/v1/employees/me', headers: authHeader }).done(function (p) { myEmployeeId = p.id; });
@@ -308,17 +330,106 @@
     }
 
     function loadBoard() {
-      $.ajax({ url: '/api/v1/projects/' + projectId + '/board', headers: authHeader }).done(function (board) {
+      const url = '/api/v1/projects/' + projectId + '/board' + (viewingSprintId ? ('?sprint_id=' + viewingSprintId) : '');
+      $.ajax({ url: url, headers: authHeader }).done(function (board) {
         statuses = board.statuses;
         allTickets = board.tickets;
-        const sharedNote = board.sprint && board.sprint.linked_project_ids && board.sprint.linked_project_ids.length
-          ? ' (shared with ' + board.sprint.linked_project_ids.length + ' other project' + (board.sprint.linked_project_ids.length === 1 ? '' : 's') + ')'
+        const sprint = board.sprint;
+        boardReadOnly = !!(viewingSprintId && sprint && (sprint.status === 'completed' || sprint.status === 'closed'));
+        const sharedNote = sprint && sprint.linked_project_ids && sprint.linked_project_ids.length
+          ? ' (shared with ' + sprint.linked_project_ids.length + ' other project' + (sprint.linked_project_ids.length === 1 ? '' : 's') + ')'
           : '';
-        const goalText = board.sprint && board.sprint.goal ? plainTextSummary(board.sprint.goal, 140) : '';
-        $('#sprintGoal').text(board.sprint ? ('Sprint: ' + board.sprint.name + (goalText ? ' — ' + goalText : '') + sharedNote) : 'No active sprint — showing unplanned tickets');
+        const goalText = sprint && sprint.goal ? plainTextSummary(sprint.goal, 140) : '';
+        $('#sprintGoal').text(sprint ? ('Sprint: ' + sprint.name + (goalText ? ' — ' + goalText : '') + sharedNote) : 'No active sprint — showing unplanned tickets');
+        $('#sprintDropdownLabel').text(sprint ? sprint.name : 'No active sprint');
+        $('#readOnlySprintNotice').toggleClass('d-none', !boardReadOnly);
+        $('.board-scroll').toggleClass('board-readonly', boardReadOnly);
         renderBoard();
+        renderSprintDropdown();
       }).fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to load board.'); });
     }
+
+    function loadSprints() {
+      return $.ajax({ url: '/api/v1/projects/' + projectId + '/sprints', headers: authHeader }).done(function (sprints) {
+        allSprints = sprints;
+      });
+    }
+
+    function sprintStatusBadge(status) {
+      const map = {
+        future: '<span class="badge bg-light text-muted border">Future</span>',
+        active: '<span class="badge bg-success">Active</span>',
+        completed: '<span class="badge bg-primary">Completed</span>',
+        closed: '<span class="badge bg-secondary">Closed</span>'
+      };
+      return map[status] || '';
+    }
+
+    function sprintDropdownRow(s, isCurrent) {
+      const dates = s.start_date && s.end_date ? (s.start_date + ' &rarr; ' + s.end_date) : 'No dates set';
+      return '<li class="sprint-item-row">' +
+        '<a class="dropdown-item d-flex justify-content-between align-items-start gap-2 py-2' + (isCurrent ? ' active' : '') + '" href="#" data-sprint-id="' + s.id + '">' +
+          '<span><span class="d-block fw-semibold">' + escapeHtml(s.name) + '</span>' +
+          '<span class="d-block small' + (isCurrent ? ' text-white-50' : ' text-muted') + '">' + dates + '</span></span>' +
+          sprintStatusBadge(s.status) +
+        '</a>' +
+        '<a class="dropdown-item sprint-details-link" href="/sprints/' + s.id + '" title="Sprint details"><i class="bi bi-box-arrow-up-right"></i></a>' +
+      '</li>';
+    }
+
+    function renderSprintDropdown() {
+      const active = allSprints.find(function (s) { return s.status === 'active'; });
+      const future = allSprints.filter(function (s) { return s.status === 'future'; })
+        .sort(function (a, b) { return (a.start_date || '').localeCompare(b.start_date || ''); });
+      const past = allSprints.filter(function (s) { return s.status === 'completed' || s.status === 'closed'; })
+        .sort(function (a, b) { return (b.end_date || '').localeCompare(a.end_date || ''); });
+
+      let html = '';
+      if (active) {
+        html += '<li class="dropdown-header">Current Sprint</li>' + sprintDropdownRow(active, viewingSprintId === null || viewingSprintId === active.id);
+      } else {
+        html += '<li class="px-3 py-2 text-muted small">No active sprint &mdash; showing unplanned tickets</li>';
+      }
+      if (future.length) {
+        html += '<li><hr class="dropdown-divider"></li><li class="dropdown-header">Future Sprints</li>' +
+          future.map(function (s) { return sprintDropdownRow(s, viewingSprintId === s.id); }).join('');
+      }
+      if (past.length) {
+        html += '<li><hr class="dropdown-divider"></li><li class="dropdown-header">Past Sprints</li>' +
+          past.map(function (s) { return sprintDropdownRow(s, viewingSprintId === s.id); }).join('');
+      }
+      if (!active && !future.length && !past.length) {
+        html = '<li class="px-3 py-2 text-muted small">No sprints yet for this project.</li>';
+      }
+      $('#sprintDropdownMenu').html(html);
+    }
+
+    $('#sprintDropdownBtn').closest('.dropdown').on('show.bs.dropdown', function () {
+      loadSprints().done(renderSprintDropdown);
+    });
+
+    function syncSprintUrl() {
+      const url = new URL(window.location.href);
+      if (viewingSprintId) url.searchParams.set('sprint_id', viewingSprintId);
+      else url.searchParams.delete('sprint_id');
+      window.history.replaceState({}, '', url);
+    }
+
+    $(document).on('click', '#sprintDropdownMenu [data-sprint-id]', function (e) {
+      e.preventDefault();
+      const id = parseInt($(this).data('sprint-id'), 10);
+      const active = allSprints.find(function (s) { return s.status === 'active'; });
+      viewingSprintId = (active && id === active.id) ? null : id;
+      syncSprintUrl();
+      loadBoard();
+    });
+
+    $('#backToCurrentSprintLink').on('click', function (e) {
+      e.preventDefault();
+      viewingSprintId = null;
+      syncSprintUrl();
+      loadBoard();
+    });
 
     function swimlaneKey(ticket) {
       if (swimlaneMode === 'assignee') return ticket.assignee_id || 'unassigned';
@@ -412,6 +523,7 @@
           group: 'board',
           animation: 150,
           ghostClass: 'sortable-ghost',
+          disabled: boardReadOnly,
           onEnd: function (evt) {
             const ticketId = parseInt(evt.item.getAttribute('data-id'), 10);
             const statusId = parseInt(evt.to.getAttribute('data-status-id'), 10);
@@ -514,7 +626,7 @@
 
     $.when(loadMe(), loadEmployees(), loadIssueTypes(), loadPriorities()).always(function () {
       loadProject();
-      loadBoard();
+      loadSprints().always(loadBoard);
     });
 
     $('#logoutLink').on('click', function (e) {

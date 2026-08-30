@@ -11,6 +11,10 @@
     #viewTabs.nav-pills .nav-link { font-size: .8rem; font-weight: 700; color: var(--emp-text-muted); padding: .4rem .9rem; border: 1px solid transparent; }
     #viewTabs.nav-pills .nav-link:hover { background: var(--emp-secondary-light); }
     #viewTabs.nav-pills .nav-link.active { background: var(--emp-primary); color: #fff; }
+    #sprintDropdownMenu .dropdown-header { font-size: .68rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; }
+    #sprintDropdownMenu li.sprint-item-row { display: flex; align-items: stretch; }
+    #sprintDropdownMenu li.sprint-item-row .dropdown-item { white-space: normal; }
+    #sprintDropdownMenu li.sprint-item-row .sprint-details-link { flex: 0 0 auto; width: auto; display: flex; align-items: center; }
   </style>
 </head>
 <body>
@@ -39,6 +43,17 @@
         <p id="projectDescription"></p>
       </div>
       <div class="d-flex gap-2">
+        <div class="btn-group">
+          <a class="btn btn-outline-primary btn-sm" id="sprintBoardBtn" href="/tickets/project/{{ project_id }}/board">
+            <i class="bi bi-flag me-1"></i><span id="sprintBoardLabel">Sprint Board</span>
+          </a>
+          <button type="button" class="btn btn-outline-primary btn-sm dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
+            <span class="visually-hidden">Toggle sprints</span>
+          </button>
+          <ul class="dropdown-menu dropdown-menu-end p-0" id="sprintDropdownMenu" style="min-width: 320px; max-height: 420px; overflow-y: auto;">
+            <li class="px-3 py-2 text-muted small">Loading sprints&hellip;</li>
+          </ul>
+        </div>
         <button class="btn btn-outline-secondary btn-sm" id="watchProjectBtn"><i class="bi bi-eye me-1"></i><span id="watchProjectLabel">Watch</span></button>
         <button class="btn btn-outline-secondary btn-sm" id="exportTicketsBtn"><i class="bi bi-download me-1"></i>Export</button>
         <button class="btn btn-outline-primary btn-sm" data-bs-toggle="offcanvas" data-bs-target="#labelsPanel">
@@ -263,7 +278,65 @@
       }).join('')
     );
 
-    let statuses = [], issueTypes = [], priorities = [], employees = [];
+    let statuses = [], issueTypes = [], priorities = [], employees = [], allSprints = [];
+
+    function loadSprints() {
+      return $.ajax({ url: '/api/v1/projects/' + projectId + '/sprints', headers: authHeader }).done(function (sprints) {
+        allSprints = sprints;
+        renderSprintDropdown();
+      });
+    }
+
+    function sprintStatusBadge(status) {
+      const map = {
+        future: '<span class="badge bg-light text-muted border">Future</span>',
+        active: '<span class="badge bg-success">Active</span>',
+        completed: '<span class="badge bg-primary">Completed</span>',
+        closed: '<span class="badge bg-secondary">Closed</span>'
+      };
+      return map[status] || '';
+    }
+
+    function sprintDropdownRow(s) {
+      const dates = s.start_date && s.end_date ? (s.start_date + ' &rarr; ' + s.end_date) : 'No dates set';
+      return '<li class="sprint-item-row">' +
+        '<a class="dropdown-item d-flex justify-content-between align-items-start gap-2 py-2" href="/tickets/project/' + projectId + '/board?sprint_id=' + s.id + '">' +
+          '<span><span class="d-block fw-semibold">' + escapeHtml(s.name) + '</span>' +
+          '<span class="d-block small text-muted">' + dates + '</span></span>' +
+          sprintStatusBadge(s.status) +
+        '</a>' +
+        '<a class="dropdown-item sprint-details-link" href="/sprints/' + s.id + '" title="Sprint details"><i class="bi bi-box-arrow-up-right"></i></a>' +
+      '</li>';
+    }
+
+    function renderSprintDropdown() {
+      const active = allSprints.find(function (s) { return s.status === 'active'; });
+      const future = allSprints.filter(function (s) { return s.status === 'future'; })
+        .sort(function (a, b) { return (a.start_date || '').localeCompare(b.start_date || ''); });
+      const past = allSprints.filter(function (s) { return s.status === 'completed' || s.status === 'closed'; })
+        .sort(function (a, b) { return (b.end_date || '').localeCompare(a.end_date || ''); });
+
+      $('#sprintBoardLabel').text(active ? active.name : 'Sprint Board');
+
+      let html = '';
+      if (active) {
+        html += '<li class="dropdown-header">Current Sprint</li>' + sprintDropdownRow(active);
+      } else {
+        html += '<li class="px-3 py-2 text-muted small">No active sprint</li>';
+      }
+      if (future.length) {
+        html += '<li><hr class="dropdown-divider"></li><li class="dropdown-header">Future Sprints</li>' +
+          future.map(sprintDropdownRow).join('');
+      }
+      if (past.length) {
+        html += '<li><hr class="dropdown-divider"></li><li class="dropdown-header">Past Sprints</li>' +
+          past.map(sprintDropdownRow).join('');
+      }
+      if (!active && !future.length && !past.length) {
+        html = '<li class="px-3 py-2 text-muted small">No sprints yet for this project.</li>';
+      }
+      $('#sprintDropdownMenu').html(html);
+    }
 
     function loadProject() {
       $.ajax({ url: '/api/v1/projects/' + projectId, headers: authHeader }).done(function (p) {
@@ -543,6 +616,7 @@
     $.when(loadStatuses(), loadIssueTypes(), loadPriorities(), loadEmployees()).done(loadTickets);
     loadMembers();
     loadLabels();
+    loadSprints();
 
     $('#logoutLink').on('click', function (e) {
       e.preventDefault();
