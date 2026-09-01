@@ -1,4 +1,5 @@
 import csv
+import html
 import io
 import logging
 from datetime import date, timedelta
@@ -518,26 +519,47 @@ def _notify_assignee(db: Session, ticket: Ticket, assignee_id: int) -> None:
     ticket_status = db.get(TicketStatus, ticket.status_id)
     priority = db.get(TicketPriority, ticket.priority_id) if ticket.priority_id else None
     reporter_name = _employee_name(db, ticket.reporter_id)
-    body_lines = [
-        "You have been assigned a ticket.",
-        "",
-        f"Ticket: {ticket.ticket_key} - {ticket.summary}",
-        f"Project: {project.name} ({project.key})" if project else None,
-        f"Status: {ticket_status.name}" if ticket_status else None,
-        f"Priority: {priority.name}" if priority else "Priority: None",
-        f"Reporter: {reporter_name}" if reporter_name else None,
-        f"Due date: {ticket.due_date}" if ticket.due_date else "Due date: Not set",
-        "",
-        "Description:",
-        ticket.description or "No description provided.",
+    ticket_url = f"{settings.app_base_url}/tickets/{ticket.id}" if settings.app_base_url else None
+
+    fields = [
+        ("Project", f"{project.name} ({project.key})" if project else None),
+        ("Status", ticket_status.name if ticket_status else None),
+        ("Priority", priority.name if priority else "None"),
+        ("Reporter", reporter_name),
+        ("Due date", str(ticket.due_date) if ticket.due_date else "Not set"),
     ]
-    if settings.app_base_url:
-        body_lines += ["", f"View it here: {settings.app_base_url}/tickets/{ticket.id}"]
+
+    body_lines = ["You have been assigned a ticket.", "", f"Ticket: {ticket.ticket_key} - {ticket.summary}"]
+    body_lines += [f"{label}: {value}" for label, value in fields if value is not None]
+    if ticket_url:
+        body_lines += ["", f"View it here: {ticket_url}"]
+
+    rows_html = "".join(
+        f'<tr><td style="padding:4px 12px 4px 0;color:#6b7280;">{html.escape(label)}</td>'
+        f'<td style="padding:4px 0;font-weight:600;">{html.escape(str(value))}</td></tr>'
+        for label, value in fields if value is not None
+    )
+    button_html = (
+        f'<p style="margin-top:20px;"><a href="{html.escape(ticket_url)}" '
+        'style="background:#4f46e5;color:#fff;padding:10px 18px;border-radius:6px;'
+        'text-decoration:none;font-weight:600;">View Ticket</a></p>'
+        if ticket_url else ""
+    )
+    html_body = (
+        '<div style="font-family:Arial,sans-serif;font-size:14px;color:#1f2937;">'
+        '<p>You have been assigned a ticket.</p>'
+        f'<h3 style="margin-bottom:4px;">{html.escape(ticket.ticket_key)} &mdash; {html.escape(ticket.summary)}</h3>'
+        f'<table style="border-collapse:collapse;margin-top:8px;">{rows_html}</table>'
+        f'{button_html}'
+        '</div>'
+    )
+
     try:
         send_email(
             to=assignee_user.email,
             subject=f"[{ticket.ticket_key}] Ticket assigned to you: {ticket.summary}",
-            body="\n".join(line for line in body_lines if line is not None),
+            body="\n".join(body_lines),
+            html_body=html_body,
         )
         if is_real_send:
             logger.info("Assignment email sent via SMTP for ticket %s to %s", ticket.ticket_key, assignee_user.email)
