@@ -166,6 +166,17 @@
             <table class="table table-hover align-middle mb-0">
               <thead><tr><th>Member</th><th>Working Days</th><th>Total Hrs</th><th>Leave Days</th><th>Leave Hrs</th><th>Available Hrs</th><th></th></tr></thead>
               <tbody id="capacityRows"></tbody>
+              <tfoot id="capacityTotalsFoot" class="d-none">
+                <tr class="table-light fw-semibold">
+                  <td>Total</td>
+                  <td id="capacityTotalWorkingDays"></td>
+                  <td id="capacityTotalHours"></td>
+                  <td id="capacityTotalLeaveDays"></td>
+                  <td id="capacityTotalLeaveHours"></td>
+                  <td id="capacityTotalAvailableHours"></td>
+                  <td></td>
+                </tr>
+              </tfoot>
             </table>
           </div>
         </div>
@@ -231,7 +242,7 @@
             <input type="hidden" id="logLeaveEmployeeId">
             <div class="mb-3">
               <label class="form-label small">Leave type</label>
-              <select class="form-select" id="logLeaveType" required></select>
+              <select class="form-select" id="logLeaveType" required><option value="" disabled selected>Loading&hellip;</option></select>
             </div>
             <div class="row g-2 mb-1">
               <div class="col-6">
@@ -458,6 +469,16 @@
           '<td><button type="button" class="btn btn-sm btn-outline-secondary log-leave-btn" data-employee-id="' + m.employee_id + '" data-employee-name="' + escapeHtml(m.employee_name) + '"><i class="bi bi-calendar-x me-1"></i>Log Leave</button></td>' +
         '</tr>';
       }).join('') || '<tr><td colspan="7" class="text-muted small text-center py-3">No team members on this project yet.</td></tr>');
+
+      $('#capacityTotalsFoot').toggleClass('d-none', c.members.length === 0);
+      if (c.members.length) {
+        const totalLeaveDays = c.members.reduce(function (sum, m) { return sum + m.leave_days; }, 0);
+        $('#capacityTotalWorkingDays').text(c.working_days);
+        $('#capacityTotalHours').text(c.total_hours + 'h');
+        $('#capacityTotalLeaveDays').text(totalLeaveDays);
+        $('#capacityTotalLeaveHours').text(c.total_leave_hours + 'h');
+        $('#capacityTotalAvailableHours').text(c.total_available_hours + 'h');
+      }
     }
 
     function renderCapacityChart(c) {
@@ -482,16 +503,28 @@
     let leaveTypes = [];
 
     function loadLeaveTypes() {
-      $.ajax({ url: '/api/v1/leave/types', headers: authHeader }).done(function (types) {
-        leaveTypes = types;
-        $('#logLeaveType').html(types.map(function (t) { return '<option value="' + t.id + '">' + escapeHtml(t.name) + '</option>'; }).join(''));
-      });
+      return $.ajax({ url: '/api/v1/leave/types', headers: authHeader })
+        .done(function (types) {
+          leaveTypes = types;
+          if (types.length) {
+            $('#logLeaveType').html(
+              types.map(function (t) { return '<option value="' + t.id + '">' + escapeHtml(t.name) + '</option>'; }).join('')
+            ).prop('disabled', false);
+          } else {
+            $('#logLeaveType').html('<option value="" disabled selected>No leave types configured</option>').prop('disabled', true);
+          }
+        })
+        .fail(function () {
+          leaveTypes = [];
+          $('#logLeaveType').html('<option value="" disabled selected>Failed to load leave types</option>').prop('disabled', true);
+        });
     }
 
     $(document).on('click', '.log-leave-btn', function () {
       $('#logLeaveForm')[0].reset();
       $('#logLeaveEmployeeId').val($(this).data('employee-id'));
       $('#logLeaveEmployeeName').text($(this).data('employee-name'));
+      if (!leaveTypes.length) loadLeaveTypes();
       if (currentSprint) {
         $('#logLeaveFromDate').val(currentSprint.start_date || '');
         $('#logLeaveToDate').val(currentSprint.end_date || '');
@@ -501,6 +534,7 @@
 
     $('#logLeaveForm').on('submit', function (e) {
       e.preventDefault();
+      if (!$('#logLeaveType').val()) { showError('Select a leave type.'); return; }
       $.ajax({
         url: '/api/v1/sprints/' + sprintId + '/capacity/leave', method: 'POST', contentType: 'application/json', headers: authHeader,
         data: JSON.stringify({
