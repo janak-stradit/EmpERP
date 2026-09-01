@@ -237,6 +237,14 @@ class SprintCapacityResponse(BaseModel):
     total_available_hours: float
 
 
+class SprintLeaveLogRequest(BaseModel):
+    employee_id: int
+    leave_type_id: int
+    from_date: date
+    to_date: date
+    reason: str | None = None
+
+
 class TicketSprintAssign(BaseModel):
     sprint_id: int | None = None
 

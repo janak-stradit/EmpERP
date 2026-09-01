@@ -14,7 +14,14 @@ from app.core.audit import log_audit
 from app.core.files import copy_ticket_attachment, delete_file_if_exists, save_ticket_attachment
 from app.core.notifications import notify
 from app.models.employee import Employee
-from app.models.leave import LeaveApplication, LeaveApplicationStatus
+from app.models.leave import (
+    LeaveApplication,
+    LeaveApplicationStatus,
+    LeaveApprovalAction,
+    LeaveApprovalHistory,
+    LeaveBalance,
+    LeaveType,
+)
 from app.models.mixins import utcnow
 from app.models.notification import NotificationCategory
 from app.models.project import (
@@ -60,6 +67,7 @@ from app.schemas.ticket import (
     SprintCompleteRequest,
     SprintCreate,
     SprintDetailResponse,
+    SprintLeaveLogRequest,
     SprintMemberWorkload,
     SprintProjectBreakdown,
     SprintResponse,
@@ -876,11 +884,7 @@ def _count_working_days(start: date, end: date, working_days: set[int]) -> int:
     return days
 
 
-@sprints_router.get("/{sprint_id}/capacity", response_model=SprintCapacityResponse)
-def get_sprint_capacity(
-    sprint_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
-) -> SprintCapacityResponse:
-    sprint, project = _get_sprint_with_project_or_404(db, sprint_id, current_user.company_id)
+def _build_sprint_capacity(db: Session, sprint: Sprint, project: Project) -> SprintCapacityResponse:
     if sprint.start_date is None or sprint.end_date is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Set sprint start and end dates to plan team capacity"
@@ -950,6 +954,97 @@ def get_sprint_capacity(
         total_leave_hours=sum(m.leave_hours for m in members),
         total_available_hours=sum(m.available_hours for m in members),
     )
+
+
+@sprints_router.get("/{sprint_id}/capacity", response_model=SprintCapacityResponse)
+def get_sprint_capacity(
+    sprint_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
+) -> SprintCapacityResponse:
+    sprint, project = _get_sprint_with_project_or_404(db, sprint_id, current_user.company_id)
+    return _build_sprint_capacity(db, sprint, project)
+
+
+@sprints_router.post("/{sprint_id}/capacity/leave", response_model=SprintCapacityResponse, status_code=status.HTTP_201_CREATED)
+def log_sprint_member_leave(
+    sprint_id: int,
+    payload: SprintLeaveLogRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> SprintCapacityResponse:
+    """Lets whoever can manage this sprint record a team member's leave directly as approved,
+    so the capacity planner reflects it immediately without routing through the full
+    manager -> HR leave approval chain."""
+    sprint, project = _get_sprint_with_project_or_404(db, sprint_id, current_user.company_id)
+    require_permission(db, project, current_user, "manage_sprints")
+
+    project_ids = _sprint_project_ids(db, sprint)
+    is_member = db.scalar(
+        select(ProjectMember.id).where(
+            ProjectMember.project_id.in_(project_ids), ProjectMember.employee_id == payload.employee_id
+        )
+    )
+    if is_member is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Employee is not a member of this sprint's project")
+
+    employee = db.scalar(
+        select(Employee).where(
+            Employee.id == payload.employee_id, Employee.company_id == current_user.company_id, Employee.deleted_at.is_(None)
+        )
+    )
+    if employee is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Employee not found")
+    leave_type = db.scalar(
+        select(LeaveType).where(
+            LeaveType.id == payload.leave_type_id, LeaveType.company_id == current_user.company_id, LeaveType.deleted_at.is_(None)
+        )
+    )
+    if leave_type is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Leave type not found")
+    if payload.to_date < payload.from_date:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="to_date must be on or after from_date")
+
+    days = (payload.to_date - payload.from_date).days + 1
+    application = LeaveApplication(
+        employee_id=employee.id,
+        leave_type_id=leave_type.id,
+        from_date=payload.from_date,
+        to_date=payload.to_date,
+        days=days,
+        reason=payload.reason,
+        status=LeaveApplicationStatus.APPROVED,
+        hr_action_by=current_user.id,
+        hr_action_at=utcnow(),
+    )
+    db.add(application)
+    db.flush()
+    db.add(
+        LeaveApprovalHistory(
+            leave_application_id=application.id, action_by=current_user.id, action=LeaveApprovalAction.HR_APPROVED,
+            comments=payload.reason or "Logged directly from sprint capacity planner",
+        )
+    )
+
+    if not leave_type.is_unpaid:
+        balance = db.scalar(
+            select(LeaveBalance).where(
+                LeaveBalance.employee_id == employee.id,
+                LeaveBalance.leave_type_id == leave_type.id,
+                LeaveBalance.year == payload.from_date.year,
+            )
+        )
+        if balance is None:
+            balance = LeaveBalance(employee_id=employee.id, leave_type_id=leave_type.id, year=payload.from_date.year)
+            db.add(balance)
+        balance.used += days
+
+    db.commit()
+    log_audit(
+        db, user_id=current_user.id, action="leave_logged_for_capacity", entity_type="leave_application",
+        entity_id=application.id, ip_address=get_client_ip(request),
+    )
+
+    return _build_sprint_capacity(db, sprint, project)
 
 
 @sprints_router.put("/{sprint_id}", response_model=SprintResponse)

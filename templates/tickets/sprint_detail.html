@@ -164,7 +164,7 @@
           </div>
           <div class="table-responsive mt-3">
             <table class="table table-hover align-middle mb-0">
-              <thead><tr><th>Member</th><th>Working Days</th><th>Total Hrs</th><th>Leave Days</th><th>Leave Hrs</th><th>Available Hrs</th></tr></thead>
+              <thead><tr><th>Member</th><th>Working Days</th><th>Total Hrs</th><th>Leave Days</th><th>Leave Hrs</th><th>Available Hrs</th><th></th></tr></thead>
               <tbody id="capacityRows"></tbody>
             </table>
           </div>
@@ -211,6 +211,46 @@
           <div class="modal-footer">
             <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
             <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Save Changes</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Log Leave Modal -->
+  <div class="modal fade" id="logLeaveModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <form id="logLeaveForm">
+          <div class="modal-header">
+            <h5 class="modal-title"><i class="bi bi-calendar-x me-1"></i>Log Leave &mdash; <span id="logLeaveEmployeeName"></span></h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <p class="text-muted small">Records this as approved leave right away, so the capacity planner reflects it immediately.</p>
+            <input type="hidden" id="logLeaveEmployeeId">
+            <div class="mb-3">
+              <label class="form-label small">Leave type</label>
+              <select class="form-select" id="logLeaveType" required></select>
+            </div>
+            <div class="row g-2 mb-1">
+              <div class="col-6">
+                <label class="form-label small">From date</label>
+                <input type="date" class="form-control" id="logLeaveFromDate" required>
+              </div>
+              <div class="col-6">
+                <label class="form-label small">To date</label>
+                <input type="date" class="form-control" id="logLeaveToDate" required>
+              </div>
+            </div>
+            <div class="mb-1">
+              <label class="form-label small">Reason (optional)</label>
+              <input type="text" class="form-control" id="logLeaveReason" maxlength="255">
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Log Leave</button>
           </div>
         </form>
       </div>
@@ -391,30 +431,33 @@
 
     function loadCapacity() {
       $.ajax({ url: '/api/v1/sprints/' + sprintId + '/capacity', headers: authHeader })
-        .done(function (c) {
-          $('#capacityNotice').addClass('d-none');
-          $('#capacityContent').removeClass('d-none');
-          $('#capacitySummary').text(
-            c.working_days + ' working day' + (c.working_days === 1 ? '' : 's') + ' &middot; ' +
-            c.hours_per_day + 'h/day &middot; ' + c.total_available_hours + 'h available of ' + c.total_hours + 'h'
-          );
-          renderCapacityChart(c);
-          $('#capacityRows').html(c.members.map(function (m) {
-            return '<tr>' +
-              '<td>' + escapeHtml(m.employee_name) + (m.employee_code ? ' <span class="text-muted small">(' + escapeHtml(m.employee_code) + ')</span>' : '') + '</td>' +
-              '<td>' + m.working_days + '</td>' +
-              '<td>' + m.total_hours + 'h</td>' +
-              '<td>' + m.leave_days + '</td>' +
-              '<td>' + m.leave_hours + 'h</td>' +
-              '<td>' + m.available_hours + 'h</td>' +
-            '</tr>';
-          }).join('') || '<tr><td colspan="6" class="text-muted small text-center py-3">No team members on this project yet.</td></tr>');
-        })
+        .done(renderCapacity)
         .fail(function (xhr) {
           $('#capacityContent').addClass('d-none');
           $('#capacitySummary').text('');
           $('#capacityNotice').removeClass('d-none').text((xhr.responseJSON && xhr.responseJSON.detail) || 'Capacity planning is unavailable for this sprint.');
         });
+    }
+
+    function renderCapacity(c) {
+      $('#capacityNotice').addClass('d-none');
+      $('#capacityContent').removeClass('d-none');
+      $('#capacitySummary').text(
+        c.working_days + ' working day' + (c.working_days === 1 ? '' : 's') + ' &middot; ' +
+        c.hours_per_day + 'h/day &middot; ' + c.total_available_hours + 'h available of ' + c.total_hours + 'h'
+      );
+      renderCapacityChart(c);
+      $('#capacityRows').html(c.members.map(function (m) {
+        return '<tr>' +
+          '<td>' + escapeHtml(m.employee_name) + (m.employee_code ? ' <span class="text-muted small">(' + escapeHtml(m.employee_code) + ')</span>' : '') + '</td>' +
+          '<td>' + m.working_days + '</td>' +
+          '<td>' + m.total_hours + 'h</td>' +
+          '<td>' + m.leave_days + '</td>' +
+          '<td>' + m.leave_hours + 'h</td>' +
+          '<td>' + m.available_hours + 'h</td>' +
+          '<td><button type="button" class="btn btn-sm btn-outline-secondary log-leave-btn" data-employee-id="' + m.employee_id + '" data-employee-name="' + escapeHtml(m.employee_name) + '"><i class="bi bi-calendar-x me-1"></i>Log Leave</button></td>' +
+        '</tr>';
+      }).join('') || '<tr><td colspan="7" class="text-muted small text-center py-3">No team members on this project yet.</td></tr>');
     }
 
     function renderCapacityChart(c) {
@@ -436,9 +479,48 @@
       });
     }
 
+    let leaveTypes = [];
+
+    function loadLeaveTypes() {
+      $.ajax({ url: '/api/v1/leave/types', headers: authHeader }).done(function (types) {
+        leaveTypes = types;
+        $('#logLeaveType').html(types.map(function (t) { return '<option value="' + t.id + '">' + escapeHtml(t.name) + '</option>'; }).join(''));
+      });
+    }
+
+    $(document).on('click', '.log-leave-btn', function () {
+      $('#logLeaveForm')[0].reset();
+      $('#logLeaveEmployeeId').val($(this).data('employee-id'));
+      $('#logLeaveEmployeeName').text($(this).data('employee-name'));
+      if (currentSprint) {
+        $('#logLeaveFromDate').val(currentSprint.start_date || '');
+        $('#logLeaveToDate').val(currentSprint.end_date || '');
+      }
+      new bootstrap.Modal('#logLeaveModal').show();
+    });
+
+    $('#logLeaveForm').on('submit', function (e) {
+      e.preventDefault();
+      $.ajax({
+        url: '/api/v1/sprints/' + sprintId + '/capacity/leave', method: 'POST', contentType: 'application/json', headers: authHeader,
+        data: JSON.stringify({
+          employee_id: parseInt($('#logLeaveEmployeeId').val(), 10),
+          leave_type_id: parseInt($('#logLeaveType').val(), 10),
+          from_date: $('#logLeaveFromDate').val(),
+          to_date: $('#logLeaveToDate').val(),
+          reason: $('#logLeaveReason').val() || null
+        })
+      }).done(function (c) {
+        bootstrap.Modal.getInstance(document.getElementById('logLeaveModal')).hide();
+        showSuccess('Leave logged.');
+        renderCapacity(c);
+      }).fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to log leave.'); });
+    });
+
     loadSprint();
     loadProjects();
     loadCapacity();
+    loadLeaveTypes();
 
     $('#logoutLink').on('click', function (e) {
       e.preventDefault();
