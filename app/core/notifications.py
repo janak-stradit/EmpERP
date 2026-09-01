@@ -1,3 +1,4 @@
+import logging
 from collections.abc import Iterable
 
 from sqlalchemy import select
@@ -6,6 +7,8 @@ from sqlalchemy.orm import Session
 from app.api.deps import HR_WRITE_ROLES
 from app.models.notification import Notification, NotificationCategory
 from app.models.user import User, UserRole
+
+logger = logging.getLogger("app.notifications")
 
 
 def hr_user_ids(db: Session, company_id: int | None, exclude_user_id: int | None = None) -> list[int]:
@@ -28,8 +31,15 @@ def notify(
     body: str | None = None,
     link: str | None = None,
 ) -> None:
-    db.add(Notification(user_id=user_id, category=category, title=title, body=body, link=link))
-    db.commit()
+    # An in-app notification is a side effect of the real action (ticket updated, leave
+    # approved, ...) that already committed — it must never take the whole request down
+    # if it fails, so failures are logged and swallowed rather than re-raised.
+    try:
+        db.add(Notification(user_id=user_id, category=category, title=title, body=body, link=link))
+        db.commit()
+    except Exception:
+        db.rollback()
+        logger.exception("Failed to create notification (category=%s, user_id=%s, title=%r)", category, user_id, title)
 
 
 def notify_many(
@@ -44,6 +54,10 @@ def notify_many(
     unique_ids = set(user_ids)
     if not unique_ids:
         return
-    for user_id in unique_ids:
-        db.add(Notification(user_id=user_id, category=category, title=title, body=body, link=link))
-    db.commit()
+    try:
+        for user_id in unique_ids:
+            db.add(Notification(user_id=user_id, category=category, title=title, body=body, link=link))
+        db.commit()
+    except Exception:
+        db.rollback()
+        logger.exception("Failed to create notifications (category=%s, user_ids=%s, title=%r)", category, unique_ids, title)

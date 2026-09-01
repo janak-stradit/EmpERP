@@ -495,24 +495,17 @@ def _notify_watchers(
 def _notify_assignee(db: Session, ticket: Ticket, assignee_id: int) -> None:
     """In-app notification plus an assignment email to the assignee, if they have an
     active user account. Emailing is a no-op (console log only) unless EMAIL_BACKEND=smtp.
-
-    Neither step is allowed to fail the ticket request itself: a broken notification or
-    a broken mail server should never roll back or 500 out an otherwise-successful ticket
-    create/assign/clone. Both outcomes are logged so failures are still visible in the
-    app logs instead of silently vanishing."""
+    notify() and send_email() both swallow and log their own failures, so neither step
+    can fail the ticket request itself."""
     assignee = db.get(Employee, assignee_id)
     if assignee is None:
         logger.warning("Assignment notify skipped for ticket %s: employee %s not found", ticket.ticket_key, assignee_id)
         return
 
-    try:
-        notify(
-            db, user_id=assignee.user_id, category=NotificationCategory.TICKET,
-            title=f"You were assigned {ticket.ticket_key}", body=ticket.summary, link=f"/tickets/{ticket.id}",
-        )
-    except Exception:
-        db.rollback()
-        logger.exception("In-app assignment notification failed for ticket %s -> employee %s", ticket.ticket_key, assignee_id)
+    notify(
+        db, user_id=assignee.user_id, category=NotificationCategory.TICKET,
+        title=f"You were assigned {ticket.ticket_key}", body=ticket.summary, link=f"/tickets/{ticket.id}",
+    )
 
     assignee_user = db.get(User, assignee.user_id)
     if assignee_user is None or not assignee_user.is_active:
@@ -520,11 +513,7 @@ def _notify_assignee(db: Session, ticket: Ticket, assignee_id: int) -> None:
         return
 
     settings = get_settings()
-    if settings.email_backend != "smtp":
-        logger.info(
-            "Assignment email not sent for ticket %s: EMAIL_BACKEND=%r (set to 'smtp' to send for real)",
-            ticket.ticket_key, settings.email_backend,
-        )
+    is_real_send = settings.email_backend == "smtp"
     link_line = f"\n\nView it here: {settings.app_base_url}/tickets/{ticket.id}" if settings.app_base_url else ""
     try:
         send_email(
@@ -532,7 +521,13 @@ def _notify_assignee(db: Session, ticket: Ticket, assignee_id: int) -> None:
             subject=f"[{ticket.ticket_key}] You were assigned: {ticket.summary}",
             body=f"You have been assigned ticket {ticket.ticket_key} — {ticket.summary}.{link_line}",
         )
-        logger.info("Assignment email sent for ticket %s to %s", ticket.ticket_key, assignee_user.email)
+        if is_real_send:
+            logger.info("Assignment email sent via SMTP for ticket %s to %s", ticket.ticket_key, assignee_user.email)
+        else:
+            logger.info(
+                "Assignment email NOT actually sent for ticket %s (EMAIL_BACKEND=%r, only logged) — would go to %s",
+                ticket.ticket_key, settings.email_backend, assignee_user.email,
+            )
     except Exception:
         logger.exception("Assignment email FAILED for ticket %s to %s", ticket.ticket_key, assignee_user.email)
 
