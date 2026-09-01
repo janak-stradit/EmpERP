@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.models.project import SprintStatus, StatusCategory
 
@@ -19,6 +19,8 @@ class ProjectUpdate(BaseModel):
     description: str | None = None
     lead_id: int | None = None
     is_active: bool | None = None
+    hours_per_day: float | None = None
+    working_days: list[int] | None = None
 
 
 class ProjectResponse(BaseModel):
@@ -33,6 +35,8 @@ class ProjectResponse(BaseModel):
     open_ticket_count: int = 0
     my_role: str = "viewer"
     is_watching: bool = False
+    hours_per_day: float = 8.0
+    working_days: list[int] = Field(default_factory=lambda: [0, 1, 2, 3, 4])
 
     model_config = {"from_attributes": True}
 
@@ -196,11 +200,41 @@ class SprintMemberWorkload(BaseModel):
     ticket_count: int
     total_points: int
     completed_points: int
+    estimated_hours: float
+    logged_hours: float
+    remaining_hours: float
 
 
 class SprintDetailResponse(SprintResponse):
     project_breakdown: list[SprintProjectBreakdown] = []
     member_workload: list[SprintMemberWorkload] = []
+    team_member_count: int = 0
+    total_estimated_hours: float = 0
+    total_logged_hours: float = 0
+    total_remaining_hours: float = 0
+
+
+class SprintCapacityMember(BaseModel):
+    employee_id: int
+    employee_name: str
+    employee_code: str | None
+    working_days: int
+    total_hours: float
+    leave_days: int
+    leave_hours: float
+    available_hours: float
+
+
+class SprintCapacityResponse(BaseModel):
+    sprint_id: int
+    start_date: date
+    end_date: date
+    hours_per_day: float
+    working_days: int
+    members: list[SprintCapacityMember]
+    total_hours: float
+    total_leave_hours: float
+    total_available_hours: float
 
 
 class TicketSprintAssign(BaseModel):

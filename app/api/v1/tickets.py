@@ -1,5 +1,6 @@
 import csv
 import io
+from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import FileResponse, StreamingResponse
@@ -13,6 +14,7 @@ from app.core.audit import log_audit
 from app.core.files import copy_ticket_attachment, delete_file_if_exists, save_ticket_attachment
 from app.core.notifications import notify
 from app.models.employee import Employee
+from app.models.leave import LeaveApplication, LeaveApplicationStatus
 from app.models.mixins import utcnow
 from app.models.notification import NotificationCategory
 from app.models.project import (
@@ -53,6 +55,8 @@ from app.schemas.ticket import (
     ProjectMemberRoleUpdate,
     ProjectResponse,
     ProjectUpdate,
+    SprintCapacityMember,
+    SprintCapacityResponse,
     SprintCompleteRequest,
     SprintCreate,
     SprintDetailResponse,
@@ -303,6 +307,8 @@ def _to_project_response(db: Session, project: Project, current_user: User | Non
         open_ticket_count=open_count or 0,
         my_role=my_role,
         is_watching=is_watching,
+        hours_per_day=project.hours_per_day,
+        working_days=project.working_days,
     )
 
 
@@ -552,7 +558,18 @@ def update_project(
 ) -> ProjectResponse:
     project = _get_project_or_404(db, project_id, current_user.company_id)
     require_permission(db, project, current_user, "manage_project")
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    updates = payload.model_dump(exclude_unset=True)
+    if "hours_per_day" in updates and updates["hours_per_day"] is not None:
+        if not (0 < updates["hours_per_day"] <= 24):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Hours per day must be between 0 and 24")
+    if "working_days" in updates and updates["working_days"] is not None:
+        days = updates["working_days"]
+        if not days or any(d < 0 or d > 6 for d in days):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Working days must be a non-empty list of 0 (Mon) to 6 (Sun)"
+            )
+        updates["working_days"] = sorted(set(days))
+    for field, value in updates.items():
         setattr(project, field, value)
     db.commit()
     db.refresh(project)
@@ -814,6 +831,9 @@ def get_sprint_detail(
             .where(Employee.id.in_(assignee_ids))
         ):
             employee_info[row[0]] = (row[1], row[2])
+    def minutes_to_hours(minutes: int) -> float:
+        return round(minutes / 60, 1)
+
     member_workload = [
         SprintMemberWorkload(
             employee_id=aid,
@@ -822,12 +842,114 @@ def get_sprint_detail(
             ticket_count=len(aid_tickets),
             total_points=sum(t.story_points or 0 for t in aid_tickets),
             completed_points=sum(t.story_points or 0 for t in aid_tickets if t.status_id in done_status_ids),
+            estimated_hours=minutes_to_hours(sum(t.original_estimate or 0 for t in aid_tickets)),
+            logged_hours=minutes_to_hours(sum(t.time_spent or 0 for t in aid_tickets)),
+            remaining_hours=minutes_to_hours(sum(t.remaining_estimate or 0 for t in aid_tickets)),
         )
         for aid, aid_tickets in tickets_by_assignee.items()
     ]
     member_workload.sort(key=lambda m: (m.employee_id is None, -m.total_points, m.employee_name))
 
-    return SprintDetailResponse(**base.model_dump(), project_breakdown=project_breakdown, member_workload=member_workload)
+    team_member_count = len({aid for aid in tickets_by_assignee if aid is not None})
+    total_estimated_hours = minutes_to_hours(sum(t.original_estimate or 0 for t in tickets))
+    total_logged_hours = minutes_to_hours(sum(t.time_spent or 0 for t in tickets))
+    total_remaining_hours = minutes_to_hours(sum(t.remaining_estimate or 0 for t in tickets))
+
+    return SprintDetailResponse(
+        **base.model_dump(),
+        project_breakdown=project_breakdown,
+        member_workload=member_workload,
+        team_member_count=team_member_count,
+        total_estimated_hours=total_estimated_hours,
+        total_logged_hours=total_logged_hours,
+        total_remaining_hours=total_remaining_hours,
+    )
+
+
+def _count_working_days(start: date, end: date, working_days: set[int]) -> int:
+    days = 0
+    current = start
+    while current <= end:
+        if current.weekday() in working_days:
+            days += 1
+        current += timedelta(days=1)
+    return days
+
+
+@sprints_router.get("/{sprint_id}/capacity", response_model=SprintCapacityResponse)
+def get_sprint_capacity(
+    sprint_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
+) -> SprintCapacityResponse:
+    sprint, project = _get_sprint_with_project_or_404(db, sprint_id, current_user.company_id)
+    if sprint.start_date is None or sprint.end_date is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Set sprint start and end dates to plan team capacity"
+        )
+
+    hours_per_day = project.hours_per_day
+    working_day_set = set(project.working_days)
+
+    project_ids = _sprint_project_ids(db, sprint)
+    member_rows = db.execute(
+        select(ProjectMember.employee_id, Employee.employee_code, User.full_name)
+        .join(Employee, Employee.id == ProjectMember.employee_id)
+        .join(User, User.id == Employee.user_id)
+        .where(ProjectMember.project_id.in_(project_ids))
+        .distinct()
+    ).all()
+
+    working_days = _count_working_days(sprint.start_date, sprint.end_date, working_day_set)
+    total_hours_per_member = working_days * hours_per_day
+
+    members = []
+    for employee_id, employee_code, employee_name in member_rows:
+        leaves = list(
+            db.scalars(
+                select(LeaveApplication).where(
+                    LeaveApplication.employee_id == employee_id,
+                    LeaveApplication.status == LeaveApplicationStatus.APPROVED,
+                    LeaveApplication.deleted_at.is_(None),
+                    LeaveApplication.from_date <= sprint.end_date,
+                    LeaveApplication.to_date >= sprint.start_date,
+                )
+            )
+        )
+        leave_dates: set = set()
+        for lv in leaves:
+            lo = max(sprint.start_date, lv.from_date)
+            hi = min(sprint.end_date, lv.to_date)
+            current = lo
+            while current <= hi:
+                leave_dates.add(current)
+                current += timedelta(days=1)
+        leave_days = sum(1 for d in leave_dates if d.weekday() in working_day_set)
+        leave_hours = leave_days * hours_per_day
+        available_hours = max(0.0, total_hours_per_member - leave_hours)
+        members.append(
+            SprintCapacityMember(
+                employee_id=employee_id,
+                employee_name=employee_name,
+                employee_code=employee_code,
+                working_days=working_days,
+                total_hours=total_hours_per_member,
+                leave_days=leave_days,
+                leave_hours=leave_hours,
+                available_hours=available_hours,
+            )
+        )
+    members.sort(key=lambda m: m.employee_name)
+
+    return SprintCapacityResponse(
+        sprint_id=sprint.id,
+        start_date=sprint.start_date,
+        end_date=sprint.end_date,
+        hours_per_day=hours_per_day,
+        working_days=working_days,
+        members=members,
+        total_hours=sum(m.total_hours for m in members),
+        total_leave_hours=sum(m.leave_hours for m in members),
+        total_available_hours=sum(m.available_hours for m in members),
+    )
 
 
 @sprints_router.put("/{sprint_id}", response_model=SprintResponse)

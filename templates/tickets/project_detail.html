@@ -54,6 +54,7 @@
             <li class="px-3 py-2 text-muted small">Loading sprints&hellip;</li>
           </ul>
         </div>
+        <button class="btn btn-outline-secondary btn-sm" id="scheduleBtn" data-bs-toggle="modal" data-bs-target="#scheduleModal"><i class="bi bi-clock me-1"></i>Schedule</button>
         <button class="btn btn-outline-secondary btn-sm" id="watchProjectBtn"><i class="bi bi-eye me-1"></i><span id="watchProjectLabel">Watch</span></button>
         <button class="btn btn-outline-secondary btn-sm" id="exportTicketsBtn"><i class="bi bi-download me-1"></i>Export</button>
         <button class="btn btn-outline-primary btn-sm" data-bs-toggle="offcanvas" data-bs-target="#labelsPanel">
@@ -175,6 +176,43 @@
           <div class="modal-footer">
             <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
             <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Create Ticket</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Schedule Modal -->
+  <div class="modal fade" id="scheduleModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <form id="scheduleForm">
+          <div class="modal-header">
+            <h5 class="modal-title"><i class="bi bi-clock me-1"></i>Sprint Capacity Schedule</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <p class="text-muted small">Used to plan team capacity on sprints for this project &mdash; total working hours, minus approved leave.</p>
+            <div class="mb-3">
+              <label class="form-label small">Hours per working day</label>
+              <input type="number" min="0.5" max="24" step="0.5" class="form-control" id="scheduleHoursPerDay" required>
+            </div>
+            <div class="mb-1">
+              <label class="form-label small d-block">Working days</label>
+              <div class="btn-group flex-wrap" role="group" id="scheduleWorkingDays">
+                <input type="checkbox" class="btn-check" id="wd0" value="0" autocomplete="off"><label class="btn btn-outline-primary btn-sm" for="wd0">Mon</label>
+                <input type="checkbox" class="btn-check" id="wd1" value="1" autocomplete="off"><label class="btn btn-outline-primary btn-sm" for="wd1">Tue</label>
+                <input type="checkbox" class="btn-check" id="wd2" value="2" autocomplete="off"><label class="btn btn-outline-primary btn-sm" for="wd2">Wed</label>
+                <input type="checkbox" class="btn-check" id="wd3" value="3" autocomplete="off"><label class="btn btn-outline-primary btn-sm" for="wd3">Thu</label>
+                <input type="checkbox" class="btn-check" id="wd4" value="4" autocomplete="off"><label class="btn btn-outline-primary btn-sm" for="wd4">Fri</label>
+                <input type="checkbox" class="btn-check" id="wd5" value="5" autocomplete="off"><label class="btn btn-outline-primary btn-sm" for="wd5">Sat</label>
+                <input type="checkbox" class="btn-check" id="wd6" value="6" autocomplete="off"><label class="btn btn-outline-primary btn-sm" for="wd6">Sun</label>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Save Schedule</button>
           </div>
         </form>
       </div>
@@ -338,8 +376,11 @@
       $('#sprintDropdownMenu').html(html);
     }
 
+    let currentProject = null;
+
     function loadProject() {
       $.ajax({ url: '/api/v1/projects/' + projectId, headers: authHeader }).done(function (p) {
+        currentProject = p;
         $('#projectKeyBadge').text(p.key);
         $('#projectName').text(p.name);
         $('#projectDescription').text(p.description || '');
@@ -355,6 +396,31 @@
       $.ajax({ url: '/api/v1/projects/' + projectId + '/watch', method: method, headers: authHeader })
         .done(loadProject)
         .fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to update watch status.'); });
+    });
+
+    $('#scheduleModal').on('show.bs.modal', function () {
+      if (!currentProject) return;
+      $('#scheduleHoursPerDay').val(currentProject.hours_per_day);
+      const workingDays = currentProject.working_days || [0, 1, 2, 3, 4];
+      $('#scheduleWorkingDays input[type=checkbox]').each(function () {
+        $(this).prop('checked', workingDays.indexOf(parseInt($(this).val(), 10)) !== -1);
+      });
+    });
+
+    $('#scheduleForm').on('submit', function (e) {
+      e.preventDefault();
+      const workingDays = $('#scheduleWorkingDays input[type=checkbox]:checked').map(function () {
+        return parseInt($(this).val(), 10);
+      }).get();
+      if (!workingDays.length) { showError('Select at least one working day.'); return; }
+      $.ajax({
+        url: '/api/v1/projects/' + projectId, method: 'PUT', contentType: 'application/json', headers: authHeader,
+        data: JSON.stringify({ hours_per_day: parseFloat($('#scheduleHoursPerDay').val()), working_days: workingDays })
+      }).done(function () {
+        bootstrap.Modal.getInstance(document.getElementById('scheduleModal')).hide();
+        loadProject();
+        showSuccess('Schedule updated.');
+      }).fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to update schedule.'); });
     });
 
     $('#exportTicketsBtn').on('click', function () {

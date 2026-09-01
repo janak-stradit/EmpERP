@@ -1,7 +1,7 @@
 import enum
 from datetime import date
 
-from sqlalchemy import Boolean, Date, Enum, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import JSON, Boolean, Date, Enum, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -32,6 +32,11 @@ class Project(TimestampMixin, Base):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     lead_id: Mapped[int | None] = mapped_column(ForeignKey("employees.id"), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+    # Sprint capacity planning schedule. working_days uses Python's date.weekday()
+    # convention: 0=Monday .. 6=Sunday.
+    hours_per_day: Mapped[float] = mapped_column(Float, nullable=False, default=8.0)
+    working_days: Mapped[list[int]] = mapped_column(JSON, nullable=False, default=lambda: [0, 1, 2, 3, 4])
 
 
 class ProjectMember(CreatedAtMixin, Base):

@@ -97,6 +97,45 @@
       </div>
     </div>
 
+    <div class="row g-3 mb-3" id="effortRow">
+      <div class="col-sm-6 col-lg-3">
+        <div class="emp-stat-card">
+          <div class="emp-stat-icon primary"><i class="bi bi-people-fill"></i></div>
+          <div class="emp-stat-content">
+            <div class="emp-stat-label">Team Members</div>
+            <div class="emp-stat-val" id="statTeamMembers">&mdash;</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-sm-6 col-lg-3">
+        <div class="emp-stat-card">
+          <div class="emp-stat-icon info"><i class="bi bi-clock-history"></i></div>
+          <div class="emp-stat-content">
+            <div class="emp-stat-label">Estimated Effort</div>
+            <div class="emp-stat-val" id="statEstimatedHours">&mdash;</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-sm-6 col-lg-3">
+        <div class="emp-stat-card">
+          <div class="emp-stat-icon success"><i class="bi bi-hourglass-bottom"></i></div>
+          <div class="emp-stat-content">
+            <div class="emp-stat-label">Logged Hours</div>
+            <div class="emp-stat-val" id="statLoggedHours">&mdash;</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-sm-6 col-lg-3">
+        <div class="emp-stat-card">
+          <div class="emp-stat-icon warning"><i class="bi bi-hourglass-split"></i></div>
+          <div class="emp-stat-content">
+            <div class="emp-stat-label">Remaining Effort</div>
+            <div class="emp-stat-val" id="statRemainingHours">&mdash;</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="card mb-3">
       <div class="card-header"><i class="bi bi-diagram-3 me-1"></i>By Project</div>
       <div class="card-body p-0">
@@ -112,12 +151,33 @@
       </div>
     </div>
 
+    <div class="card mb-3">
+      <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-1">
+        <span><i class="bi bi-speedometer2 me-1"></i>Capacity Planner</span>
+        <span class="text-muted small" id="capacitySummary"></span>
+      </div>
+      <div class="card-body">
+        <div class="text-muted small d-none" id="capacityNotice"></div>
+        <div class="d-none" id="capacityContent">
+          <div style="height: 280px; position: relative;">
+            <canvas id="capacityChart"></canvas>
+          </div>
+          <div class="table-responsive mt-3">
+            <table class="table table-hover align-middle mb-0">
+              <thead><tr><th>Member</th><th>Working Days</th><th>Total Hrs</th><th>Leave Days</th><th>Leave Hrs</th><th>Available Hrs</th></tr></thead>
+              <tbody id="capacityRows"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="card">
       <div class="card-header"><i class="bi bi-people me-1"></i>Team Workload</div>
       <div class="card-body p-0">
         <div class="table-responsive">
           <table class="table table-hover align-middle mb-0">
-            <thead><tr><th>Member</th><th>Tickets</th><th>Story Points</th><th>Completed</th><th>Progress</th></tr></thead>
+            <thead><tr><th>Member</th><th>Tickets</th><th>Story Points</th><th>Completed</th><th>Progress</th><th>Est. Hrs</th><th>Logged Hrs</th><th>Remaining Hrs</th></tr></thead>
             <tbody id="workloadRows"></tbody>
           </table>
         </div>
@@ -163,6 +223,7 @@
   <script src="/static/js/notifications.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/quill@2/dist/quill.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script nonce="{{ csp_nonce }}">
     const token = sessionStorage.getItem('access_token');
     if (!token) { window.location.href = '/auth/login'; }
@@ -261,6 +322,11 @@
       const completedPct = s.total_points > 0 ? Math.min(100, Math.round((s.completed_points / s.total_points) * 100)) : 0;
       $('#statCompletedBar').css('width', completedPct + '%');
 
+      $('#statTeamMembers').text(s.team_member_count);
+      $('#statEstimatedHours').text(s.total_estimated_hours + 'h');
+      $('#statLoggedHours').text(s.total_logged_hours + 'h');
+      $('#statRemainingHours').text(s.total_remaining_hours + 'h');
+
       $('#projectBreakdownEmpty').toggleClass('d-none', s.project_breakdown.length > 0);
       $('#projectBreakdownRows').html(s.project_breakdown.map(function (p) {
         return '<tr>' +
@@ -284,6 +350,9 @@
           '<td>' + m.total_points + '</td>' +
           '<td>' + m.completed_points + '</td>' +
           '<td>' + progressBar(m.completed_points, m.total_points) + '</td>' +
+          '<td>' + m.estimated_hours + 'h</td>' +
+          '<td>' + m.logged_hours + 'h</td>' +
+          '<td>' + m.remaining_hours + 'h</td>' +
         '</tr>';
       }).join(''));
     }
@@ -318,8 +387,58 @@
       }).fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to update sprint.'); });
     });
 
+    let capacityChart = null;
+
+    function loadCapacity() {
+      $.ajax({ url: '/api/v1/sprints/' + sprintId + '/capacity', headers: authHeader })
+        .done(function (c) {
+          $('#capacityNotice').addClass('d-none');
+          $('#capacityContent').removeClass('d-none');
+          $('#capacitySummary').text(
+            c.working_days + ' working day' + (c.working_days === 1 ? '' : 's') + ' &middot; ' +
+            c.hours_per_day + 'h/day &middot; ' + c.total_available_hours + 'h available of ' + c.total_hours + 'h'
+          );
+          renderCapacityChart(c);
+          $('#capacityRows').html(c.members.map(function (m) {
+            return '<tr>' +
+              '<td>' + escapeHtml(m.employee_name) + (m.employee_code ? ' <span class="text-muted small">(' + escapeHtml(m.employee_code) + ')</span>' : '') + '</td>' +
+              '<td>' + m.working_days + '</td>' +
+              '<td>' + m.total_hours + 'h</td>' +
+              '<td>' + m.leave_days + '</td>' +
+              '<td>' + m.leave_hours + 'h</td>' +
+              '<td>' + m.available_hours + 'h</td>' +
+            '</tr>';
+          }).join('') || '<tr><td colspan="6" class="text-muted small text-center py-3">No team members on this project yet.</td></tr>');
+        })
+        .fail(function (xhr) {
+          $('#capacityContent').addClass('d-none');
+          $('#capacitySummary').text('');
+          $('#capacityNotice').removeClass('d-none').text((xhr.responseJSON && xhr.responseJSON.detail) || 'Capacity planning is unavailable for this sprint.');
+        });
+    }
+
+    function renderCapacityChart(c) {
+      if (capacityChart) { capacityChart.destroy(); capacityChart = null; }
+      capacityChart = new Chart(document.getElementById('capacityChart'), {
+        type: 'bar',
+        data: {
+          labels: c.members.map(function (m) { return m.employee_name; }),
+          datasets: [
+            { label: 'Available Hours', data: c.members.map(function (m) { return m.available_hours; }), backgroundColor: '#16a34a', borderRadius: 4 },
+            { label: 'Leave Hours', data: c.members.map(function (m) { return m.leave_hours; }), backgroundColor: '#dc3545', borderRadius: 4 }
+          ]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true, title: { display: true, text: 'Hours' } } },
+          plugins: { legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } } }
+        }
+      });
+    }
+
     loadSprint();
     loadProjects();
+    loadCapacity();
 
     $('#logoutLink').on('click', function (e) {
       e.preventDefault();
