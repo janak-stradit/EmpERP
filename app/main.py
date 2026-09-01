@@ -1,3 +1,4 @@
+import logging
 import secrets
 from contextlib import asynccontextmanager
 
@@ -26,6 +27,11 @@ from app.api.v1.tickets import projects_router as projects_router
 from app.api.v1.tickets import router as tickets_router
 from app.api.v1.tickets import sprints_router as sprints_router
 from app.core.config import get_settings
+
+# uvicorn only configures its own "uvicorn.*" loggers by default — without this, INFO-level
+# logs from app modules (ticket notifications, outgoing email attempts, ...) are silently
+# dropped rather than reaching the container's stdout logs.
+logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s:%(message)s")
 
 settings = get_settings()
 
