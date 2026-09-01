@@ -11,6 +11,8 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_client_ip, get_current_user, get_db
 from app.api.v1.ticket_permissions import PROJECT_ROLES, get_project_role, require_permission
 from app.core.audit import log_audit
+from app.core.config import get_settings
+from app.core.email import send_email
 from app.core.files import copy_ticket_attachment, delete_file_if_exists, save_ticket_attachment
 from app.core.notifications import notify
 from app.models.employee import Employee
@@ -485,6 +487,28 @@ def _notify_watchers(
         if employee is None:
             continue
         notify(db, user_id=employee.user_id, category=NotificationCategory.TICKET, title=title, body=body, link=link)
+
+
+def _notify_assignee(db: Session, ticket: Ticket, assignee_id: int) -> None:
+    """In-app notification plus an assignment email to the assignee, if they have an
+    active user account. Emailing is a no-op (console log only) unless EMAIL_BACKEND=smtp."""
+    assignee = db.get(Employee, assignee_id)
+    if assignee is None:
+        return
+    notify(
+        db, user_id=assignee.user_id, category=NotificationCategory.TICKET,
+        title=f"You were assigned {ticket.ticket_key}", body=ticket.summary, link=f"/tickets/{ticket.id}",
+    )
+    assignee_user = db.get(User, assignee.user_id)
+    if assignee_user is None or not assignee_user.is_active:
+        return
+    settings = get_settings()
+    link_line = f"\n\nView it here: {settings.app_base_url}/tickets/{ticket.id}" if settings.app_base_url else ""
+    send_email(
+        to=assignee_user.email,
+        subject=f"[{ticket.ticket_key}] You were assigned: {ticket.summary}",
+        body=f"You have been assigned ticket {ticket.ticket_key} — {ticket.summary}.{link_line}",
+    )
 
 
 # ================= Projects =================
@@ -1629,13 +1653,7 @@ def create_ticket(
         entity_id=ticket.id, ip_address=get_client_ip(request),
     )
     if payload.assignee_id and payload.assignee_id != reporter.id:
-        assignee = db.get(Employee, payload.assignee_id)
-        if assignee is not None:
-            notify(
-                db, user_id=assignee.user_id, category=NotificationCategory.TICKET,
-                title=f"You were assigned {ticket.ticket_key}",
-                body=ticket.summary, link=f"/tickets/{ticket.id}",
-            )
+        _notify_assignee(db, ticket, payload.assignee_id)
     return _to_ticket_detail(db, ticket, project, reporter, current_user)
 
 
@@ -1752,13 +1770,7 @@ def clone_ticket(
         entity_id=clone.id, ip_address=get_client_ip(request),
     )
     if clone.assignee_id and clone.assignee_id != reporter.id:
-        assignee = db.get(Employee, clone.assignee_id)
-        if assignee is not None:
-            notify(
-                db, user_id=assignee.user_id, category=NotificationCategory.TICKET,
-                title=f"You were assigned {clone.ticket_key}",
-                body=clone.summary, link=f"/tickets/{clone.id}",
-            )
+        _notify_assignee(db, clone, clone.assignee_id)
     db.refresh(clone)
     return _to_ticket_detail(db, clone, project, reporter, current_user)
 
@@ -1817,13 +1829,7 @@ def update_ticket(
     if "assignee_id" in updates and ticket.assignee_id != old_assignee_id:
         _auto_watch(db, ticket.id, ticket.assignee_id)
         if ticket.assignee_id:
-            assignee = db.get(Employee, ticket.assignee_id)
-            if assignee is not None:
-                notify(
-                    db, user_id=assignee.user_id, category=NotificationCategory.TICKET,
-                    title=f"You were assigned {ticket.ticket_key}",
-                    body=ticket.summary, link=f"/tickets/{ticket.id}",
-                )
+            _notify_assignee(db, ticket, ticket.assignee_id)
     if updates:
         _notify_watchers(
             db, ticket, exclude_employee_id=actor.id, title=f"{ticket.ticket_key} was updated",

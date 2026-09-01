@@ -51,6 +51,11 @@ class Settings(BaseSettings):
     smtp_password: str = ""
     smtp_from_address: str = "noreply@emperp.dev"
 
+    # Public base URL used to build clickable links in outgoing emails (e.g. ticket
+    # assignment notices). Empty (default) omits the link rather than emitting a
+    # broken localhost/relative URL.
+    app_base_url: str = ""
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
