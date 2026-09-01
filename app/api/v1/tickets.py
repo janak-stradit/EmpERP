@@ -514,12 +514,30 @@ def _notify_assignee(db: Session, ticket: Ticket, assignee_id: int) -> None:
 
     settings = get_settings()
     is_real_send = settings.email_backend == "smtp"
-    link_line = f"\n\nView it here: {settings.app_base_url}/tickets/{ticket.id}" if settings.app_base_url else ""
+    project = db.get(Project, ticket.project_id)
+    ticket_status = db.get(TicketStatus, ticket.status_id)
+    priority = db.get(TicketPriority, ticket.priority_id) if ticket.priority_id else None
+    reporter_name = _employee_name(db, ticket.reporter_id)
+    body_lines = [
+        "You have been assigned a ticket.",
+        "",
+        f"Ticket: {ticket.ticket_key} - {ticket.summary}",
+        f"Project: {project.name} ({project.key})" if project else None,
+        f"Status: {ticket_status.name}" if ticket_status else None,
+        f"Priority: {priority.name}" if priority else "Priority: None",
+        f"Reporter: {reporter_name}" if reporter_name else None,
+        f"Due date: {ticket.due_date}" if ticket.due_date else "Due date: Not set",
+        "",
+        "Description:",
+        ticket.description or "No description provided.",
+    ]
+    if settings.app_base_url:
+        body_lines += ["", f"View it here: {settings.app_base_url}/tickets/{ticket.id}"]
     try:
         send_email(
             to=assignee_user.email,
-            subject=f"[{ticket.ticket_key}] You were assigned: {ticket.summary}",
-            body=f"You have been assigned ticket {ticket.ticket_key} — {ticket.summary}.{link_line}",
+            subject=f"[{ticket.ticket_key}] Ticket assigned to you: {ticket.summary}",
+            body="\n".join(line for line in body_lines if line is not None),
         )
         if is_real_send:
             logger.info("Assignment email sent via SMTP for ticket %s to %s", ticket.ticket_key, assignee_user.email)
