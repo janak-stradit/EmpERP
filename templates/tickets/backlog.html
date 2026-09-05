@@ -9,16 +9,36 @@
   <link href="https://cdn.jsdelivr.net/npm/quill@2/dist/quill.snow.css" rel="stylesheet">
   <link href="/static/css/app.css" rel="stylesheet">
   <style nonce="{{ csp_nonce }}">
-    #viewTabs.nav-pills .nav-link { font-size: .8rem; font-weight: 700; color: var(--emp-text-muted); padding: .4rem .9rem; border: 1px solid transparent; }
-    #viewTabs.nav-pills .nav-link:hover { background: var(--emp-secondary-light); }
-    #viewTabs.nav-pills .nav-link.active { background: var(--emp-primary); color: #fff; }
-    .backlog-row { background: var(--emp-surface); border: 1px solid var(--emp-border); border-left: 3px solid var(--emp-border-strong); padding: .5rem .75rem; margin-bottom: .4rem; cursor: grab; display: flex; align-items: center; gap: .6rem; box-shadow: var(--emp-shadow-xs); }
-    .backlog-row:hover { box-shadow: 0 1px 4px rgba(0,0,0,.1); }
-    .backlog-list { min-height: 40px; background: var(--emp-neutral-bg); border: 1px solid var(--emp-border); padding: .5rem; }
-    .sortable-ghost { opacity: .4; }
+    #viewTabs.nav-pills .nav-link {
+      font-size: .8rem; font-weight: 700; color: var(--emp-text-muted);
+      padding: .45rem 1rem; border-radius: 0px; border: 1px solid transparent; transition: all 0.15s ease;
+    }
+    #viewTabs.nav-pills .nav-link:hover { background: var(--emp-secondary-light); color: var(--emp-text-main); }
+    #viewTabs.nav-pills .nav-link.active { background: var(--emp-primary); color: #fff; box-shadow: var(--emp-shadow-xs); }
+    
+    .backlog-row {
+      background: var(--emp-surface); border: 1px solid var(--emp-border); border-left: 3px solid var(--emp-primary);
+      padding: .65rem .85rem; margin-bottom: .45rem; border-radius: 0px; cursor: grab;
+      display: flex; align-items: center; gap: .75rem; transition: all 0.15s ease;
+      box-shadow: 0 1px 2px rgba(0,0,0,.03);
+    }
+    .backlog-row:hover { border-color: var(--emp-border-strong); box-shadow: 0 3px 8px rgba(0,0,0,.06); transform: translateY(-1px); }
+    .backlog-list { min-height: 48px; background: #f8fafc; border: 1px dashed var(--emp-border); padding: .6rem; border-radius: 0px; }
+    .sortable-ghost { opacity: .35; background: #e0e7ff; border-style: dashed; }
     .sprint-section-header { cursor: pointer; }
-    #newSprintGoalEditor { background: #fff; }
-    #newSprintGoalEditor .ql-editor { min-height: 100px; }
+    #newSprintGoalEditor { background: #fff; border-radius: 0px; }
+    #newSprintGoalEditor .ql-editor { min-height: 110px; }
+
+    .sticky-bulk-bar {
+      position: sticky; top: 1rem; z-index: 1020; border-radius: 0px;
+      border-left: 4px solid var(--emp-primary); background: #ffffff;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.08); border-top: 1px solid var(--emp-border);
+      border-right: 1px solid var(--emp-border); border-bottom: 1px solid var(--emp-border);
+    }
+    .avatar-chip {
+      width: 24px; height: 24px; border-radius: 50%; background: #6366f1; color: #fff;
+      font-size: .65rem; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
   </style>
 </head>
 <body>
@@ -38,40 +58,69 @@
   <div class="toast-container position-fixed top-0 end-0 p-3" id="toastContainer"></div>
 
   <div class="container-fluid px-4 pb-5">
-    <a href="/tickets" class="btn btn-sm btn-link ps-0 mb-2"><i class="bi bi-arrow-left me-1"></i>All Projects</a>
+    <a href="/tickets" class="btn btn-sm btn-link text-decoration-none text-muted ps-0 mb-2"><i class="bi bi-arrow-left me-1"></i>All Projects</a>
 
-    <div class="emp-page-header d-flex justify-content-between align-items-end flex-wrap gap-2">
+    <div class="emp-page-header d-flex justify-content-between align-items-end flex-wrap gap-2 mb-3">
       <div>
-        <div class="emp-breadcrumb"><i class="bi bi-collection"></i> Backlog</div>
-        <h1><span class="badge bg-secondary" id="projectKeyBadge">&mdash;</span> <span id="projectName"></span></h1>
+        <div class="emp-breadcrumb text-uppercase tracking-wider fw-bold text-muted mb-1" style="font-size: 0.725rem;">
+          <i class="bi bi-collection me-1"></i> Project Backlog
+        </div>
+        <h1 class="h3 fw-bold mb-0 d-flex align-items-center gap-2">
+          <span class="badge bg-dark rounded-0 px-2 py-1 fs-6" id="projectKeyBadge">&mdash;</span>
+          <span id="projectName">Loading Project...</span>
+        </h1>
       </div>
-      <button class="btn btn-outline-primary btn-sm" id="newSprintBtn"><i class="bi bi-plus-lg me-1"></i>New Sprint</button>
-    </div>
-
-    <ul class="nav nav-pills mb-3" id="viewTabs"></ul>
-
-    <div class="card mb-3 d-none" id="bulkActionBar">
-      <div class="card-body py-2 d-flex flex-wrap align-items-center gap-2">
-        <span class="small fw-semibold" id="bulkCount">0 selected</span>
-        <select class="form-select form-select-sm" style="width: auto;" id="bulkSprintSelect">
-          <option value="">Move to&hellip;</option>
-          <option value="backlog">Backlog</option>
-        </select>
-        <button class="btn btn-sm btn-outline-danger ms-auto" id="bulkDeleteBtn"><i class="bi bi-trash me-1"></i>Delete</button>
-        <button class="btn btn-sm btn-outline-secondary" id="bulkClearBtn">Clear</button>
+      <div class="d-flex align-items-center gap-2">
+        <button class="btn btn-primary btn-sm rounded-0 shadow-sm px-3" id="newSprintBtn">
+          <i class="bi bi-plus-lg me-1"></i>New Sprint
+        </button>
       </div>
     </div>
 
-    <div id="sprintSections"></div>
+    <!-- Navigation view tabs -->
+    <ul class="nav nav-pills mb-4 pb-1 border-bottom" id="viewTabs"></ul>
 
-    <div class="card">
-      <div class="card-header d-flex justify-content-between align-items-center">
-        <span class="fw-semibold"><i class="bi bi-collection me-1"></i>Backlog</span>
-        <button class="btn btn-sm btn-primary" id="addBacklogTicketBtn"><i class="bi bi-plus-lg me-1"></i>Create Ticket</button>
+    <!-- Sticky Bulk Action Bar -->
+    <div class="card sticky-bulk-bar mb-4 d-none" id="bulkActionBar">
+      <div class="card-body py-2 px-3 d-flex flex-wrap align-items-center gap-3">
+        <div class="d-flex align-items-center gap-2">
+          <span class="badge bg-primary rounded-0 px-2 py-1 fs-7 fw-bold" id="bulkCount">0 selected</span>
+          <span class="small text-muted">tickets chosen</span>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <select class="form-select form-select-sm rounded-0" style="width: 200px;" id="bulkSprintSelect">
+            <option value="">Move to sprint...</option>
+            <option value="backlog">Backlog</option>
+          </select>
+        </div>
+        <div class="ms-auto d-flex align-items-center gap-2">
+          <button class="btn btn-sm btn-outline-danger rounded-0" id="bulkDeleteBtn"><i class="bi bi-trash me-1"></i>Delete Selected</button>
+          <button class="btn btn-sm btn-link text-muted rounded-0 text-decoration-none" id="bulkClearBtn">Deselect All</button>
+        </div>
       </div>
-      <div class="card-body">
+    </div>
+
+    <!-- Sprint Sections Container -->
+    <div id="sprintSections" class="mb-4"></div>
+
+    <!-- Main Backlog Container -->
+    <div class="card border-0 shadow-sm rounded-0 card-accent-primary">
+      <div class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
+        <div class="d-flex align-items-center gap-2">
+          <i class="bi bi-layers-half text-primary fs-5"></i>
+          <span class="fw-bold fs-6 text-navy">Backlog</span>
+          <span class="badge bg-light text-dark border rounded-0" id="backlogCountBadge">0 tickets</span>
+        </div>
+        <button class="btn btn-sm btn-outline-primary rounded-0" id="addBacklogTicketBtn">
+          <i class="bi bi-plus-lg me-1"></i>Create Ticket
+        </button>
+      </div>
+      <div class="card-body p-3">
         <div class="backlog-list" data-sprint="backlog" id="backlogList"></div>
-        <div class="text-muted small mt-2 d-none" id="backlogEmpty">Nothing in the backlog.</div>
+        <div class="text-muted small text-center py-4 d-none" id="backlogEmpty">
+          <i class="bi bi-inbox d-block fs-3 text-muted mb-1"></i>
+          Nothing in the backlog. Drag tickets here or click "Create Ticket" to populate.
+        </div>
       </div>
     </div>
   </div>
@@ -79,40 +128,40 @@
   <!-- New Sprint Modal -->
   <div class="modal fade" id="newSprintModal" tabindex="-1">
     <div class="modal-dialog modal-lg">
-      <div class="modal-content">
+      <div class="modal-content rounded-0 border-0 shadow">
         <form id="newSprintForm">
-          <div class="modal-header">
-            <h5 class="modal-title"><i class="bi bi-plus-lg me-1"></i>New Sprint</h5>
+          <div class="modal-header border-bottom py-3">
+            <h5 class="modal-title fw-bold text-navy"><i class="bi bi-plus-lg me-2 text-primary"></i>Create New Sprint</h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
           </div>
-          <div class="modal-body">
+          <div class="modal-body p-4">
             <div class="mb-3">
-              <label class="form-label small">Name</label>
-              <input type="text" class="form-control" id="sprintName" required>
+              <label class="form-label small fw-bold text-muted text-uppercase">Sprint Name</label>
+              <input type="text" class="form-control rounded-0" id="sprintName" placeholder="e.g. Sprint 12 - Q3 Release" required>
             </div>
             <div class="mb-3">
-              <label class="form-label small">Goal</label>
+              <label class="form-label small fw-bold text-muted text-uppercase">Sprint Goal</label>
               <div id="newSprintGoalEditor"></div>
             </div>
-            <div class="row g-2">
+            <div class="row g-3 mb-3">
               <div class="col-6">
-                <label class="form-label small">Start date</label>
-                <input type="date" class="form-control" id="sprintStart">
+                <label class="form-label small fw-bold text-muted text-uppercase">Start Date</label>
+                <input type="date" class="form-control rounded-0" id="sprintStart">
               </div>
               <div class="col-6">
-                <label class="form-label small">End date</label>
-                <input type="date" class="form-control" id="sprintEnd">
+                <label class="form-label small fw-bold text-muted text-uppercase">End Date</label>
+                <input type="date" class="form-control rounded-0" id="sprintEnd">
               </div>
             </div>
-            <div class="mb-1 mt-3">
-              <label class="form-label small">Additional projects (optional)</label>
-              <select class="form-select" id="sprintLinkedProjects" multiple size="4"></select>
-              <div class="form-text">Tickets from these projects can also be added to this sprint.</div>
+            <div>
+              <label class="form-label small fw-bold text-muted text-uppercase">Additional Linked Projects (Optional)</label>
+              <select class="form-select rounded-0" id="sprintLinkedProjects" multiple size="3"></select>
+              <div class="form-text small text-muted">Hold Ctrl/Cmd to select multiple projects. Tickets from these projects can also be added to this sprint.</div>
             </div>
           </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-            <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Create Sprint</button>
+          <div class="modal-footer border-top bg-light py-2">
+            <button type="button" class="btn btn-outline-secondary rounded-0 px-3" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary rounded-0 px-4"><i class="bi bi-check-lg me-1"></i>Create Sprint</button>
           </div>
         </form>
       </div>
@@ -122,28 +171,28 @@
   <!-- Complete Sprint Modal -->
   <div class="modal fade" id="completeSprintModal" tabindex="-1">
     <div class="modal-dialog">
-      <div class="modal-content">
+      <div class="modal-content rounded-0 border-0 shadow">
         <form id="completeSprintForm">
           <input type="hidden" id="completeSprintId">
-          <div class="modal-header">
-            <h5 class="modal-title"><i class="bi bi-flag me-1"></i>Complete Sprint</h5>
+          <div class="modal-header border-bottom py-3">
+            <h5 class="modal-title fw-bold text-navy"><i class="bi bi-flag-fill me-2 text-success"></i>Complete Sprint</h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
           </div>
-          <div class="modal-body">
-            <p class="small text-muted">What should happen to tickets that aren't Done?</p>
-            <div class="form-check">
-              <input class="form-check-input" type="radio" name="incompleteAction" id="actionBacklog" value="backlog" checked>
-              <label class="form-check-label" for="actionBacklog">Move to backlog</label>
-            </div>
+          <div class="modal-body p-4">
+            <p class="small text-muted mb-3">Select what should happen to any open or incomplete tickets remaining in this sprint:</p>
             <div class="form-check mb-2">
-              <input class="form-check-input" type="radio" name="incompleteAction" id="actionNextSprint" value="next_sprint">
-              <label class="form-check-label" for="actionNextSprint">Move to another sprint</label>
+              <input class="form-check-input" type="radio" name="incompleteAction" id="actionBacklog" value="backlog" checked>
+              <label class="form-check-label fw-semibold" for="actionBacklog">Move incomplete tickets to Backlog</label>
             </div>
-            <select class="form-select form-select-sm d-none" id="targetSprintSelect"></select>
+            <div class="form-check mb-3">
+              <input class="form-check-input" type="radio" name="incompleteAction" id="actionNextSprint" value="next_sprint">
+              <label class="form-check-label fw-semibold" for="actionNextSprint">Move incomplete tickets to another sprint</label>
+            </div>
+            <select class="form-select form-select-sm rounded-0 d-none" id="targetSprintSelect"></select>
           </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-            <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Complete Sprint</button>
+          <div class="modal-footer border-top bg-light py-2">
+            <button type="button" class="btn btn-outline-secondary rounded-0 px-3" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-success rounded-0 px-4"><i class="bi bi-check-lg me-1"></i>Complete Sprint</button>
           </div>
         </form>
       </div>
@@ -153,52 +202,52 @@
   <!-- New Ticket Modal -->
   <div class="modal fade" id="newTicketModal" tabindex="-1">
     <div class="modal-dialog modal-lg">
-      <div class="modal-content">
+      <div class="modal-content rounded-0 border-0 shadow">
         <form id="newTicketForm">
           <input type="hidden" id="newTicketSprintId">
-          <div class="modal-header">
-            <h5 class="modal-title"><i class="bi bi-plus-lg me-1"></i>Create Ticket</h5>
+          <div class="modal-header border-bottom py-3">
+            <h5 class="modal-title fw-bold text-navy"><i class="bi bi-plus-circle me-2 text-primary"></i>Create Ticket</h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
           </div>
-          <div class="modal-body">
+          <div class="modal-body p-4">
             <div class="mb-3">
-              <label class="form-label small">Summary</label>
-              <input type="text" class="form-control" id="ticket_summary" required>
+              <label class="form-label small fw-bold text-muted text-uppercase">Summary</label>
+              <input type="text" class="form-control rounded-0" id="ticket_summary" placeholder="Brief ticket summary..." required>
             </div>
             <div class="mb-3">
-              <label class="form-label small">Description</label>
-              <textarea class="form-control" id="ticket_description" rows="3"></textarea>
+              <label class="form-label small fw-bold text-muted text-uppercase">Description</label>
+              <textarea class="form-control rounded-0" id="ticket_description" rows="3" placeholder="Provide detailed context or acceptance criteria..."></textarea>
             </div>
-            <div class="row g-2">
+            <div class="row g-3">
               <div class="col-md-4">
-                <label class="form-label small">Issue type</label>
-                <select class="form-select form-select-sm" id="ticket_issue_type_id" required></select>
+                <label class="form-label small fw-bold text-muted text-uppercase">Issue Type</label>
+                <select class="form-select form-select-sm rounded-0" id="ticket_issue_type_id" required></select>
               </div>
               <div class="col-md-4">
-                <label class="form-label small">Priority</label>
-                <select class="form-select form-select-sm" id="ticket_priority_id"><option value="">None</option></select>
+                <label class="form-label small fw-bold text-muted text-uppercase">Priority</label>
+                <select class="form-select form-select-sm rounded-0" id="ticket_priority_id"><option value="">None</option></select>
               </div>
               <div class="col-md-4">
-                <label class="form-label small">Assignee</label>
-                <select class="form-select form-select-sm" id="ticket_assignee_id"><option value="">Unassigned</option></select>
+                <label class="form-label small fw-bold text-muted text-uppercase">Assignee</label>
+                <select class="form-select form-select-sm rounded-0" id="ticket_assignee_id"><option value="">Unassigned</option></select>
               </div>
               <div class="col-md-4">
-                <label class="form-label small">Story points</label>
-                <input type="number" min="0" class="form-control form-control-sm" id="ticket_story_points">
+                <label class="form-label small fw-bold text-muted text-uppercase">Story Points</label>
+                <input type="number" min="0" class="form-control form-control-sm rounded-0" id="ticket_story_points" placeholder="e.g. 3">
               </div>
               <div class="col-md-4">
-                <label class="form-label small">Due date</label>
-                <input type="date" class="form-control form-control-sm" id="ticket_due_date">
+                <label class="form-label small fw-bold text-muted text-uppercase">Due Date</label>
+                <input type="date" class="form-control form-control-sm rounded-0" id="ticket_due_date">
               </div>
               <div class="col-md-4">
-                <label class="form-label small">Original estimate (min)</label>
-                <input type="number" min="0" class="form-control form-control-sm" id="ticket_original_estimate">
+                <label class="form-label small fw-bold text-muted text-uppercase">Est. Minutes</label>
+                <input type="number" min="0" class="form-control form-control-sm rounded-0" id="ticket_original_estimate" placeholder="e.g. 120">
               </div>
             </div>
           </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-            <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Create Ticket</button>
+          <div class="modal-footer border-top bg-light py-2">
+            <button type="button" class="btn btn-outline-secondary rounded-0 px-3" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary rounded-0 px-4"><i class="bi bi-check-lg me-1"></i>Create Ticket</button>
           </div>
         </form>
       </div>
@@ -221,7 +270,7 @@
       const bg = variant === 'success' ? 'text-bg-success' : 'text-bg-danger';
       const icon = variant === 'success' ? 'bi-check-circle' : 'bi-exclamation-triangle';
       const toastEl = $(
-        '<div class="toast align-items-center ' + bg + ' border-0" role="alert">' +
+        '<div class="toast align-items-center ' + bg + ' border-0 rounded-0 shadow" role="alert">' +
           '<div class="d-flex">' +
             '<div class="toast-body"><i class="bi ' + icon + ' me-2"></i>' + message + '</div>' +
             '<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>' +
@@ -247,7 +296,6 @@
 
     let selectedIds = new Set();
     let backlogData = null;
-
     let projectsById = {};
 
     function loadProject() {
@@ -270,7 +318,7 @@
       if (!s.linked_project_ids || !s.linked_project_ids.length) return '';
       return s.linked_project_ids.map(function (id) {
         const p = projectsById[id];
-        return '<span class="badge bg-light text-dark border ms-1">' + escapeHtml(p ? p.key : ('#' + id)) + '</span>';
+        return '<span class="badge bg-light text-dark border rounded-0 ms-1">' + escapeHtml(p ? p.key : ('#' + id)) + '</span>';
       }).join('');
     }
 
@@ -288,24 +336,29 @@
     }
 
     function rowHtml(t) {
+      const issueColor = (t.issue_type && t.issue_type.color) ? t.issue_type.color : '#6366f1';
+      const issueName = (t.issue_type && t.issue_type.name) ? t.issue_type.name : 'Task';
       return '<div class="backlog-row" data-id="' + t.id + '">' +
-        '<input type="checkbox" class="row-checkbox" data-id="' + t.id + '">' +
-        '<span class="text-muted small fw-semibold" style="width: 70px;">' + escapeHtml(t.ticket_key) + '</span>' +
-        '<span class="flex-grow-1 small ticket-open" data-id="' + t.id + '" style="cursor:pointer;">' + escapeHtml(t.summary) + '</span>' +
-        '<span class="badge" style="background-color:' + t.issue_type.color + '; color:#fff;">' + escapeHtml(t.issue_type.name) + '</span>' +
-        (t.story_points != null ? '<span class="badge bg-light text-dark border">' + t.story_points + '</span>' : '') +
-        '<span class="small text-muted" style="width: 120px;">' + escapeHtml(t.assignee_name || 'Unassigned') + '</span>' +
+        '<input type="checkbox" class="form-check-input row-checkbox m-0" data-id="' + t.id + '">' +
+        '<span class="badge bg-light text-dark border font-monospace me-1" style="width: 75px; font-size: 0.75rem;">' + escapeHtml(t.ticket_key) + '</span>' +
+        '<span class="flex-grow-1 fw-semibold text-navy ticket-open" data-id="' + t.id + '" style="cursor:pointer;">' + escapeHtml(t.summary) + '</span>' +
+        '<span class="badge rounded-0 px-2 py-1" style="background-color:' + issueColor + '; color:#fff;">' + escapeHtml(issueName) + '</span>' +
+        (t.story_points != null ? '<span class="badge bg-secondary rounded-0 px-2 py-1" title="Story Points">' + t.story_points + ' pts</span>' : '') +
+        '<span class="small text-muted d-flex align-items-center gap-1" style="width: 140px;">' +
+          '<i class="bi bi-person-circle text-secondary"></i>' +
+          '<span class="text-truncate">' + escapeHtml(t.assignee_name || 'Unassigned') + '</span>' +
+        '</span>' +
       '</div>';
     }
 
     function sprintStatsHtml(s) {
-      return '<span class="small text-muted">' + s.ticket_count + ' ticket' + (s.ticket_count === 1 ? '' : 's') +
-        (s.total_points ? (' &middot; ' + s.completed_points + '/' + s.total_points + ' pts') : '') +
-        (s.start_date ? (' &middot; ' + s.start_date + ' &rarr; ' + s.end_date) : '') + '</span>';
+      const pts = (s.total_points != null) ? (' &middot; ' + (s.completed_points || 0) + '/' + s.total_points + ' pts') : '';
+      const dates = s.start_date ? (' &middot; ' + s.start_date + ' &rarr; ' + s.end_date) : '';
+      return '<span class="small text-muted fw-normal">' + (s.ticket_count || 0) + ' ticket' + (s.ticket_count === 1 ? '' : 's') + pts + dates + '</span>';
     }
 
     function sprintDetailsLink(s) {
-      return '<a href="/sprints/' + s.id + '" class="text-decoration-none small ms-1" title="View sprint details"><i class="bi bi-box-arrow-up-right"></i></a>';
+      return '<a href="/sprints/' + s.id + '" class="btn btn-sm btn-link text-decoration-none p-0 ms-2 text-primary" title="View sprint details"><i class="bi bi-box-arrow-up-right"></i></a>';
     }
 
     function renderBacklog() {
@@ -314,40 +367,65 @@
 
       if (data.active_sprint) {
         const s = data.active_sprint;
-        html += '<div class="card mb-3">' +
-          '<div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">' +
-            '<div><span class="badge bg-success me-2">Active</span><strong>' + escapeHtml(s.name) + '</strong>' + linkedProjectBadges(s) + sprintDetailsLink(s) +
-              '<br>' + sprintStatsHtml(s) + '</div>' +
-            '<button class="btn btn-sm btn-outline-primary complete-sprint-btn" data-id="' + s.id + '"><i class="bi bi-flag me-1"></i>Complete Sprint</button>' +
+        const tickets = data.active_sprint_tickets || [];
+        const completedPts = s.completed_points || 0;
+        const totalPts = s.total_points || 0;
+        const pct = totalPts > 0 ? Math.min(100, Math.round((completedPts / totalPts) * 100)) : 0;
+
+        html += '<div class="card mb-4 border-0 shadow-sm rounded-0 card-accent-success">' +
+          '<div class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">' +
+            '<div>' +
+              '<div class="d-flex align-items-center gap-2 mb-1">' +
+                '<span class="badge bg-success rounded-0 px-2 py-1"><i class="bi bi-play-circle me-1"></i>Active Sprint</span>' +
+                '<h5 class="mb-0 fw-bold text-navy">' + escapeHtml(s.name) + '</h5>' +
+                linkedProjectBadges(s) + sprintDetailsLink(s) +
+              '</div>' +
+              sprintStatsHtml(s) +
+            '</div>' +
+            '<div class="d-flex align-items-center gap-3">' +
+              (totalPts > 0 ? '<div class="text-end" style="min-width: 140px;">' +
+                '<div class="small fw-semibold text-muted mb-1">' + pct + '% Complete</div>' +
+                '<div class="progress rounded-0" style="height: 6px;"><div class="progress-bar bg-success" style="width:' + pct + '%"></div></div>' +
+              '</div>' : '') +
+              '<button class="btn btn-sm btn-outline-success rounded-0 complete-sprint-btn" data-id="' + s.id + '"><i class="bi bi-flag me-1"></i>Complete Sprint</button>' +
+            '</div>' +
           '</div>' +
-          '<div class="card-body"><div class="backlog-list" data-sprint="' + s.id + '" id="sprintList' + s.id + '">' +
-            data.active_sprint_tickets.map(rowHtml).join('') + '</div></div>' +
+          '<div class="card-body p-3"><div class="backlog-list" data-sprint="' + s.id + '" id="sprintList' + s.id + '">' +
+            tickets.map(rowHtml).join('') + '</div></div>' +
         '</div>';
       }
 
-      data.future_sprints.forEach(function (s) {
+      (data.future_sprints || []).forEach(function (s) {
         const tickets = data.future_sprint_tickets[s.id] || [];
-        html += '<div class="card mb-3">' +
-          '<div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">' +
-            '<div><strong>' + escapeHtml(s.name) + '</strong>' + linkedProjectBadges(s) + sprintDetailsLink(s) +
-              '<br>' + sprintStatsHtml(s) + '</div>' +
-            '<span>' +
-              (!data.active_sprint ? '<button class="btn btn-sm btn-outline-success start-sprint-btn" data-id="' + s.id + '"><i class="bi bi-play-fill me-1"></i>Start Sprint</button> ' : '') +
-              '<button class="btn btn-sm btn-outline-danger delete-sprint-btn" data-id="' + s.id + '"><i class="bi bi-trash"></i></button>' +
-            '</span>' +
+        html += '<div class="card mb-4 border-0 shadow-sm rounded-0 card-accent-indigo">' +
+          '<div class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">' +
+            '<div>' +
+              '<div class="d-flex align-items-center gap-2 mb-1">' +
+                '<span class="badge bg-light text-dark border rounded-0 px-2 py-1">Future Sprint</span>' +
+                '<h5 class="mb-0 fw-bold text-navy">' + escapeHtml(s.name) + '</h5>' +
+                linkedProjectBadges(s) + sprintDetailsLink(s) +
+              '</div>' +
+              sprintStatsHtml(s) +
+            '</div>' +
+            '<div class="d-flex align-items-center gap-2">' +
+              (!data.active_sprint ? '<button class="btn btn-sm btn-outline-success rounded-0 start-sprint-btn" data-id="' + s.id + '"><i class="bi bi-play-fill me-1"></i>Start Sprint</button>' : '') +
+              '<button class="btn btn-sm btn-outline-danger rounded-0 delete-sprint-btn" data-id="' + s.id + '" title="Delete Sprint"><i class="bi bi-trash"></i></button>' +
+            '</div>' +
           '</div>' +
-          '<div class="card-body"><div class="backlog-list" data-sprint="' + s.id + '" id="sprintList' + s.id + '">' +
+          '<div class="card-body p-3"><div class="backlog-list" data-sprint="' + s.id + '" id="sprintList' + s.id + '">' +
             tickets.map(rowHtml).join('') + '</div></div>' +
         '</div>';
       });
 
       $('#sprintSections').html(html);
-      $('#backlogList').html(data.backlog_tickets.map(rowHtml).join(''));
-      $('#backlogEmpty').toggleClass('d-none', data.backlog_tickets.length > 0);
+      const backlogTickets = data.backlog_tickets || [];
+      $('#backlogList').html(backlogTickets.map(rowHtml).join(''));
+      $('#backlogCountBadge').text(backlogTickets.length + ' ticket' + (backlogTickets.length === 1 ? '' : 's'));
+      $('#backlogEmpty').toggleClass('d-none', backlogTickets.length > 0);
 
       // Populate bulk "move to" and "complete sprint target" selects
-      const sprintOptions = data.future_sprints.map(function (s) { return '<option value="' + s.id + '">' + escapeHtml(s.name) + '</option>'; }).join('');
-      $('#bulkSprintSelect').html('<option value="">Move to&hellip;</option><option value="backlog">Backlog</option>' +
+      const sprintOptions = (data.future_sprints || []).map(function (s) { return '<option value="' + s.id + '">' + escapeHtml(s.name) + '</option>'; }).join('');
+      $('#bulkSprintSelect').html('<option value="">Move to sprint...</option><option value="backlog">Backlog</option>' +
         (data.active_sprint ? '<option value="' + data.active_sprint.id + '">' + escapeHtml(data.active_sprint.name) + '</option>' : '') + sprintOptions);
       $('#targetSprintSelect').html(sprintOptions);
 
@@ -388,7 +466,7 @@
       updateBulkBar();
     });
     function updateBulkBar() {
-      $('#bulkCount').text(selectedIds.size + ' selected');
+      $('#bulkCount').text(selectedIds.size);
       $('#bulkActionBar').toggleClass('d-none', selectedIds.size === 0);
     }
     $('#bulkClearBtn').on('click', function () {
@@ -436,7 +514,7 @@
     });
     $('#newSprintForm').on('submit', function (e) {
       e.preventDefault();
-      const linkedProjectIds = $('#sprintLinkedProjects').val().map(function (v) { return parseInt(v, 10); });
+      const linkedProjectIds = ($('#sprintLinkedProjects').val() || []).map(function (v) { return parseInt(v, 10); });
       const goalHtml = newSprintGoalQuill.getText().trim() ? newSprintGoalQuill.root.innerHTML : null;
       $.ajax({
         url: '/api/v1/projects/' + projectId + '/sprints', method: 'POST', contentType: 'application/json', headers: authHeader,

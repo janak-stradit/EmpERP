@@ -8,15 +8,26 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
   <link href="/static/css/app.css" rel="stylesheet">
   <style nonce="{{ csp_nonce }}">
-    #viewTabs.nav-pills .nav-link { font-size: .8rem; font-weight: 700; color: var(--emp-text-muted); padding: .4rem .9rem; border: 1px solid transparent; }
-    #viewTabs.nav-pills .nav-link:hover { background: var(--emp-secondary-light); }
-    #viewTabs.nav-pills .nav-link.active { background: var(--emp-primary); color: #fff; }
+    #viewTabs.nav-pills .nav-link {
+      font-size: .8rem; font-weight: 700; color: var(--emp-text-muted);
+      padding: .45rem 1rem; border-radius: 0px; border: 1px solid transparent; transition: all 0.15s ease;
+    }
+    #viewTabs.nav-pills .nav-link:hover { background: var(--emp-secondary-light); color: var(--emp-text-main); }
+    #viewTabs.nav-pills .nav-link.active { background: var(--emp-primary); color: #fff; box-shadow: var(--emp-shadow-xs); }
+    
     .chart-card-body { height: 280px; position: relative; }
-    .trend-up { color: #198754; }
-    .trend-down { color: #dc3545; }
-    .activity-item { display: flex; gap: .6rem; padding: .5rem 0; border-bottom: 1px solid rgba(0,0,0,.06); }
+    .trend-up { color: #15803d; }
+    .trend-down { color: #b91c1c; }
+    
+    .activity-item {
+      display: flex; gap: .75rem; padding: .65rem 0; border-bottom: 1px solid var(--emp-border);
+      align-items: flex-start;
+    }
     .activity-item:last-child { border-bottom: none; }
-    .activity-avatar { width: 28px; height: 28px; border-radius: 50%; background: #6366f1; color: #fff; font-size: .7rem; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .activity-avatar {
+      width: 32px; height: 32px; border-radius: 50%; background: #4f46e5; color: #fff;
+      font-size: .725rem; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
   </style>
 </head>
 <body>
@@ -36,97 +47,139 @@
   <div class="toast-container position-fixed top-0 end-0 p-3" id="toastContainer"></div>
 
   <div class="container-fluid px-4 pb-5">
-    <a href="/tickets" class="btn btn-sm btn-link ps-0 mb-2"><i class="bi bi-arrow-left me-1"></i>All Projects</a>
+    <a href="/tickets" class="btn btn-sm btn-link text-decoration-none text-muted ps-0 mb-2"><i class="bi bi-arrow-left me-1"></i>All Projects</a>
 
-    <div class="emp-page-header d-flex justify-content-between align-items-end flex-wrap gap-2">
+    <div class="emp-page-header d-flex justify-content-between align-items-end flex-wrap gap-2 mb-3">
       <div>
-        <div class="emp-breadcrumb"><i class="bi bi-graph-up"></i> Dashboard</div>
-        <h1><span class="badge bg-secondary" id="projectKeyBadge">&mdash;</span> <span id="projectName"></span></h1>
+        <div class="emp-breadcrumb text-uppercase tracking-wider fw-bold text-muted mb-1" style="font-size: 0.725rem;">
+          <i class="bi bi-graph-up me-1"></i> Project Analytics
+        </div>
+        <h1 class="h3 fw-bold mb-0 d-flex align-items-center gap-2">
+          <span class="badge bg-dark rounded-0 px-2 py-1 fs-6" id="projectKeyBadge">&mdash;</span>
+          <span id="projectName">Loading Project...</span>
+        </h1>
       </div>
-      <a class="btn btn-outline-primary btn-sm" id="exportWorkloadBtn" href="#">
+      <a class="btn btn-outline-primary btn-sm rounded-0 shadow-sm px-3" id="exportWorkloadBtn" href="#">
         <i class="bi bi-download me-1"></i>Export Workload (CSV)
       </a>
     </div>
 
-    <ul class="nav nav-pills mb-3" id="viewTabs"></ul>
+    <!-- Navigation view tabs -->
+    <ul class="nav nav-pills mb-4 pb-1 border-bottom" id="viewTabs"></ul>
 
-    <!-- KPI cards -->
+    <!-- KPI Summary Stat Cards -->
     <div class="row g-3 mb-4" id="kpiRow"></div>
 
-    <!-- Charts row 1 -->
-    <div class="row g-3 mb-3">
+    <!-- Analytics Charts Row 1 -->
+    <div class="row g-3 mb-4">
       <div class="col-lg-6">
-        <div class="card h-100">
-          <div class="card-header fw-semibold"><i class="bi bi-pie-chart me-1"></i>Status Distribution</div>
-          <div class="card-body chart-card-body"><canvas id="statusChart"></canvas></div>
+        <div class="card border-0 shadow-sm rounded-0 h-100 card-accent-indigo">
+          <div class="card-header bg-white border-bottom py-3 fw-bold text-navy d-flex align-items-center gap-2">
+            <i class="bi bi-pie-chart-fill text-indigo fs-5"></i>
+            <span>Status Distribution</span>
+          </div>
+          <div class="card-body chart-card-body p-3">
+            <canvas id="statusChart"></canvas>
+          </div>
         </div>
       </div>
       <div class="col-lg-6">
-        <div class="card h-100">
-          <div class="card-header fw-semibold"><i class="bi bi-graph-down me-1"></i>Sprint Burndown</div>
-          <div class="card-body chart-card-body">
+        <div class="card border-0 shadow-sm rounded-0 h-100 card-accent-danger">
+          <div class="card-header bg-white border-bottom py-3 fw-bold text-navy d-flex align-items-center gap-2">
+            <i class="bi bi-graph-down text-danger fs-5"></i>
+            <span>Sprint Burndown</span>
+          </div>
+          <div class="card-body chart-card-body p-3">
             <canvas id="burndownChart"></canvas>
-            <div class="text-muted small text-center pt-5 d-none" id="noBurndown">No active sprint with dates set.</div>
+            <div class="text-muted small text-center pt-5 d-none" id="noBurndown">
+              <i class="bi bi-calendar-x d-block fs-3 text-muted mb-1"></i>
+              No active sprint with dates set.
+            </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Charts row 2 -->
-    <div class="row g-3 mb-3">
+    <!-- Analytics Charts Row 2 -->
+    <div class="row g-3 mb-4">
       <div class="col-lg-6">
-        <div class="card h-100">
-          <div class="card-header fw-semibold"><i class="bi bi-bar-chart me-1"></i>Team Velocity</div>
-          <div class="card-body chart-card-body">
+        <div class="card border-0 shadow-sm rounded-0 h-100 card-accent-success">
+          <div class="card-header bg-white border-bottom py-3 fw-bold text-navy d-flex align-items-center gap-2">
+            <i class="bi bi-bar-chart-line-fill text-success fs-5"></i>
+            <span>Team Velocity (Sprints)</span>
+          </div>
+          <div class="card-body chart-card-body p-3">
             <canvas id="velocityChart"></canvas>
-            <div class="text-muted small text-center pt-5 d-none" id="noVelocity">No completed sprints yet.</div>
+            <div class="text-muted small text-center pt-5 d-none" id="noVelocity">
+              <i class="bi bi-inbox d-block fs-3 text-muted mb-1"></i>
+              No completed sprints yet.
+            </div>
           </div>
         </div>
       </div>
       <div class="col-lg-6">
-        <div class="card h-100">
-          <div class="card-header fw-semibold"><i class="bi bi-people me-1"></i>Workload Distribution</div>
-          <div class="card-body chart-card-body"><canvas id="workloadChart"></canvas></div>
+        <div class="card border-0 shadow-sm rounded-0 h-100 card-accent-primary">
+          <div class="card-header bg-white border-bottom py-3 fw-bold text-navy d-flex align-items-center gap-2">
+            <i class="bi bi-people-fill text-primary fs-5"></i>
+            <span>Workload Distribution</span>
+          </div>
+          <div class="card-body chart-card-body p-3">
+            <canvas id="workloadChart"></canvas>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- Charts row 3 -->
-    <div class="row g-3 mb-3">
+    <!-- Analytics Charts Row 3 -->
+    <div class="row g-3 mb-4">
       <div class="col-lg-6">
-        <div class="card h-100">
-          <div class="card-header fw-semibold"><i class="bi bi-graph-up me-1"></i>Ticket Creation Trend (30 days)</div>
-          <div class="card-body chart-card-body"><canvas id="creationChart"></canvas></div>
+        <div class="card border-0 shadow-sm rounded-0 h-100 card-accent-info">
+          <div class="card-header bg-white border-bottom py-3 fw-bold text-navy d-flex align-items-center gap-2">
+            <i class="bi bi-graph-up-arrow text-info fs-5"></i>
+            <span>Ticket Creation Trend (30 Days)</span>
+          </div>
+          <div class="card-body chart-card-body p-3">
+            <canvas id="creationChart"></canvas>
+          </div>
         </div>
       </div>
       <div class="col-lg-6">
-        <div class="card h-100">
-          <div class="card-header fw-semibold"><i class="bi bi-hourglass-split me-1"></i>Resolution Time</div>
-          <div class="card-body chart-card-body"><canvas id="resolutionChart"></canvas></div>
+        <div class="card border-0 shadow-sm rounded-0 h-100 card-accent-warning">
+          <div class="card-header bg-white border-bottom py-3 fw-bold text-navy d-flex align-items-center gap-2">
+            <i class="bi bi-hourglass-split text-warning fs-5"></i>
+            <span>Resolution Time Breakdown</span>
+          </div>
+          <div class="card-body chart-card-body p-3">
+            <canvas id="resolutionChart"></canvas>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- Widgets -->
+    <!-- Bottom Widgets Row -->
     <div class="row g-3 mb-3">
       <div class="col-lg-4">
-        <div class="card h-100">
-          <div class="card-header fw-semibold d-flex justify-content-between">
-            <span><i class="bi bi-person-check me-1"></i>My Open Tickets</span>
+        <div class="card border-0 shadow-sm rounded-0 h-100">
+          <div class="card-header bg-white border-bottom py-3 fw-bold text-navy d-flex justify-content-between align-items-center">
+            <span><i class="bi bi-person-check-fill me-2 text-primary"></i>My Open Tickets</span>
           </div>
           <div class="card-body p-0" id="myTicketsList"></div>
         </div>
       </div>
       <div class="col-lg-4">
-        <div class="card h-100">
-          <div class="card-header fw-semibold"><i class="bi bi-activity me-1"></i>Recent Activity</div>
-          <div class="card-body" style="max-height: 320px; overflow-y: auto;" id="activityList"></div>
+        <div class="card border-0 shadow-sm rounded-0 h-100">
+          <div class="card-header bg-white border-bottom py-3 fw-bold text-navy d-flex align-items-center">
+            <i class="bi bi-activity me-2 text-info"></i><span>Recent Activity</span>
+          </div>
+          <div class="card-body p-3" style="max-height: 340px; overflow-y: auto;" id="activityList"></div>
         </div>
       </div>
       <div class="col-lg-4">
-        <div class="card h-100">
-          <div class="card-header fw-semibold"><i class="bi bi-speedometer2 me-1"></i>Sprint Progress</div>
-          <div class="card-body" id="sprintProgressCard">
+        <div class="card border-0 shadow-sm rounded-0 h-100">
+          <div class="card-header bg-white border-bottom py-3 fw-bold text-navy d-flex align-items-center">
+            <i class="bi bi-speedometer2 me-2 text-success"></i><span>Active Sprint Progress</span>
+          </div>
+          <div class="card-body p-3" id="sprintProgressCard">
             <div class="text-muted small">No active sprint.</div>
           </div>
         </div>
@@ -149,7 +202,7 @@
       const bg = variant === 'success' ? 'text-bg-success' : 'text-bg-danger';
       const icon = variant === 'success' ? 'bi-check-circle' : 'bi-exclamation-triangle';
       const toastEl = $(
-        '<div class="toast align-items-center ' + bg + ' border-0" role="alert">' +
+        '<div class="toast align-items-center ' + bg + ' border-0 rounded-0 shadow" role="alert">' +
           '<div class="d-flex">' +
             '<div class="toast-body"><i class="bi ' + icon + ' me-2"></i>' + message + '</div>' +
             '<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>' +
@@ -211,14 +264,17 @@
         const up = trend >= 0;
         const cls = up ? 'trend-up' : 'trend-down';
         const arrow = up ? 'bi-arrow-up-short' : 'bi-arrow-down-short';
-        trendHtml = '<span class="' + cls + ' small fw-semibold"><i class="bi ' + arrow + '"></i>' + Math.abs(trend) + '% vs last week</span>';
+        trendHtml = '<span class="' + cls + ' small fw-bold"><i class="bi ' + arrow + '"></i>' + Math.abs(trend) + '% vs last week</span>';
       }
       return '<div class="col-sm-6 col-lg-3">' +
-        '<div class="card emp-stat-card shadow-sm border-0 card-accent-' + accent + ' h-100">' +
+        '<div class="card emp-stat-card border-0 shadow-sm card-accent-' + accent + ' h-100">' +
           '<div class="card-body p-3">' +
             '<div class="d-flex align-items-center justify-content-between">' +
-              '<div><span class="text-muted small fw-bold text-uppercase d-block mb-1">' + title + '</span>' +
-              '<h3 class="fw-bold mb-1 text-navy">' + kpi.value + '</h3>' + trendHtml + '</div>' +
+              '<div>' +
+                '<span class="text-muted small fw-bold text-uppercase d-block mb-1" style="font-size: 0.725rem;">' + title + '</span>' +
+                '<h2 class="fw-bold mb-1 text-navy">' + kpi.value + '</h2>' +
+                trendHtml +
+              '</div>' +
               '<div class="emp-stat-icon ' + accent + '"><i class="bi ' + icon + '"></i></div>' +
             '</div>' +
           '</div>' +
@@ -246,7 +302,7 @@
             labels: d.status_distribution.map(function (s) { return s.name; }),
             datasets: [{ data: d.status_distribution.map(function (s) { return s.count; }), backgroundColor: d.status_distribution.map(function (s) { return s.color; }), borderWidth: 2, borderColor: '#fff' }]
           },
-          options: { responsive: true, maintainAspectRatio: false, cutout: '68%', plugins: { legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11 } } } } }
+          options: { responsive: true, maintainAspectRatio: false, cutout: '68%', plugins: { legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11, family: "'Plus Jakarta Sans', sans-serif" } } } } }
         });
 
         // Workload distribution
@@ -254,7 +310,7 @@
         const workload = d.workload_distribution.slice(0, 10);
         charts.workload = new Chart(document.getElementById('workloadChart'), {
           type: 'bar',
-          data: { labels: workload.map(function (w) { return w.employee_name; }), datasets: [{ label: 'Open tickets', data: workload.map(function (w) { return w.open_count; }), backgroundColor: '#4f46e5', borderRadius: 4 }] },
+          data: { labels: workload.map(function (w) { return w.employee_name; }), datasets: [{ label: 'Open tickets', data: workload.map(function (w) { return w.open_count; }), backgroundColor: '#4f46e5', borderRadius: 0 }] },
           options: {
             indexAxis: 'y', responsive: true, maintainAspectRatio: false,
             scales: { x: { beginAtZero: true, ticks: { precision: 0 } }, y: { grid: { display: false } } },
@@ -266,7 +322,7 @@
         destroyChart('creation');
         charts.creation = new Chart(document.getElementById('creationChart'), {
           type: 'line',
-          data: { labels: d.creation_trend.map(function (p) { return p.date.slice(5); }), datasets: [{ label: 'Created', data: d.creation_trend.map(function (p) { return p.count; }), borderColor: '#0d6efd', backgroundColor: 'rgba(13,110,253,.1)', fill: true, tension: .3, pointRadius: 0 }] },
+          data: { labels: d.creation_trend.map(function (p) { return p.date.slice(5); }), datasets: [{ label: 'Created', data: d.creation_trend.map(function (p) { return p.count; }), borderColor: '#0284c7', backgroundColor: 'rgba(2,132,199,.1)', fill: true, tension: .3, pointRadius: 2 }] },
           options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }, plugins: { legend: { display: false } } }
         });
 
@@ -274,7 +330,7 @@
         destroyChart('resolution');
         charts.resolution = new Chart(document.getElementById('resolutionChart'), {
           type: 'bar',
-          data: { labels: d.resolution_time_buckets.map(function (b) { return b.label; }), datasets: [{ label: 'Tickets', data: d.resolution_time_buckets.map(function (b) { return b.count; }), backgroundColor: '#16a34a', borderRadius: 4 }] },
+          data: { labels: d.resolution_time_buckets.map(function (b) { return b.label; }), datasets: [{ label: 'Tickets', data: d.resolution_time_buckets.map(function (b) { return b.count; }), backgroundColor: '#d97706', borderRadius: 0 }] },
           options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }, plugins: { legend: { display: false } } }
         });
 
@@ -282,26 +338,27 @@
         $('#myTicketsList').html(
           (d.my_open_tickets.length ? d.my_open_tickets.map(function (t) {
             const overdue = t.due_date && new Date(t.due_date) < new Date();
-            return '<a class="d-block text-decoration-none text-body px-3 py-2 border-bottom" href="/tickets/' + t.id + '">' +
-              '<div class="d-flex justify-content-between align-items-center">' +
-                '<span class="small"><strong>' + escapeHtml(t.ticket_key) + '</strong> ' + escapeHtml(t.summary) + '</span>' +
-                '<span class="badge" style="background-color:' + t.status_color + '; color:#fff;">' + escapeHtml(t.status_name) + '</span>' +
+            const statusColor = t.status_color || '#6366f1';
+            return '<a class="d-block text-decoration-none text-body p-3 border-bottom hover-bg-light" href="/tickets/' + t.id + '">' +
+              '<div class="d-flex justify-content-between align-items-center mb-1">' +
+                '<span class="small fw-semibold text-navy"><strong class="font-monospace text-primary me-1">' + escapeHtml(t.ticket_key) + '</strong> ' + escapeHtml(t.summary) + '</span>' +
+                '<span class="badge rounded-0 px-2 py-1 ms-2" style="background-color:' + statusColor + '; color:#fff;">' + escapeHtml(t.status_name) + '</span>' +
               '</div>' +
-              (t.due_date ? '<div class="small ' + (overdue ? 'text-danger fw-semibold' : 'text-muted') + '"><i class="bi bi-calendar-event me-1"></i>' + t.due_date + '</div>' : '') +
+              (t.due_date ? '<div class="small ' + (overdue ? 'text-danger fw-bold' : 'text-muted') + '"><i class="bi bi-calendar-event me-1"></i>Due: ' + t.due_date + '</div>' : '') +
             '</a>';
-          }).join('') : '<div class="text-muted small p-3">Nothing assigned to you right now.</div>')
+          }).join('') : '<div class="text-muted small p-3 text-center">Nothing assigned to you right now.</div>')
         );
 
         // Recent activity
         $('#activityList').html(
           (d.recent_activity.length ? d.recent_activity.map(function (a) {
-            const label = { created: 'created this ticket', commented: 'commented', transitioned: 'changed status', assigned: 'changed assignee', attachment_added: 'added an attachment', attachment_deleted: 'removed an attachment', updated: 'updated ' + (a.field_name || 'a field') }[a.action] || a.action;
+            const label = { created: 'created ticket', commented: 'commented on', transitioned: 'changed status of', assigned: 'reassigned', attachment_added: 'added attachment to', attachment_deleted: 'removed attachment from', updated: 'updated ' + (a.field_name || 'a field in') }[a.action] || a.action;
             return '<div class="activity-item">' +
               '<span class="activity-avatar">' + initials(a.actor_name) + '</span>' +
-              '<div><div class="small"><strong>' + escapeHtml(a.actor_name) + '</strong> ' + label + ' on <a href="/tickets/' + a.ticket_id + '">' + escapeHtml(a.ticket_key) + '</a></div>' +
-              '<div class="text-muted small">' + timeAgo(a.created_at) + '</div></div>' +
+              '<div class="flex-grow-1"><div class="small text-navy"><strong>' + escapeHtml(a.actor_name) + '</strong> ' + label + ' <a href="/tickets/' + a.ticket_id + '" class="fw-bold text-primary text-decoration-none font-monospace">' + escapeHtml(a.ticket_key) + '</a></div>' +
+              '<div class="text-muted small" style="font-size:0.725rem;"><i class="bi bi-clock me-1"></i>' + timeAgo(a.created_at) + '</div></div>' +
             '</div>';
-          }).join('') : '<div class="text-muted small">No recent activity.</div>')
+          }).join('') : '<div class="text-muted small text-center py-4">No recent activity.</div>')
         );
 
         // Sprint progress
@@ -309,14 +366,22 @@
           const sp = d.sprint_progress;
           const pct = sp.total_points > 0 ? Math.round(sp.completed_points / sp.total_points * 100) : 0;
           $('#sprintProgressCard').html(
-            '<h6>' + escapeHtml(sp.name) + '</h6>' +
-            '<div class="progress mb-2" style="height: 10px;"><div class="progress-bar bg-success" style="width:' + pct + '%"></div></div>' +
-            '<div class="small text-muted mb-1">' + sp.completed_points + ' / ' + sp.total_points + ' points complete</div>' +
-            '<div class="small text-muted mb-1">' + sp.tickets_remaining + ' ticket(s) remaining</div>' +
-            (sp.days_remaining !== null ? '<div class="small text-muted">' + (sp.days_remaining >= 0 ? sp.days_remaining + ' day(s) remaining' : 'Sprint ended') + '</div>' : '')
+            '<div class="d-flex align-items-center justify-content-between mb-2">' +
+              '<h6 class="fw-bold text-navy mb-0">' + escapeHtml(sp.name) + '</h6>' +
+              '<span class="badge bg-success rounded-0 px-2 py-1"><i class="bi bi-play-circle me-1"></i>Active</span>' +
+            '</div>' +
+            '<div class="progress rounded-0 mb-3" style="height: 8px;"><div class="progress-bar bg-success" style="width:' + pct + '%"></div></div>' +
+            '<div class="d-flex justify-content-between small text-muted mb-2 border-bottom pb-2">' +
+              '<span>Progress</span><strong class="text-navy">' + pct + '% (' + sp.completed_points + ' / ' + sp.total_points + ' pts)</strong>' +
+            '</div>' +
+            '<div class="d-flex justify-content-between small text-muted mb-2 border-bottom pb-2">' +
+              '<span>Remaining Tickets</span><strong class="text-navy">' + sp.tickets_remaining + ' ticket(s)</strong>' +
+            '</div>' +
+            (sp.days_remaining !== null ? '<div class="d-flex justify-content-between small text-muted">' +
+              '<span>Time Left</span><strong class="' + (sp.days_remaining < 0 ? 'text-danger' : 'text-navy') + '">' + (sp.days_remaining >= 0 ? sp.days_remaining + ' day(s) remaining' : 'Sprint ended') + '</strong></div>' : '')
           );
         } else {
-          $('#sprintProgressCard').html('<div class="text-muted small">No active sprint.</div>');
+          $('#sprintProgressCard').html('<div class="text-muted small text-center py-4"><i class="bi bi-calendar-minus d-block fs-3 mb-1"></i>No active sprint.</div>');
         }
       }).fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to load dashboard.'); });
     }
@@ -331,8 +396,8 @@
             data: {
               labels: b.points.map(function (p) { return p.date.slice(5); }),
               datasets: [
-                { label: 'Ideal', data: b.points.map(function (p) { return p.ideal; }), borderColor: '#adb5bd', borderDash: [6, 4], pointRadius: 0 },
-                { label: 'Actual', data: b.points.map(function (p) { return p.actual; }), borderColor: '#dc3545', backgroundColor: 'rgba(220,53,69,.08)', fill: true, spanGaps: false, pointRadius: 2 }
+                { label: 'Ideal', data: b.points.map(function (p) { return p.ideal; }), borderColor: '#94a3b8', borderDash: [6, 4], pointRadius: 0 },
+                { label: 'Actual', data: b.points.map(function (p) { return p.actual; }), borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,.08)', fill: true, spanGaps: false, pointRadius: 3 }
               ]
             },
             options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } }, plugins: { legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } } } }
@@ -351,8 +416,8 @@
           data: {
             labels: v.sprints.map(function (s) { return s.sprint_name; }),
             datasets: [
-              { label: 'Committed', data: v.sprints.map(function (s) { return s.committed_points; }), backgroundColor: '#93c5fd', borderRadius: 4 },
-              { label: 'Completed', data: v.sprints.map(function (s) { return s.completed_points; }), backgroundColor: '#16a34a', borderRadius: 4 }
+              { label: 'Committed', data: v.sprints.map(function (s) { return s.committed_points; }), backgroundColor: '#93c5fd', borderRadius: 0 },
+              { label: 'Completed', data: v.sprints.map(function (s) { return s.completed_points; }), backgroundColor: '#16a34a', borderRadius: 0 }
             ]
           },
           options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } }, plugins: { legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } } } }

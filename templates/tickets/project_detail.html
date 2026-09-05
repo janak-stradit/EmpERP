@@ -8,17 +8,57 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
   <link href="/static/css/app.css" rel="stylesheet">
   <style nonce="{{ csp_nonce }}">
-    #viewTabs.nav-pills .nav-link { font-size: .8rem; font-weight: 700; color: var(--emp-text-muted); padding: .4rem .9rem; border: 1px solid transparent; }
-    #viewTabs.nav-pills .nav-link:hover { background: var(--emp-secondary-light); }
-    #viewTabs.nav-pills .nav-link.active { background: var(--emp-primary); color: #fff; }
-    #sprintDropdownMenu .dropdown-header { font-size: .68rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; }
+    .project-header-card {
+      background: var(--emp-surface);
+      border: 1px solid var(--emp-border);
+      box-shadow: var(--emp-shadow-sm);
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    #viewTabs.nav-pills .nav-link {
+      font-size: .85rem;
+      font-weight: 700;
+      color: var(--emp-text-muted);
+      padding: .5rem 1.1rem;
+      border-radius: 0;
+      background: transparent;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+    }
+    #viewTabs.nav-pills .nav-link:hover {
+      color: var(--emp-primary);
+    }
+    #viewTabs.nav-pills .nav-link.active {
+      color: var(--emp-primary);
+      border-bottom-color: var(--emp-primary);
+      background: transparent;
+    }
+    #sprintDropdownMenu .dropdown-header {
+      font-size: .7rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      color: var(--emp-text-muted);
+    }
     #sprintDropdownMenu li.sprint-item-row { display: flex; align-items: stretch; }
     #sprintDropdownMenu li.sprint-item-row .dropdown-item { white-space: normal; }
     #sprintDropdownMenu li.sprint-item-row .sprint-details-link { flex: 0 0 auto; width: auto; display: flex; align-items: center; }
+
+    .ticket-table-row {
+      transition: background-color .15s ease;
+    }
+    .ticket-table-row:hover {
+      background-color: var(--emp-primary-light) !important;
+    }
+    .bulk-bar {
+      position: sticky;
+      top: 1rem;
+      z-index: 1020;
+    }
   </style>
 </head>
-<body>
-  <nav class="navbar emp-navbar mb-4">
+<body class="bg-light emp-fade-in">
+  <nav class="navbar emp-navbar mb-3 shadow-sm">
     <div class="container-fluid px-4">
       <a class="navbar-brand" href="/dashboard"><i class="bi bi-buildings me-2"></i><span>Stradit Workforce</span></a>
       <button class="emp-navbar-toggler ms-auto" id="empNavToggler" aria-label="Toggle navigation">
@@ -34,48 +74,69 @@
   <div class="toast-container position-fixed top-0 end-0 p-3" id="toastContainer"></div>
 
   <div class="container-fluid px-4 pb-5">
-    <a href="/tickets" class="btn btn-sm btn-link ps-0 mb-2"><i class="bi bi-arrow-left me-1"></i>All Projects</a>
+    <a href="/tickets" class="btn btn-sm btn-link ps-0 mb-2 text-decoration-none text-muted"><i class="bi bi-arrow-left me-1"></i>All Projects</a>
 
-    <div class="emp-page-header d-flex justify-content-between align-items-start flex-wrap gap-2">
-      <div>
-        <div class="emp-breadcrumb"><span class="badge bg-secondary" id="projectKeyBadge">&mdash;</span></div>
-        <h1 id="projectName">Loading&hellip;</h1>
-        <p id="projectDescription"></p>
-      </div>
-      <div class="d-flex gap-2">
-        <div class="btn-group">
-          <a class="btn btn-outline-primary btn-sm" id="sprintBoardBtn" href="/tickets/project/{{ project_id }}/board">
-            <i class="bi bi-flag me-1"></i><span id="sprintBoardLabel">Sprint Board</span>
-          </a>
-          <button type="button" class="btn btn-outline-primary btn-sm dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
-            <span class="visually-hidden">Toggle sprints</span>
-          </button>
-          <ul class="dropdown-menu dropdown-menu-end p-0" id="sprintDropdownMenu" style="min-width: 320px; max-height: 420px; overflow-y: auto;">
-            <li class="px-3 py-2 text-muted small">Loading sprints&hellip;</li>
-          </ul>
+    <!-- Project Header Banner -->
+    <div class="project-header-card">
+      <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
+        <div>
+          <div class="d-flex align-items-center gap-2 mb-1">
+            <span class="badge bg-navy px-2 py-1 text-white fw-bold fs-6" id="projectKeyBadge">&mdash;</span>
+            <span class="badge bg-primary-subtle text-primary border px-2 py-1 fw-semibold"><i class="bi bi-kanban me-1"></i>Project</span>
+          </div>
+          <h1 id="projectName" class="fw-bold text-navy mb-1">Loading&hellip;</h1>
+          <p id="projectDescription" class="text-muted mb-0 small" style="max-width: 750px;"></p>
         </div>
-        <button class="btn btn-outline-secondary btn-sm" id="scheduleBtn" data-bs-toggle="modal" data-bs-target="#scheduleModal"><i class="bi bi-clock me-1"></i>Schedule</button>
-        <button class="btn btn-outline-secondary btn-sm" id="watchProjectBtn"><i class="bi bi-eye me-1"></i><span id="watchProjectLabel">Watch</span></button>
-        <button class="btn btn-outline-secondary btn-sm" id="exportTicketsBtn"><i class="bi bi-download me-1"></i>Export</button>
-        <button class="btn btn-outline-primary btn-sm" data-bs-toggle="offcanvas" data-bs-target="#labelsPanel">
-          <i class="bi bi-tags me-1"></i>Labels
-        </button>
-        <button class="btn btn-outline-primary btn-sm" data-bs-toggle="offcanvas" data-bs-target="#membersPanel">
-          <i class="bi bi-people me-1"></i>Members
-        </button>
-        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#newTicketModal">
-          <i class="bi bi-plus-lg me-1"></i>Create Ticket
-        </button>
+        
+        <!-- Action Toolbar -->
+        <div class="d-flex gap-2 flex-wrap align-items-center">
+          <div class="btn-group shadow-sm">
+            <a class="btn btn-outline-primary btn-sm fw-semibold" id="sprintBoardBtn" href="/tickets/project/{{ project_id }}/board">
+              <i class="bi bi-flag me-1"></i><span id="sprintBoardLabel">Sprint Board</span>
+            </a>
+            <button type="button" class="btn btn-outline-primary btn-sm dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
+              <span class="visually-hidden">Toggle sprints</span>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end p-0 shadow-lg" id="sprintDropdownMenu" style="min-width: 320px; max-height: 420px; overflow-y: auto;">
+              <li class="px-3 py-2 text-muted small">Loading sprints&hellip;</li>
+            </ul>
+          </div>
+          <button class="btn btn-outline-secondary btn-sm fw-semibold shadow-sm" id="scheduleBtn" data-bs-toggle="modal" data-bs-target="#scheduleModal">
+            <i class="bi bi-clock me-1"></i>Schedule
+          </button>
+          <button class="btn btn-outline-secondary btn-sm fw-semibold shadow-sm" id="watchProjectBtn">
+            <i class="bi bi-eye me-1"></i><span id="watchProjectLabel">Watch</span>
+          </button>
+          <button class="btn btn-outline-secondary btn-sm fw-semibold shadow-sm" id="exportTicketsBtn">
+            <i class="bi bi-download me-1"></i>Export CSV
+          </button>
+          <button class="btn btn-outline-primary btn-sm fw-semibold shadow-sm" data-bs-toggle="offcanvas" data-bs-target="#labelsPanel">
+            <i class="bi bi-tags me-1"></i>Labels
+          </button>
+          <button class="btn btn-outline-primary btn-sm fw-semibold shadow-sm" data-bs-toggle="offcanvas" data-bs-target="#membersPanel">
+            <i class="bi bi-people me-1"></i>Members
+          </button>
+          <button class="btn btn-primary btn-sm fw-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#newTicketModal">
+            <i class="bi bi-plus-lg me-1"></i>Create Ticket
+          </button>
+        </div>
       </div>
     </div>
 
-    <ul class="nav nav-pills mb-3" id="viewTabs"></ul>
+    <!-- Navigation Pills -->
+    <div class="border-bottom mb-4">
+      <ul class="nav nav-pills" id="viewTabs"></ul>
+    </div>
 
-    <div class="card mb-3">
-      <div class="card-body">
+    <!-- Filter Bar Card -->
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-body p-3">
         <div class="row g-2 align-items-center">
           <div class="col-md-3">
-            <input type="text" class="form-control form-control-sm" id="searchQ" placeholder="Search summary, description, key&hellip;">
+            <div class="input-group input-group-sm">
+              <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+              <input type="text" class="form-control" id="searchQ" placeholder="Search summary, key, description&hellip;">
+            </div>
           </div>
           <div class="col-md-2">
             <select class="form-select form-select-sm" id="filterStatus"><option value="">All statuses</option></select>
@@ -90,39 +151,52 @@
             <select class="form-select form-select-sm" id="filterPriority"><option value="">Any priority</option></select>
           </div>
           <div class="col-md-1 text-end">
-            <button class="btn btn-sm btn-outline-secondary" id="clearFiltersBtn" title="Clear filters"><i class="bi bi-x-lg"></i></button>
+            <button class="btn btn-sm btn-outline-secondary w-100" id="clearFiltersBtn" title="Clear filters"><i class="bi bi-x-lg"></i></button>
           </div>
         </div>
       </div>
     </div>
 
-    <div class="card mb-3 d-none" id="bulkActionBar">
-      <div class="card-body py-2 d-flex flex-wrap align-items-center gap-2">
-        <span class="small fw-semibold" id="bulkCount">0 selected</span>
-        <select class="form-select form-select-sm" style="width: auto;" id="bulkStatusSelect"><option value="">Change status&hellip;</option></select>
-        <select class="form-select form-select-sm" style="width: auto;" id="bulkAssigneeSelect"><option value="">Assign to&hellip;</option></select>
-        <button class="btn btn-sm btn-outline-danger ms-auto" id="bulkDeleteBtn"><i class="bi bi-trash me-1"></i>Delete</button>
-        <button class="btn btn-sm btn-outline-secondary" id="bulkClearBtn">Clear</button>
+    <!-- Bulk Action Bar -->
+    <div class="card border-primary shadow-lg mb-3 d-none bulk-bar" id="bulkActionBar">
+      <div class="card-body py-2 px-3 bg-primary-subtle d-flex flex-wrap align-items-center gap-3">
+        <span class="fw-bold text-navy small" id="bulkCount">0 selected</span>
+        <div class="d-flex gap-2">
+          <select class="form-select form-select-sm" style="width: 170px;" id="bulkStatusSelect"><option value="">Change status&hellip;</option></select>
+          <select class="form-select form-select-sm" style="width: 170px;" id="bulkAssigneeSelect"><option value="">Assign to&hellip;</option></select>
+        </div>
+        <div class="ms-auto d-flex gap-2">
+          <button class="btn btn-sm btn-danger fw-semibold" id="bulkDeleteBtn"><i class="bi bi-trash me-1"></i>Delete Selected</button>
+          <button class="btn btn-sm btn-outline-secondary fw-semibold bg-white" id="bulkClearBtn">Clear Selection</button>
+        </div>
       </div>
     </div>
 
-    <div class="card">
-      <div class="card-body">
+    <!-- Tickets Table Card -->
+    <div class="card border-0 shadow-sm">
+      <div class="card-body p-0">
         <div class="table-responsive">
-          <table class="table table-hover align-middle">
-            <thead>
+          <table class="table table-hover align-middle mb-0" id="ticketsTable">
+            <thead class="table-light text-muted small text-uppercase">
               <tr>
-                <th style="width: 2rem;"><input type="checkbox" id="selectAllCheckbox"></th>
-                <th>Key</th><th>Summary</th><th>Type</th><th>Status</th><th>Priority</th>
-                <th>Assignee</th><th>Points</th><th>Due</th><th>Updated</th>
+                <th style="width: 2.5rem;" class="ps-3"><input type="checkbox" class="form-check-input" id="selectAllCheckbox"></th>
+                <th>Key</th>
+                <th>Summary</th>
+                <th>Type</th>
+                <th>Status</th>
+                <th>Priority</th>
+                <th>Assignee</th>
+                <th>Points</th>
+                <th>Due Date</th>
+                <th class="pe-3">Updated</th>
               </tr>
             </thead>
             <tbody id="ticketRows"></tbody>
           </table>
         </div>
-        <div id="emptyState" class="emp-empty-state d-none">
-          <i class="bi bi-inbox display-6 d-block mb-2"></i>
-          No tickets match this filter.
+        <div id="emptyState" class="emp-empty-state d-none py-5 text-center text-muted">
+          <i class="bi bi-inbox display-5 d-block mb-2"></i>
+          <div>No tickets match your filter criteria.</div>
         </div>
       </div>
     </div>
@@ -130,52 +204,52 @@
 
   <!-- New Ticket Modal -->
   <div class="modal fade" id="newTicketModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-      <div class="modal-content">
+    <div class="modal-dialog modal-lg border-0">
+      <div class="modal-content shadow-lg">
         <form id="newTicketForm">
-          <div class="modal-header">
-            <h5 class="modal-title"><i class="bi bi-plus-lg me-1"></i>Create Ticket</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          <div class="modal-header bg-primary text-white">
+            <h5 class="modal-title fw-bold"><i class="bi bi-plus-lg me-2"></i>Create Ticket</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
           </div>
-          <div class="modal-body">
+          <div class="modal-body p-4">
             <div class="mb-3">
-              <label class="form-label small">Summary</label>
-              <input type="text" class="form-control" id="ticket_summary" required>
+              <label class="form-label small fw-bold">Summary</label>
+              <input type="text" class="form-control" id="ticket_summary" placeholder="Brief issue summary&hellip;" required>
             </div>
             <div class="mb-3">
-              <label class="form-label small">Description</label>
-              <textarea class="form-control" id="ticket_description" rows="3"></textarea>
+              <label class="form-label small fw-bold">Description</label>
+              <textarea class="form-control" id="ticket_description" rows="3" placeholder="Provide detailed steps or requirements&hellip;"></textarea>
             </div>
-            <div class="row g-2">
+            <div class="row g-3">
               <div class="col-md-4">
-                <label class="form-label small">Issue type</label>
+                <label class="form-label small fw-bold">Issue type</label>
                 <select class="form-select form-select-sm" id="ticket_issue_type_id" required></select>
               </div>
               <div class="col-md-4">
-                <label class="form-label small">Priority</label>
+                <label class="form-label small fw-bold">Priority</label>
                 <select class="form-select form-select-sm" id="ticket_priority_id"><option value="">None</option></select>
               </div>
               <div class="col-md-4">
-                <label class="form-label small">Assignee</label>
+                <label class="form-label small fw-bold">Assignee</label>
                 <select class="form-select form-select-sm" id="ticket_assignee_id"><option value="">Unassigned</option></select>
               </div>
               <div class="col-md-4">
-                <label class="form-label small">Story points</label>
-                <input type="number" min="0" class="form-control form-control-sm" id="ticket_story_points">
+                <label class="form-label small fw-bold">Story points</label>
+                <input type="number" min="0" class="form-control form-control-sm" id="ticket_story_points" placeholder="e.g. 5">
               </div>
               <div class="col-md-4">
-                <label class="form-label small">Due date</label>
+                <label class="form-label small fw-bold">Due date</label>
                 <input type="date" class="form-control form-control-sm" id="ticket_due_date">
               </div>
               <div class="col-md-4">
-                <label class="form-label small">Original estimate (min)</label>
-                <input type="number" min="0" class="form-control form-control-sm" id="ticket_original_estimate">
+                <label class="form-label small fw-bold">Original estimate (mins)</label>
+                <input type="number" min="0" class="form-control form-control-sm" id="ticket_original_estimate" placeholder="e.g. 120">
               </div>
             </div>
           </div>
-          <div class="modal-footer">
+          <div class="modal-footer bg-light">
             <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-            <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Create Ticket</button>
+            <button type="submit" class="btn btn-primary fw-bold"><i class="bi bi-check-lg me-1"></i>Create Ticket</button>
           </div>
         </form>
       </div>
@@ -184,21 +258,21 @@
 
   <!-- Schedule Modal -->
   <div class="modal fade" id="scheduleModal" tabindex="-1">
-    <div class="modal-dialog">
-      <div class="modal-content">
+    <div class="modal-dialog border-0">
+      <div class="modal-content shadow-lg">
         <form id="scheduleForm">
-          <div class="modal-header">
-            <h5 class="modal-title"><i class="bi bi-clock me-1"></i>Sprint Capacity Schedule</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          <div class="modal-header bg-navy text-white">
+            <h5 class="modal-title fw-bold"><i class="bi bi-clock me-2"></i>Sprint Capacity Schedule</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
           </div>
-          <div class="modal-body">
-            <p class="text-muted small">Used to plan team capacity on sprints for this project &mdash; total working hours, minus approved leave.</p>
+          <div class="modal-body p-4">
+            <p class="text-muted small">Configure working hours and active weekdays to calculate sprint capacity for team members.</p>
             <div class="mb-3">
-              <label class="form-label small">Hours per working day</label>
+              <label class="form-label small fw-bold">Hours per working day</label>
               <input type="number" min="0.5" max="24" step="0.5" class="form-control" id="scheduleHoursPerDay" required>
             </div>
             <div class="mb-1">
-              <label class="form-label small d-block">Working days</label>
+              <label class="form-label small fw-bold d-block">Working days</label>
               <div class="btn-group flex-wrap" role="group" id="scheduleWorkingDays">
                 <input type="checkbox" class="btn-check" id="wd0" value="0" autocomplete="off"><label class="btn btn-outline-primary btn-sm" for="wd0">Mon</label>
                 <input type="checkbox" class="btn-check" id="wd1" value="1" autocomplete="off"><label class="btn btn-outline-primary btn-sm" for="wd1">Tue</label>
@@ -210,9 +284,9 @@
               </div>
             </div>
           </div>
-          <div class="modal-footer">
+          <div class="modal-footer bg-light">
             <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-            <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Save Schedule</button>
+            <button type="submit" class="btn btn-primary fw-bold"><i class="bi bi-check-lg me-1"></i>Save Schedule</button>
           </div>
         </form>
       </div>
@@ -221,17 +295,18 @@
 
   <!-- Members offcanvas -->
   <div class="offcanvas offcanvas-end" tabindex="-1" id="membersPanel">
-    <div class="offcanvas-header">
-      <h5 class="offcanvas-title"><i class="bi bi-people me-1"></i>Project Members</h5>
+    <div class="offcanvas-header border-bottom">
+      <h5 class="offcanvas-title fw-bold text-navy"><i class="bi bi-people me-2 text-primary"></i>Project Members</h5>
       <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
     </div>
-    <div class="offcanvas-body">
-      <form id="addMemberForm" class="mb-3">
+    <div class="offcanvas-body p-4">
+      <form id="addMemberForm" class="mb-4 bg-light p-3 border">
+        <label class="form-label small fw-bold mb-2">Add Team Member</label>
         <div class="row g-2">
-          <div class="col-6">
+          <div class="col-12 mb-2">
             <select class="form-select form-select-sm" id="newMemberEmployeeId" required></select>
           </div>
-          <div class="col-4">
+          <div class="col-8">
             <select class="form-select form-select-sm" id="newMemberRole">
               <option value="developer">Developer</option>
               <option value="tester">Tester</option>
@@ -240,36 +315,37 @@
               <option value="viewer">Viewer</option>
             </select>
           </div>
-          <div class="col-2">
-            <button type="submit" class="btn btn-primary btn-sm w-100"><i class="bi bi-plus-lg"></i></button>
+          <div class="col-4">
+            <button type="submit" class="btn btn-primary btn-sm w-100 fw-bold"><i class="bi bi-plus-lg me-1"></i>Add</button>
           </div>
         </div>
       </form>
-      <ul class="list-group list-group-flush" id="memberList"></ul>
+      <ul class="list-group list-group-flush border" id="memberList"></ul>
     </div>
   </div>
 
   <!-- Labels offcanvas -->
   <div class="offcanvas offcanvas-end" tabindex="-1" id="labelsPanel">
-    <div class="offcanvas-header">
-      <h5 class="offcanvas-title"><i class="bi bi-tags me-1"></i>Labels</h5>
+    <div class="offcanvas-header border-bottom">
+      <h5 class="offcanvas-title fw-bold text-navy"><i class="bi bi-tags me-2 text-primary"></i>Manage Labels</h5>
       <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
     </div>
-    <div class="offcanvas-body">
-      <form id="addLabelForm" class="mb-3">
+    <div class="offcanvas-body p-4">
+      <form id="addLabelForm" class="mb-4 bg-light p-3 border">
+        <label class="form-label small fw-bold mb-2">Create New Label</label>
         <div class="row g-2">
           <div class="col-7">
             <input type="text" class="form-control form-control-sm" id="newLabelName" placeholder="Label name" required>
           </div>
           <div class="col-3">
-            <input type="color" class="form-control form-control-color form-control-sm w-100" id="newLabelColor" value="#6c757d">
+            <input type="color" class="form-control form-control-color form-control-sm w-100" id="newLabelColor" value="#4f46e5">
           </div>
           <div class="col-2">
-            <button type="submit" class="btn btn-primary btn-sm w-100"><i class="bi bi-plus-lg"></i></button>
+            <button type="submit" class="btn btn-primary btn-sm w-100 fw-bold"><i class="bi bi-plus-lg"></i></button>
           </div>
         </div>
       </form>
-      <ul class="list-group list-group-flush" id="labelList"></ul>
+      <ul class="list-group list-group-flush border" id="labelList"></ul>
     </div>
   </div>
 
@@ -304,7 +380,7 @@
     function escapeHtml(str) { return $('<div>').text(str == null ? '' : str).html(); }
 
     function colorBadge(name, color, icon) {
-      return '<span class="badge" style="background-color: ' + color + '; color: #fff;">' +
+      return '<span class="badge px-2 py-1" style="background-color: ' + color + '; color: #fff;">' +
         (icon ? '<i class="bi ' + icon + ' me-1"></i>' : '') + escapeHtml(name) + '</span>';
     }
 
@@ -339,7 +415,7 @@
       const dates = s.start_date && s.end_date ? (s.start_date + ' &rarr; ' + s.end_date) : 'No dates set';
       return '<li class="sprint-item-row">' +
         '<a class="dropdown-item d-flex justify-content-between align-items-start gap-2 py-2" href="/tickets/project/' + projectId + '/board?sprint_id=' + s.id + '">' +
-          '<span><span class="d-block fw-semibold">' + escapeHtml(s.name) + '</span>' +
+          '<span><span class="d-block fw-semibold text-navy">' + escapeHtml(s.name) + '</span>' +
           '<span class="d-block small text-muted">' + dates + '</span></span>' +
           sprintStatusBadge(s.status) +
         '</a>' +
@@ -383,7 +459,7 @@
         currentProject = p;
         $('#projectKeyBadge').text(p.key);
         $('#projectName').text(p.name);
-        $('#projectDescription').text(p.description || '');
+        $('#projectDescription').text(p.description || 'No project description provided.');
         document.title = 'Stradit Workforce — ' + p.name;
         $('#watchProjectLabel').text(p.is_watching ? 'Unwatch' : 'Watch');
         $('#watchProjectBtn').find('i').attr('class', 'bi ' + (p.is_watching ? 'bi-eye-slash' : 'bi-eye') + ' me-1');
@@ -503,23 +579,23 @@
         selectedIds = new Set();
         updateBulkBar();
         $('#ticketRows').html(tickets.map(function (t) {
-          return '<tr class="ticket-row" data-id="' + t.id + '" style="cursor: pointer;">' +
-            '<td><input type="checkbox" class="row-checkbox" data-id="' + t.id + '"></td>' +
-            '<td><span class="fw-semibold text-primary">' + escapeHtml(t.ticket_key) + '</span></td>' +
-            '<td>' + escapeHtml(t.summary) + ' ' + (t.labels || []).map(function (l) { return colorBadge(l.name, l.color); }).join(' ') + '</td>' +
+          return '<tr class="ticket-table-row" data-id="' + t.id + '" style="cursor: pointer;">' +
+            '<td class="ps-3"><input type="checkbox" class="form-check-input row-checkbox" data-id="' + t.id + '"></td>' +
+            '<td><span class="fw-bold text-primary">' + escapeHtml(t.ticket_key) + '</span></td>' +
+            '<td><span class="fw-semibold text-navy">' + escapeHtml(t.summary) + '</span> ' + (t.labels || []).map(function (l) { return colorBadge(l.name, l.color); }).join(' ') + '</td>' +
             '<td>' + colorBadge(t.issue_type.name, t.issue_type.color, t.issue_type.icon) + '</td>' +
             '<td>' + colorBadge(t.status.name, t.status.color) + '</td>' +
             '<td>' + (t.priority ? colorBadge(t.priority.name, t.priority.color, t.priority.icon) : '<span class="text-muted">&mdash;</span>') + '</td>' +
-            '<td>' + escapeHtml(t.assignee_name || 'Unassigned') + '</td>' +
-            '<td>' + (t.story_points != null ? t.story_points : '&mdash;') + '</td>' +
-            '<td>' + (t.due_date || '&mdash;') + '</td>' +
-            '<td class="text-muted small">' + new Date(t.updated_at).toLocaleDateString() + '</td>' +
+            '<td><span class="small fw-semibold text-dark">' + escapeHtml(t.assignee_name || 'Unassigned') + '</span></td>' +
+            '<td>' + (t.story_points != null ? '<span class="badge bg-secondary-subtle text-secondary border">' + t.story_points + ' pts</span>' : '&mdash;') + '</td>' +
+            '<td>' + (t.due_date ? '<span class="small text-navy">' + t.due_date + '</span>' : '&mdash;') + '</td>' +
+            '<td class="pe-3 text-muted small">' + new Date(t.updated_at).toLocaleDateString() + '</td>' +
           '</tr>';
         }).join(''));
       }).fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to load tickets.'); });
     }
 
-    $(document).on('click', '.ticket-row', function (e) {
+    $(document).on('click', '.ticket-table-row', function (e) {
       if ($(e.target).is('input[type=checkbox]')) return;
       window.location.href = '/tickets/' + $(this).data('id');
     });
@@ -615,8 +691,8 @@
     function loadMembers() {
       $.ajax({ url: '/api/v1/projects/' + projectId + '/members', headers: authHeader }).done(function (members) {
         $('#memberList').html(members.map(function (m) {
-          return '<li class="list-group-item d-flex justify-content-between align-items-center py-2 gap-2">' +
-            '<span>' + escapeHtml(m.employee_code + ' - ' + m.employee_name) + '</span>' +
+          return '<li class="list-group-item d-flex justify-content-between align-items-center py-2 px-3 gap-2 border-bottom">' +
+            '<span class="fw-semibold text-navy small">' + escapeHtml(m.employee_code + ' - ' + m.employee_name) + '</span>' +
             '<span class="d-flex gap-1">' +
               '<select class="form-select form-select-sm member-role-select" data-id="' + m.id + '" style="width: auto;">' +
                 ROLE_OPTIONS.map(function (r) { return '<option value="' + r + '"' + (r === m.role ? ' selected' : '') + '>' + r + '</option>'; }).join('') +
@@ -624,7 +700,7 @@
               '<button class="btn btn-sm btn-outline-danger remove-member" data-id="' + m.id + '"><i class="bi bi-trash"></i></button>' +
             '</span>' +
           '</li>';
-        }).join('') || '<li class="list-group-item text-muted small">No members yet.</li>');
+        }).join('') || '<li class="list-group-item text-muted small py-3 text-center border-0">No members added yet.</li>');
       });
     }
 
@@ -648,11 +724,11 @@
     function loadLabels() {
       $.ajax({ url: '/api/v1/projects/' + projectId + '/labels', headers: authHeader }).done(function (labels) {
         $('#labelList').html(labels.map(function (l) {
-          return '<li class="list-group-item d-flex justify-content-between align-items-center py-2">' +
-            '<span class="badge" style="background-color:' + l.color + '; color:#fff;">' + escapeHtml(l.name) + '</span>' +
+          return '<li class="list-group-item d-flex justify-content-between align-items-center py-2 px-3 border-bottom">' +
+            '<span class="badge px-2 py-1" style="background-color:' + l.color + '; color:#fff;">' + escapeHtml(l.name) + '</span>' +
             '<button class="btn btn-sm btn-outline-danger remove-label-def" data-id="' + l.id + '"><i class="bi bi-trash"></i></button>' +
           '</li>';
-        }).join('') || '<li class="list-group-item text-muted small">No labels yet.</li>');
+        }).join('') || '<li class="list-group-item text-muted small py-3 text-center border-0">No labels created yet.</li>');
       });
     }
 

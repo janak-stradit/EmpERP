@@ -3,33 +3,157 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Stradit Workforce &mdash; Ticket</title>
+  <title>Stradit Workforce &mdash; Ticket Detail</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
   <link href="/static/css/app.css" rel="stylesheet">
   <style nonce="{{ csp_nonce }}">
-    #ticketSummary, #descriptionView {
-      cursor: text; padding: .35rem .5rem; margin: -.35rem -.5rem;
-      border: 1px dashed transparent; transition: background-color .15s ease, border-color .15s ease;
+    .ticket-header-card {
+      background: var(--emp-surface);
+      border: 1px solid var(--emp-border);
+      box-shadow: var(--emp-shadow-sm);
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 1.5rem;
     }
-    #ticketSummary:hover, #descriptionView:hover {
-      border-color: var(--emp-border-strong); background: var(--emp-secondary-light);
+    #ticketSummary {
+      cursor: pointer;
+      padding: .25rem .5rem;
+      margin: -.25rem -.5rem;
+      border: 1px dashed transparent;
+      transition: all .2s ease;
+      font-weight: 700;
+      color: var(--emp-navy);
     }
-    #descriptionView.is-empty { color: var(--emp-text-subtle); font-style: italic; }
+    #ticketSummary:hover {
+      border-color: var(--emp-primary);
+      background: var(--emp-primary-light);
+    }
+    #ticketSummary:focus {
+      outline: none;
+      border-color: var(--emp-primary);
+      background: #fff;
+      box-shadow: 0 0 0 3px var(--emp-primary-glow);
+    }
+    
+    .description-container {
+      position: relative;
+    }
+    #descriptionView {
+      cursor: pointer;
+      padding: .75rem 1rem;
+      border: 1px dashed var(--emp-border-strong);
+      background: var(--emp-secondary-light);
+      min-height: 90px;
+      transition: all .2s ease;
+      font-size: .95rem;
+      line-height: 1.6;
+    }
+    #descriptionView:hover {
+      border-color: var(--emp-primary);
+      background: #fff;
+    }
+    #descriptionView.is-empty {
+      color: var(--emp-text-subtle);
+      font-style: italic;
+    }
 
-    .activity-item { display: flex; gap: .6rem; padding: .6rem 0; border-bottom: 1px solid rgba(0,0,0,.06); }
+    .activity-item {
+      display: flex;
+      gap: .85rem;
+      padding: .85rem 0;
+      border-bottom: 1px solid var(--emp-border);
+    }
     .activity-item:last-child { border-bottom: none; }
     .activity-avatar {
-      width: 28px; height: 28px; background: var(--emp-primary); color: #fff;
-      font-size: .7rem; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+      width: 32px;
+      height: 32px;
+      background: var(--emp-primary);
+      color: #fff;
+      font-size: .75rem;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
     }
     .activity-avatar.comment { background: #6366f1; }
+    .activity-avatar.history { background: #64748b; }
 
-    #attachmentList .download-attachment { min-width: 0; }
+    .nav-tabs-custom {
+      border-bottom: 2px solid var(--emp-border);
+    }
+    .nav-tabs-custom .nav-link {
+      border: none;
+      color: var(--emp-text-muted);
+      font-weight: 600;
+      font-size: .875rem;
+      padding: .6rem 1rem;
+      background: transparent;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+    }
+    .nav-tabs-custom .nav-link:hover {
+      color: var(--emp-primary);
+    }
+    .nav-tabs-custom .nav-link.active {
+      color: var(--emp-primary);
+      border-bottom-color: var(--emp-primary);
+      background: transparent;
+    }
+
+    .sidebar-section-title {
+      font-size: .75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      color: var(--emp-text-muted);
+      margin-bottom: .75rem;
+    }
+
+    .emp-dropzone {
+      border: 2px dashed var(--emp-border-strong);
+      padding: 1.5rem 1rem;
+      text-align: center;
+      background: var(--emp-secondary-light);
+      cursor: pointer;
+      transition: all .2s ease;
+    }
+    .emp-dropzone:hover, .emp-dropzone.dragover {
+      border-color: var(--emp-primary);
+      background: var(--emp-primary-light);
+    }
+
+    .attachment-card {
+      border: 1px solid var(--emp-border);
+      padding: .6rem .8rem;
+      background: #fff;
+      transition: all .15s ease;
+    }
+    .attachment-card:hover {
+      border-color: var(--emp-primary);
+      box-shadow: var(--emp-shadow-xs);
+    }
+
+    .user-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: .5rem;
+    }
+    .user-avatar-sm {
+      width: 24px;
+      height: 24px;
+      background: var(--emp-navy);
+      color: #fff;
+      font-size: .65rem;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
   </style>
 </head>
-<body>
-  <nav class="navbar emp-navbar mb-4">
+<body class="bg-light emp-fade-in">
+  <nav class="navbar emp-navbar mb-3 shadow-sm">
     <div class="container-fluid px-4">
       <a class="navbar-brand" href="/dashboard"><i class="bi bi-buildings me-2"></i><span>Stradit Workforce</span></a>
       <button class="emp-navbar-toggler ms-auto" id="empNavToggler" aria-label="Toggle navigation">
@@ -45,198 +169,340 @@
   <div class="toast-container position-fixed top-0 end-0 p-3" id="toastContainer"></div>
 
   <div class="container-fluid px-4 pb-5">
-    <div class="emp-breadcrumb mb-2" id="breadcrumb">
-      <a href="/tickets">Projects</a> &rsaquo; <a href="#" id="projectLink">&hellip;</a> &rsaquo; <span id="ticketKeyCrumb">&hellip;</span>
+    <!-- Breadcrumb -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-0 small" id="breadcrumb">
+          <li class="breadcrumb-item"><a href="/tickets" class="text-decoration-none text-muted"><i class="bi bi-kanban me-1"></i>Projects</a></li>
+          <li class="breadcrumb-item"><a href="#" id="projectLink" class="text-decoration-none fw-semibold">&hellip;</a></li>
+          <li class="breadcrumb-item active fw-bold text-navy" id="ticketKeyCrumb">&hellip;</li>
+        </ol>
+      </nav>
+      <a href="#" id="backToBoardBtn" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Back to Board</a>
     </div>
 
-    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
-      <div>
-        <h2 id="ticketSummary" class="mb-0" contenteditable="true" spellcheck="false" title="Click to edit"></h2>
-        <div class="mt-1" id="epicChipRow"></div>
-      </div>
-      <div class="d-flex gap-2 flex-shrink-0">
-        <button class="btn btn-sm btn-outline-primary" id="assignToMeBtn"><i class="bi bi-person-check me-1"></i>Assign to Me</button>
-        <button class="btn btn-sm btn-outline-secondary" id="watchBtn"><i class="bi bi-eye me-1"></i><span id="watchLabel">Watch</span></button>
-        <button class="btn btn-sm btn-outline-secondary" id="cloneTicketBtn"><i class="bi bi-copy me-1"></i>Clone</button>
-        <button class="btn btn-sm btn-outline-danger" id="deleteTicketBtn"><i class="bi bi-trash me-1"></i>Delete</button>
-      </div>
-    </div>
-
-    <div class="row g-4">
-      <!-- Left column -->
-      <div class="col-lg-8">
-        <div class="card mb-3">
-          <div class="card-body">
-            <h6 class="text-muted text-uppercase small mb-2">Description</h6>
-            <div id="descriptionView" style="white-space: pre-wrap;" title="Click to edit"></div>
-            <textarea class="form-control d-none" id="descriptionEdit" rows="5"></textarea>
+    <!-- Ticket Top Action Header -->
+    <div class="ticket-header-card">
+      <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
+        <div class="flex-grow-1" style="min-width: 280px;">
+          <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+            <span class="badge bg-navy px-2 py-1 text-white fw-bold fs-6" id="headerTicketKey">&hellip;</span>
+            <span class="badge bg-secondary-subtle text-secondary border px-2 py-1" id="headerIssueType"><i class="bi bi-bookmark me-1"></i>Task</span>
+            <div id="epicChipRow" class="d-inline-flex"></div>
+          </div>
+          <h2 id="ticketSummary" contenteditable="true" spellcheck="false" title="Click to edit summary"></h2>
+          <div class="d-flex align-items-center gap-3 mt-2 text-muted small flex-wrap">
+            <span><i class="bi bi-person me-1"></i>Reporter: <strong class="text-dark" id="headerReporter">&mdash;</strong></span>
+            <span><i class="bi bi-clock me-1"></i>Created <span id="headerCreated">&mdash;</span></span>
+            <span><i class="bi bi-arrow-repeat me-1"></i>Updated <span id="headerUpdated">&mdash;</span></span>
           </div>
         </div>
 
-        <div class="card mb-3">
-          <div class="card-body">
-            <h6 class="text-muted text-uppercase small mb-2">Parent</h6>
-            <div id="parentRow" class="mb-3"></div>
-            <h6 class="text-muted text-uppercase small mb-2">Sub-tasks</h6>
-            <ul class="list-group list-group-flush mb-2" id="subtaskList"></ul>
+        <!-- Quick Actions Toolbar -->
+        <div class="d-flex gap-2 flex-wrap align-items-center flex-shrink-0">
+          <button class="btn btn-sm btn-outline-primary fw-semibold" id="assignToMeBtn" title="Assign ticket to yourself">
+            <i class="bi bi-person-check me-1"></i>Assign to Me
+          </button>
+          <button class="btn btn-sm btn-outline-secondary fw-semibold" id="watchBtn">
+            <i class="bi bi-eye me-1"></i><span id="watchLabel">Watch</span>
+          </button>
+          <button class="btn btn-sm btn-outline-success fw-semibold" id="logWorkTopBtn">
+            <i class="bi bi-stopwatch me-1"></i>Log Work
+          </button>
+          <div class="dropdown">
+            <button class="btn btn-sm btn-outline-secondary dropdown-toggle fw-semibold" type="button" data-bs-toggle="dropdown">
+              <i class="bi bi-three-dots me-1"></i>More
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+              <li><a class="dropdown-item" href="#" id="cloneTicketBtn"><i class="bi bi-copy me-2 text-primary"></i>Clone Ticket</a></li>
+              <li><hr class="dropdown-divider"></li>
+              <li><a class="dropdown-item text-danger" href="#" id="deleteTicketBtn"><i class="bi bi-trash me-2"></i>Delete Ticket</a></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Content Row -->
+    <div class="row g-4">
+      <!-- Left Column: Details, Subtasks, Attachments, Activity -->
+      <div class="col-lg-8">
+        
+        <!-- Description Card -->
+        <div class="card border-0 shadow-sm mb-4 card-accent-primary">
+          <div class="card-body p-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h6 class="fw-bold text-navy mb-0"><i class="bi bi-card-text me-2 text-primary"></i>Description</h6>
+              <span class="text-muted small"><i class="bi bi-pencil me-1"></i>Click description to edit</span>
+            </div>
+            <div class="description-container">
+              <div id="descriptionView" style="white-space: pre-wrap;" title="Click to edit description"></div>
+              <div id="descriptionEditWrap" class="d-none mt-2">
+                <textarea class="form-control mb-2" id="descriptionEdit" rows="5" placeholder="Add a detailed description&hellip;"></textarea>
+                <div class="d-flex gap-2 justify-content-end">
+                  <button type="button" class="btn btn-sm btn-outline-secondary" id="cancelDescBtn">Cancel</button>
+                  <button type="button" class="btn btn-sm btn-primary" id="saveDescBtn"><i class="bi bi-check-lg me-1"></i>Save Description</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sub-tasks & Relationships Card -->
+        <div class="card border-0 shadow-sm mb-4 card-accent-indigo">
+          <div class="card-body p-4">
+            <!-- Parent Info -->
+            <div class="mb-3" id="parentSection">
+              <h6 class="fw-bold text-navy mb-2"><i class="bi bi-diagram-2 me-2 text-indigo"></i>Parent Ticket</h6>
+              <div id="parentRow"></div>
+            </div>
+
+            <hr class="my-3 text-muted opacity-25">
+
+            <!-- Sub-tasks -->
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h6 class="fw-bold text-navy mb-0"><i class="bi bi-list-check me-2 text-indigo"></i>Sub-tasks</h6>
+              <span class="badge bg-secondary-subtle text-secondary" id="subtaskProgressBadge">0 completed</span>
+            </div>
+            <ul class="list-group list-group-flush mb-3" id="subtaskList"></ul>
             <form id="addSubtaskForm" class="d-flex gap-2">
               <input type="text" class="form-control form-control-sm" id="subtaskSummary" placeholder="Add a sub-task&hellip;">
-              <button type="submit" class="btn btn-sm btn-outline-primary flex-shrink-0"><i class="bi bi-plus-lg me-1"></i>Add</button>
+              <button type="submit" class="btn btn-sm btn-primary flex-shrink-0"><i class="bi bi-plus-lg me-1"></i>Add Sub-task</button>
             </form>
           </div>
         </div>
 
-        <div class="card mb-3 d-none" id="epicTicketsCard">
-          <div class="card-body">
-            <h6 class="text-muted text-uppercase small mb-2">Epic Tickets</h6>
+        <!-- Epic Tickets List Card (Only shown if current ticket is an Epic) -->
+        <div class="card border-0 shadow-sm mb-4 d-none card-accent-info" id="epicTicketsCard">
+          <div class="card-body p-4">
+            <h6 class="fw-bold text-navy mb-3"><i class="bi bi-layers me-2 text-info"></i>Tickets in this Epic</h6>
             <ul class="list-group list-group-flush" id="epicTicketList"></ul>
           </div>
         </div>
 
-        <div class="card mb-3">
-          <div class="card-body">
-            <h6 class="text-muted text-uppercase small mb-3">Attachments</h6>
+        <!-- Attachments Card -->
+        <div class="card border-0 shadow-sm mb-4 card-accent-warning">
+          <div class="card-body p-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h6 class="fw-bold text-navy mb-0"><i class="bi bi-paperclip me-2 text-warning"></i>Attachments</h6>
+              <span class="text-muted small" id="attachmentCountBadge">0 files</span>
+            </div>
             <form id="uploadForm" class="mb-3">
               <div id="attachmentDropZone" class="emp-dropzone mb-2">
-                <i class="bi bi-cloud-arrow-up d-block mb-1" style="font-size: 1.5rem;"></i>
-                <div class="small fw-semibold" id="attachmentDropZoneText">Drag &amp; drop a file here, or click to browse</div>
+                <i class="bi bi-cloud-arrow-up text-primary d-block mb-1" style="font-size: 1.75rem;"></i>
+                <div class="small fw-semibold text-navy" id="attachmentDropZoneText">Drag &amp; drop file here, or click to browse</div>
+                <div class="text-muted small">Supports documents, images, code, and zip archives</div>
               </div>
               <input type="file" class="d-none" id="attachmentFile">
-              <button type="submit" class="btn btn-sm btn-outline-primary w-100"><i class="bi bi-upload me-1"></i>Upload</button>
+              <button type="submit" class="btn btn-sm btn-outline-primary w-100 fw-semibold" id="uploadFileBtn" style="display:none;">
+                <i class="bi bi-upload me-1"></i>Upload Selected File
+              </button>
             </form>
-            <ul class="list-group list-group-flush" id="attachmentList"></ul>
+            <div id="attachmentList" class="row g-2"></div>
           </div>
         </div>
 
-        <div class="card">
-          <div class="card-body">
-            <h6 class="text-muted text-uppercase small mb-3">Activity</h6>
-            <form id="commentForm" class="mb-3">
-              <textarea class="form-control mb-2" id="commentBody" rows="2" placeholder="Add a comment&hellip;" required></textarea>
-              <div class="d-flex justify-content-between align-items-center">
+        <!-- Tabbed Activity & Discussion Card -->
+        <div class="card border-0 shadow-sm card-accent-success">
+          <div class="card-body p-4">
+            <ul class="nav nav-tabs-custom mb-3" id="activityTabs" role="tablist">
+              <li class="nav-item">
+                <button class="nav-link active" id="tabAllBtn" data-filter="all" type="button">All Activity</button>
+              </li>
+              <li class="nav-item">
+                <button class="nav-link" id="tabCommentsBtn" data-filter="comments" type="button">Comments</button>
+              </li>
+              <li class="nav-item">
+                <button class="nav-link" id="tabHistoryBtn" data-filter="history" type="button">History</button>
+              </li>
+              <li class="nav-item">
+                <button class="nav-link" id="tabWorklogsBtn" data-filter="worklogs" type="button">Work Logs</button>
+              </li>
+            </ul>
+
+            <!-- Comment Composer -->
+            <form id="commentForm" class="mb-4 bg-light p-3 border">
+              <textarea class="form-control mb-2" id="commentBody" rows="3" placeholder="Add a comment or internal note&hellip;" required></textarea>
+              <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <div class="form-check">
                   <input class="form-check-input" type="checkbox" id="commentInternal">
-                  <label class="form-check-label small" for="commentInternal">Internal note</label>
+                  <label class="form-check-label small fw-semibold text-secondary" for="commentInternal">
+                    <i class="bi bi-lock me-1"></i>Internal Note (Visible to team only)
+                  </label>
                 </div>
-                <button type="submit" class="btn btn-sm btn-primary"><i class="bi bi-send me-1"></i>Comment</button>
+                <button type="submit" class="btn btn-sm btn-primary fw-semibold px-3"><i class="bi bi-send me-1"></i>Submit Comment</button>
               </div>
             </form>
+
+            <!-- Filtered Stream Output -->
             <div id="activityStream"></div>
           </div>
         </div>
+
       </div>
 
-      <!-- Right column -->
+      <!-- Right Column: Sidebar Meta & Tracking -->
       <div class="col-lg-4">
-        <div class="card">
-          <div class="card-body">
-            <h6 class="text-muted text-uppercase small mb-3">Details</h6>
+        
+        <!-- Ticket Fields Details Card -->
+        <div class="card border-0 shadow-sm mb-4">
+          <div class="card-body p-4">
+            <div class="sidebar-section-title border-bottom pb-2 mb-3">Ticket Details</div>
+
+            <!-- Status Selector -->
             <div class="mb-3">
-              <label class="form-label small text-muted">Status</label>
-              <select class="form-select form-select-sm" id="fieldStatus"></select>
+              <label class="form-label small text-muted fw-semibold">Status</label>
+              <select class="form-select form-select-sm fw-bold border-secondary shadow-sm" id="fieldStatus"></select>
             </div>
+
+            <!-- Assignee Selector -->
             <div class="mb-3">
-              <label class="form-label small text-muted">Assignee</label>
-              <select class="form-select form-select-sm" id="fieldAssignee"><option value="">Unassigned</option></select>
+              <label class="form-label small text-muted fw-semibold">Assignee</label>
+              <select class="form-select form-select-sm" id="fieldAssignee">
+                <option value="">Unassigned</option>
+              </select>
             </div>
+
+            <!-- Reporter Info -->
             <div class="mb-3">
-              <label class="form-label small text-muted">Priority</label>
-              <select class="form-select form-select-sm" id="fieldPriority"><option value="">None</option></select>
+              <label class="form-label small text-muted fw-semibold d-block">Reporter</label>
+              <div class="user-pill p-1">
+                <span class="user-avatar-sm" id="reporterAvatar">?</span>
+                <span class="fw-semibold text-navy small" id="metaReporter">&mdash;</span>
+              </div>
             </div>
-            <div class="mb-0">
-              <label class="form-label small text-muted">Issue Type</label>
+
+            <!-- Priority -->
+            <div class="mb-3">
+              <label class="form-label small text-muted fw-semibold">Priority</label>
+              <select class="form-select form-select-sm" id="fieldPriority">
+                <option value="">None</option>
+              </select>
+            </div>
+
+            <!-- Issue Type -->
+            <div class="mb-3">
+              <label class="form-label small text-muted fw-semibold">Issue Type</label>
               <select class="form-select form-select-sm" id="fieldIssueType"></select>
             </div>
 
-            <hr class="my-3">
+            <hr class="my-3 text-muted opacity-25">
+
+            <!-- Due Date -->
             <div class="mb-3">
-              <label class="form-label small text-muted">Due date</label>
+              <label class="form-label small text-muted fw-semibold">Due Date</label>
               <input type="date" class="form-control form-control-sm" id="fieldDueDate">
             </div>
-            <div class="mb-0">
-              <label class="form-label small text-muted">Story points</label>
-              <input type="number" min="0" class="form-control form-control-sm" id="fieldStoryPoints">
-            </div>
 
-            <hr class="my-3">
+            <!-- Story Points -->
             <div class="mb-3">
-              <label class="form-label small text-muted">Labels</label>
-              <div class="mb-1" id="labelBadges"></div>
-              <select class="form-select form-select-sm" id="addLabelSelect"><option value="">Add label&hellip;</option></select>
-            </div>
-            <div class="mb-0">
-              <div class="d-flex justify-content-between align-items-center">
-                <label class="form-label small text-muted mb-0">Time tracking</label>
-                <button class="btn btn-sm btn-link p-0" id="logWorkBtn"><i class="bi bi-plus-lg"></i> Log work</button>
-              </div>
-              <div class="small" id="timeTracking">&mdash;</div>
-              <div class="progress mt-2 d-none" id="timeProgressWrap" style="height: 5px;">
-                <div class="progress-bar" id="timeProgressBar"></div>
-              </div>
-              <ul class="list-group list-group-flush mt-2" id="workLogList"></ul>
+              <label class="form-label small text-muted fw-semibold">Story Points</label>
+              <input type="number" min="0" class="form-control form-control-sm" id="fieldStoryPoints" placeholder="Estimate points&hellip;">
             </div>
 
-            <hr class="my-3">
-            <div class="small text-muted">
-              <div class="mb-1"><i class="bi bi-person me-1"></i>Reporter: <span id="metaReporter">&mdash;</span></div>
-              <div class="mb-1"><i class="bi bi-calendar-plus me-1"></i>Created: <span id="metaCreated">&mdash;</span></div>
-              <div class="mb-1"><i class="bi bi-calendar-check me-1"></i>Updated: <span id="metaUpdated">&mdash;</span></div>
-              <div class="mb-1"><i class="bi bi-eye me-1"></i>Watchers: <span id="metaWatchers">0</span></div>
+            <hr class="my-3 text-muted opacity-25">
+
+            <!-- Labels -->
+            <div class="mb-3">
+              <label class="form-label small text-muted fw-semibold d-block">Labels</label>
+              <div class="mb-2" id="labelBadges"></div>
+              <select class="form-select form-select-sm" id="addLabelSelect">
+                <option value="">Add label&hellip;</option>
+              </select>
             </div>
+
+            <hr class="my-3 text-muted opacity-25">
+
+            <!-- Time Tracking -->
+            <div class="mb-3">
+              <div class="d-flex justify-content-between align-items-center mb-1">
+                <label class="form-label small text-muted fw-semibold mb-0">Time Tracking</label>
+                <button class="btn btn-sm btn-link p-0 text-primary text-decoration-none fw-semibold" id="logWorkBtn">
+                  <i class="bi bi-plus-lg me-1"></i>Log work
+                </button>
+              </div>
+              <div class="small fw-semibold text-navy mb-1" id="timeTracking">&mdash;</div>
+              <div class="progress d-none mb-2" id="timeProgressWrap" style="height: 6px;">
+                <div class="progress-bar bg-primary" id="timeProgressBar"></div>
+              </div>
+            </div>
+
+            <hr class="my-3 text-muted opacity-25">
+
+            <!-- System Info -->
+            <div class="small text-muted space-y-1">
+              <div class="d-flex justify-content-between py-1 border-bottom border-light">
+                <span>Created</span>
+                <strong class="text-dark" id="metaCreated">&mdash;</strong>
+              </div>
+              <div class="d-flex justify-content-between py-1 border-bottom border-light">
+                <span>Updated</span>
+                <strong class="text-dark" id="metaUpdated">&mdash;</strong>
+              </div>
+              <div class="d-flex justify-content-between py-1">
+                <span>Watchers</span>
+                <strong class="text-dark" id="metaWatchers">0</strong>
+              </div>
+            </div>
+
           </div>
         </div>
+
       </div>
     </div>
   </div>
 
   <!-- Log Work Modal -->
   <div class="modal fade" id="logWorkModal" tabindex="-1">
-    <div class="modal-dialog">
-      <div class="modal-content">
+    <div class="modal-dialog border-0">
+      <div class="modal-content shadow-lg">
         <form id="logWorkForm">
-          <div class="modal-header">
-            <h5 class="modal-title"><i class="bi bi-stopwatch me-1"></i>Log Work</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          <div class="modal-header bg-primary text-white">
+            <h5 class="modal-title fw-bold"><i class="bi bi-stopwatch me-2"></i>Log Work</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
           </div>
-          <div class="modal-body">
-            <div class="row g-2">
+          <div class="modal-body p-4">
+            <div class="row g-3">
               <div class="col-6">
-                <label class="form-label small">Time spent (minutes)</label>
-                <input type="number" min="1" class="form-control" id="workMinutes" required>
+                <label class="form-label small fw-bold">Time spent (minutes)</label>
+                <input type="number" min="1" class="form-control" id="workMinutes" placeholder="e.g. 60" required>
               </div>
               <div class="col-6">
-                <label class="form-label small">Date</label>
+                <label class="form-label small fw-bold">Date</label>
                 <input type="date" class="form-control" id="workDate" required>
               </div>
               <div class="col-12">
-                <label class="form-label small">Description (optional)</label>
-                <textarea class="form-control" id="workDescription" rows="2"></textarea>
+                <label class="form-label small fw-bold">Description (optional)</label>
+                <textarea class="form-control" id="workDescription" rows="3" placeholder="Describe work performed&hellip;"></textarea>
               </div>
             </div>
           </div>
-          <div class="modal-footer">
+          <div class="modal-footer bg-light">
             <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-            <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Log Work</button>
+            <button type="submit" class="btn btn-primary fw-bold"><i class="bi bi-check-lg me-1"></i>Save Logged Work</button>
           </div>
         </form>
       </div>
     </div>
   </div>
 
-  <!-- Link Ticket Modal (used for both "Set Parent" and "Set Epic") -->
+  <!-- Link Ticket Modal (Parent / Epic) -->
   <div class="modal fade" id="linkTicketModal" tabindex="-1">
-    <div class="modal-dialog">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title" id="linkTicketModalTitle"><i class="bi bi-link-45deg me-1"></i>Link Ticket</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+    <div class="modal-dialog border-0">
+      <div class="modal-content shadow-lg">
+        <div class="modal-header bg-navy text-white">
+          <h5 class="modal-title fw-bold" id="linkTicketModalTitle"><i class="bi bi-link-45deg me-2"></i>Link Ticket</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
         </div>
-        <div class="modal-body">
-          <input type="text" class="form-control mb-2" id="linkTicketSearch" placeholder="Search by key or summary&hellip;">
-          <div class="list-group" id="linkTicketResults" style="max-height: 280px; overflow-y: auto;"></div>
+        <div class="modal-body p-4">
+          <div class="input-group mb-3">
+            <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+            <input type="text" class="form-control" id="linkTicketSearch" placeholder="Search ticket key or summary&hellip;">
+          </div>
+          <div class="list-group border" id="linkTicketResults" style="max-height: 300px; overflow-y: auto;"></div>
         </div>
-        <div class="modal-footer justify-content-between">
-          <button type="button" class="btn btn-outline-danger" id="linkTicketClearBtn"><i class="bi bi-x-lg me-1"></i>Clear</button>
+        <div class="modal-footer bg-light d-flex justify-content-between">
+          <button type="button" class="btn btn-outline-danger" id="linkTicketClearBtn"><i class="bi bi-x-lg me-1"></i>Unlink Relation</button>
           <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
         </div>
       </div>
@@ -276,15 +542,17 @@
     function initials(name) { return (name || '?').split(' ').map(function (n) { return n[0]; }).join('').substring(0, 2).toUpperCase(); }
     function fileIcon(fileName) {
       const ext = (fileName.split('.').pop() || '').toLowerCase();
-      if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) return 'bi-file-earmark-image';
-      if (ext === 'pdf') return 'bi-file-earmark-pdf';
-      if (['doc', 'docx'].includes(ext)) return 'bi-file-earmark-word';
-      if (['xls', 'xlsx', 'csv'].includes(ext)) return 'bi-file-earmark-spreadsheet';
-      if (['zip', 'rar', '7z'].includes(ext)) return 'bi-file-earmark-zip';
-      return 'bi-file-earmark-text';
+      if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) return 'bi-file-earmark-image text-primary';
+      if (ext === 'pdf') return 'bi-file-earmark-pdf text-danger';
+      if (['doc', 'docx'].includes(ext)) return 'bi-file-earmark-word text-info';
+      if (['xls', 'xlsx', 'csv'].includes(ext)) return 'bi-file-earmark-spreadsheet text-success';
+      if (['zip', 'rar', '7z'].includes(ext)) return 'bi-file-earmark-zip text-warning';
+      return 'bi-file-earmark-text text-secondary';
     }
 
     let currentTicket = null, myEmployeeId = null, employees = [], issueTypes = [], priorities = [];
+    let currentActivityFilter = 'all';
+    let cachedComments = [], cachedActivities = [], cachedWorklogs = [];
 
     function loadMe() {
       return $.ajax({ url: '/api/v1/employees/me', headers: authHeader }).done(function (profile) {
@@ -303,9 +571,14 @@
     function renderTicket(t) {
       currentTicket = t;
       $('#ticketSummary').text(t.summary);
-      $('#ticketKeyCrumb').text(t.ticket_key);
-      $('#projectLink').text(t.project_key).attr('href', '/tickets/project/' + t.project_id);
-      $('#descriptionView').text(t.description || 'No description provided.').toggleClass('is-empty', !t.description);
+      $('#ticketKeyCrumb, #headerTicketKey').text(t.ticket_key);
+      $('#projectLink, #backToBoardBtn').attr('href', '/tickets/project/' + t.project_id);
+      $('#projectLink').text(t.project_key);
+      
+      const issueTypeName = t.issue_type ? t.issue_type.name : 'Task';
+      $('#headerIssueType').html('<i class="bi bi-bookmark me-1"></i>' + escapeHtml(issueTypeName));
+
+      $('#descriptionView').text(t.description || 'No description provided. Click to add details.').toggleClass('is-empty', !t.description);
       $('#descriptionEdit').val(t.description || '');
 
       $('#fieldIssueType').html(issueTypes.map(function (it) {
@@ -322,7 +595,7 @@
 
       const spent = t.time_spent || 0;
       const orig = t.original_estimate;
-      $('#timeTracking').text(orig ? (spent + ' / ' + orig + ' min logged') : (spent ? (spent + ' min logged') : 'No estimate set'));
+      $('#timeTracking').text(orig ? (spent + ' / ' + orig + ' mins logged') : (spent ? (spent + ' mins logged') : 'No estimate set'));
       if (orig) {
         const pct = Math.min(100, Math.round((spent / orig) * 100));
         $('#timeProgressWrap').removeClass('d-none');
@@ -331,15 +604,17 @@
         $('#timeProgressWrap').addClass('d-none');
       }
 
-      $('#metaReporter').text(t.reporter_name);
-      $('#metaCreated').text(new Date(t.created_at).toLocaleString());
-      $('#metaUpdated').text(new Date(t.updated_at).toLocaleString());
+      const repName = t.reporter_name || 'System';
+      $('#metaReporter, #headerReporter').text(repName);
+      $('#reporterAvatar').text(initials(repName));
+      $('#metaCreated, #headerCreated').text(fmtDateTime(t.created_at));
+      $('#metaUpdated, #headerUpdated').text(fmtDateTime(t.updated_at));
       $('#metaWatchers').text(t.watcher_count);
       $('#watchLabel').text(t.is_watching ? 'Unwatch' : 'Watch');
       $('#watchBtn').find('i').attr('class', 'bi ' + (t.is_watching ? 'bi-eye-slash' : 'bi-eye') + ' me-1');
 
       const canEdit = t.my_role !== 'viewer';
-      $('#assignToMeBtn, #cloneTicketBtn, #deleteTicketBtn, #fieldStatus, #fieldAssignee, #fieldPriority, #fieldIssueType, #fieldDueDate, #fieldStoryPoints, #addLabelSelect, #logWorkBtn, #subtaskSummary, #addSubtaskForm button').prop('disabled', !canEdit);
+      $('#assignToMeBtn, #cloneTicketBtn, #deleteTicketBtn, #fieldStatus, #fieldAssignee, #fieldPriority, #fieldIssueType, #fieldDueDate, #fieldStoryPoints, #addLabelSelect, #logWorkBtn, #logWorkTopBtn, #subtaskSummary, #addSubtaskForm button').prop('disabled', !canEdit);
       $('#ticketSummary').attr('contenteditable', canEdit ? 'true' : 'false');
 
       renderLabels(t);
@@ -351,21 +626,25 @@
     function relationDisplayHtml(rel, mode, canEdit) {
       const label = mode === 'parent' ? 'Parent' : 'Epic';
       if (!rel) {
-        if (!canEdit) return '<span class="text-muted small">No ' + label.toLowerCase() + ' set.</span>';
-        return '<button type="button" class="btn btn-sm btn-outline-secondary set-relation-btn" data-mode="' + mode + '">' +
+        if (!canEdit) return '<span class="text-muted small">No ' + label.toLowerCase() + ' set</span>';
+        return '<button type="button" class="btn btn-sm btn-outline-secondary set-relation-btn py-0 px-2" data-mode="' + mode + '">' +
           '<i class="bi bi-plus-lg me-1"></i>Set ' + label + '</button>';
       }
-      return '<a href="/tickets/' + rel.id + '" class="text-decoration-none fw-semibold">' + escapeHtml(rel.ticket_key) + '</a> ' +
-        '<span class="badge" style="background-color:' + escapeHtml(rel.status_color) + '; color:#fff;">' + escapeHtml(rel.status_name) + '</span> ' +
+      return '<a href="/tickets/' + rel.id + '" class="badge bg-secondary-subtle text-navy text-decoration-none fw-bold me-1">' +
+        '<i class="bi bi-link-45deg me-1"></i>' + escapeHtml(rel.ticket_key) + '</a> ' +
+        '<span class="badge me-1" style="background-color:' + escapeHtml(rel.status_color) + '; color:#fff;">' + escapeHtml(rel.status_name) + '</span> ' +
         '<span class="text-muted small">' + escapeHtml(rel.summary) + '</span>' +
         (canEdit ? ' <button type="button" class="btn btn-sm btn-link p-0 ms-1 set-relation-btn" data-mode="' + mode + '" title="Change ' + label.toLowerCase() + '"><i class="bi bi-pencil"></i></button>' : '');
     }
 
     function relationListItem(rel) {
-      return '<li class="list-group-item d-flex justify-content-between align-items-center py-2 gap-2">' +
-        '<a href="/tickets/' + rel.id + '" class="text-decoration-none text-truncate">' +
-          '<span class="text-muted small me-1">' + escapeHtml(rel.ticket_key) + '</span>' + escapeHtml(rel.summary) +
-        '</a>' +
+      return '<li class="list-group-item d-flex justify-content-between align-items-center py-2 px-3 gap-2 border-bottom">' +
+        '<div class="d-flex align-items-center gap-2 text-truncate">' +
+          '<i class="bi bi-check2-square text-primary"></i>' +
+          '<a href="/tickets/' + rel.id + '" class="text-decoration-none fw-semibold text-dark text-truncate">' +
+            '<span class="text-primary me-2">' + escapeHtml(rel.ticket_key) + '</span>' + escapeHtml(rel.summary) +
+          '</a>' +
+        '</div>' +
         '<span class="badge flex-shrink-0" style="background-color:' + escapeHtml(rel.status_color) + '; color:#fff;">' + escapeHtml(rel.status_name) + '</span>' +
       '</li>';
     }
@@ -373,8 +652,13 @@
     function renderRelations(t, canEdit) {
       $('#epicChipRow').html(relationDisplayHtml(t.epic, 'epic', canEdit));
       $('#parentRow').html(relationDisplayHtml(t.parent, 'parent', canEdit));
+      
+      const subtasks = t.subtasks || [];
+      const completedSubtasks = subtasks.filter(function (s) { return s.status_category === 'DONE' || s.status_name.toLowerCase() === 'done'; }).length;
+      $('#subtaskProgressBadge').text(completedSubtasks + ' of ' + subtasks.length + ' completed');
+
       $('#subtaskList').html(
-        (t.subtasks || []).map(relationListItem).join('') || '<li class="list-group-item text-muted small">No sub-tasks yet.</li>'
+        subtasks.map(relationListItem).join('') || '<li class="list-group-item text-muted small py-3 text-center border-0 bg-light">No sub-tasks added yet.</li>'
       );
       const epicTickets = t.epic_tickets || [];
       $('#epicTicketsCard').toggleClass('d-none', epicTickets.length === 0);
@@ -384,9 +668,9 @@
     function renderLabels(t) {
       $('#labelBadges').html(
         (t.labels || []).map(function (l) {
-          return '<span class="badge me-1 mb-1" style="background-color:' + l.color + '; color:#fff;">' + escapeHtml(l.name) +
-            ' <a href="#" class="text-white text-decoration-none remove-label" data-id="' + l.id + '">&times;</a></span>';
-        }).join('') || '<span class="text-muted small">No labels</span>'
+          return '<span class="badge me-1 mb-1 px-2 py-1" style="background-color:' + l.color + '; color:#fff;">' + escapeHtml(l.name) +
+            ' <a href="#" class="text-white text-decoration-none remove-label ms-1" data-id="' + l.id + '">&times;</a></span>';
+        }).join('') || '<span class="text-muted small">No labels assigned</span>'
       );
     }
 
@@ -425,11 +709,17 @@
 
     $('#descriptionView').on('click', function () {
       $(this).addClass('d-none');
-      $('#descriptionEdit').removeClass('d-none').focus();
+      $('#descriptionEditWrap').removeClass('d-none');
+      $('#descriptionEdit').focus();
     });
-    $('#descriptionEdit').on('blur', function () {
-      const value = $(this).val();
-      $(this).addClass('d-none');
+    $('#cancelDescBtn').on('click', function () {
+      $('#descriptionEditWrap').addClass('d-none');
+      $('#descriptionView').removeClass('d-none');
+      $('#descriptionEdit').val(currentTicket.description || '');
+    });
+    $('#saveDescBtn').on('click', function () {
+      const value = $('#descriptionEdit').val();
+      $('#descriptionEditWrap').addClass('d-none');
       $('#descriptionView').removeClass('d-none');
       if (value !== (currentTicket.description || '')) {
         updateTicket({ description: value || null });
@@ -522,17 +812,17 @@
         const filtered = tickets.filter(function (t) { return t.id !== currentTicket.id; });
         $('#linkTicketResults').html(
           filtered.map(function (t) {
-            return '<a href="#" class="list-group-item list-group-item-action link-ticket-result" data-id="' + t.id + '">' +
-              '<span class="text-muted small me-1">' + escapeHtml(t.ticket_key) + '</span>' + escapeHtml(t.summary) +
+            return '<a href="#" class="list-group-item list-group-item-action link-ticket-result py-2 px-3" data-id="' + t.id + '">' +
+              '<span class="fw-bold text-primary me-2">' + escapeHtml(t.ticket_key) + '</span>' + escapeHtml(t.summary) +
             '</a>';
-          }).join('') || '<div class="text-muted small p-2">No matching tickets.</div>'
+          }).join('') || '<div class="text-muted small p-3 text-center">No matching tickets found.</div>'
         );
       });
     }
 
     $(document).on('click', '.set-relation-btn', function () {
       linkPickerMode = $(this).data('mode');
-      $('#linkTicketModalTitle').html('<i class="bi bi-link-45deg me-1"></i>Set ' + (linkPickerMode === 'parent' ? 'Parent' : 'Epic'));
+      $('#linkTicketModalTitle').html('<i class="bi bi-link-45deg me-2"></i>Set ' + (linkPickerMode === 'parent' ? 'Parent Ticket' : 'Epic'));
       $('#linkTicketSearch').val('');
       searchLinkableTickets('');
       new bootstrap.Modal('#linkTicketModal').show();
@@ -601,19 +891,12 @@
 
     function loadWorklogs() {
       $.ajax({ url: '/api/v1/tickets/' + ticketId + '/worklogs', headers: authHeader }).done(function (logs) {
-        $('#workLogList').html(
-          logs.map(function (w) {
-            return '<li class="list-group-item py-2 small">' +
-              '<i class="bi bi-stopwatch me-1 text-muted"></i><strong>' + w.minutes_spent + 'm</strong> ' +
-              '<span class="text-muted">by ' + escapeHtml(w.author_name) + ' on ' + w.log_date + '</span>' +
-              (w.description ? '<div class="text-muted mt-1">' + escapeHtml(w.description) + '</div>' : '') +
-            '</li>';
-          }).join('') || '<li class="list-group-item py-2 small text-muted">No work logged yet.</li>'
-        );
+        cachedWorklogs = logs;
+        renderActivityStream();
       });
     }
 
-    $('#logWorkBtn').on('click', function () {
+    $('#logWorkBtn, #logWorkTopBtn').on('click', function () {
       $('#workDate').val(new Date().toISOString().slice(0, 10));
       $('#workMinutes').val('');
       $('#workDescription').val('');
@@ -637,19 +920,76 @@
       }).fail(function (xhr) { showError((xhr.responseJSON && xhr.responseJSON.detail) || 'Failed to log work.'); });
     });
 
-    // ---- Comments & activity ----
+    // ---- Comments & Tabbed Activity ----
 
     function actionLabel(a) {
       switch (a.action) {
         case 'created': return 'created this ticket';
-        case 'transitioned': return 'changed status from ' + escapeHtml(a.old_value) + ' to ' + escapeHtml(a.new_value);
+        case 'transitioned': return 'changed status from <strong>' + escapeHtml(a.old_value) + '</strong> to <strong>' + escapeHtml(a.new_value) + '</strong>';
         case 'commented': return 'commented';
-        case 'attachment_added': return 'attached ' + escapeHtml(a.new_value);
-        case 'attachment_deleted': return 'removed attachment ' + escapeHtml(a.old_value);
-        case 'updated': return 'updated ' + escapeHtml(a.field_name) +
+        case 'attachment_added': return 'attached <strong>' + escapeHtml(a.new_value) + '</strong>';
+        case 'attachment_deleted': return 'removed attachment <strong>' + escapeHtml(a.old_value) + '</strong>';
+        case 'updated': return 'updated <strong>' + escapeHtml(a.field_name) + '</strong>' +
           (a.old_value || a.new_value ? (' from "' + escapeHtml(a.old_value || '—') + '" to "' + escapeHtml(a.new_value || '—') + '"') : '');
         default: return a.action;
       }
+    }
+
+    function renderActivityStream() {
+      let items = [];
+
+      if (currentActivityFilter === 'all' || currentActivityFilter === 'history') {
+        items = items.concat(cachedActivities.filter(function (a) { return a.action !== 'commented'; }).map(function (a) {
+          return {
+            time: a.created_at,
+            type: 'history',
+            html: '<div class="activity-item">' +
+              '<span class="activity-avatar history">' + initials(a.actor_name) + '</span>' +
+              '<div class="flex-grow-1"><div class="small text-navy"><strong>' + escapeHtml(a.actor_name) + '</strong> ' + actionLabel(a) + '</div>' +
+              '<div class="text-muted small mt-1">' + fmtDateTime(a.created_at) + '</div></div>' +
+            '</div>'
+          };
+        }));
+      }
+
+      if (currentActivityFilter === 'all' || currentActivityFilter === 'comments') {
+        items = items.concat(cachedComments.map(function (c) {
+          return {
+            time: c.created_at,
+            type: 'comment',
+            html: '<div class="activity-item">' +
+              '<span class="activity-avatar comment">' + initials(c.author_name) + '</span>' +
+              '<div class="flex-grow-1 p-3 border ' + (c.is_internal ? 'bg-warning-subtle border-warning-subtle' : 'bg-light border-light') + '">' +
+                '<div class="d-flex justify-content-between align-items-center mb-1"><strong class="small text-navy">' + escapeHtml(c.author_name) +
+                (c.is_internal ? ' <span class="badge bg-warning text-dark ms-1"><i class="bi bi-lock me-1"></i>Internal</span>' : '') + '</strong>' +
+                '<span class="text-muted small">' + fmtDateTime(c.created_at) + '</span></div>' +
+                '<div class="small mt-1 text-dark" style="white-space: pre-wrap; line-height: 1.5;">' + escapeHtml(c.body) + '</div>' +
+              '</div>' +
+            '</div>'
+          };
+        }));
+      }
+
+      if (currentActivityFilter === 'worklogs' || currentActivityFilter === 'all') {
+        items = items.concat(cachedWorklogs.map(function (w) {
+          return {
+            time: w.created_at || w.log_date,
+            type: 'worklog',
+            html: '<div class="activity-item">' +
+              '<span class="activity-avatar bg-success text-white">' + initials(w.author_name) + '</span>' +
+              '<div class="flex-grow-1 p-2 bg-light border">' +
+                '<div class="d-flex justify-content-between align-items-center"><strong class="small text-navy">' + escapeHtml(w.author_name) +
+                ' logged <span class="badge bg-primary ms-1">' + w.minutes_spent + ' mins</span></strong>' +
+                '<span class="text-muted small">' + w.log_date + '</span></div>' +
+                (w.description ? '<div class="small mt-1 text-muted">' + escapeHtml(w.description) + '</div>' : '') +
+              '</div>' +
+            '</div>'
+          };
+        }));
+      }
+
+      items.sort(function (a, b) { return new Date(a.time) - new Date(b.time); });
+      $('#activityStream').html(items.map(function (i) { return i.html; }).join('') || '<div class="text-muted small py-4 text-center">No activity logged under this view.</div>');
     }
 
     function loadActivity() {
@@ -657,44 +997,26 @@
         $.ajax({ url: '/api/v1/tickets/' + ticketId + '/comments', headers: authHeader }),
         $.ajax({ url: '/api/v1/tickets/' + ticketId + '/activities', headers: authHeader })
       ).done(function (commentsResp, activitiesResp) {
-        const comments = commentsResp[0];
-        const activities = activitiesResp[0];
-        const items = activities
-          .filter(function (a) { return a.action !== 'commented'; })
-          .map(function (a) {
-            return {
-              time: a.created_at,
-              html: '<div class="activity-item">' +
-                '<span class="activity-avatar">' + initials(a.actor_name) + '</span>' +
-                '<div class="flex-grow-1"><div class="small"><strong>' + escapeHtml(a.actor_name) + '</strong> ' + actionLabel(a) + '</div>' +
-                '<div class="text-muted small">' + fmtDateTime(a.created_at) + '</div></div>' +
-              '</div>'
-            };
-          })
-          .concat(comments.map(function (c) {
-            return {
-              time: c.created_at,
-              html: '<div class="activity-item">' +
-                '<span class="activity-avatar comment">' + initials(c.author_name) + '</span>' +
-                '<div class="flex-grow-1 p-2' + (c.is_internal ? ' bg-warning-subtle' : ' bg-light') + '">' +
-                  '<div class="d-flex justify-content-between"><strong class="small">' + escapeHtml(c.author_name) +
-                  (c.is_internal ? ' <span class="badge bg-warning text-dark">Internal</span>' : '') + '</strong>' +
-                  '<span class="text-muted small">' + fmtDateTime(c.created_at) + '</span></div>' +
-                  '<div class="small mt-1" style="white-space: pre-wrap;">' + escapeHtml(c.body) + '</div>' +
-                '</div>' +
-              '</div>'
-            };
-          }));
-        items.sort(function (a, b) { return new Date(a.time) - new Date(b.time); });
-        $('#activityStream').html(items.map(function (i) { return i.html; }).join('') || '<div class="text-muted small">No activity yet.</div>');
-      }).fail(function () { showError('Failed to load activity.'); });
+        cachedComments = commentsResp[0] || [];
+        cachedActivities = activitiesResp[0] || [];
+        renderActivityStream();
+      }).fail(function () { showError('Failed to load activity stream.'); });
     }
+
+    $('#activityTabs .nav-link').on('click', function () {
+      $('#activityTabs .nav-link').removeClass('active');
+      $(this).addClass('active');
+      currentActivityFilter = $(this).data('filter');
+      renderActivityStream();
+    });
 
     $('#commentForm').on('submit', function (e) {
       e.preventDefault();
+      const body = $('#commentBody').val().trim();
+      if (!body) return;
       $.ajax({
         url: '/api/v1/tickets/' + ticketId + '/comments', method: 'POST', contentType: 'application/json', headers: authHeader,
-        data: JSON.stringify({ body: $('#commentBody').val(), is_internal: $('#commentInternal').is(':checked') })
+        data: JSON.stringify({ body: body, is_internal: $('#commentInternal').is(':checked') })
       }).done(function () {
         $('#commentForm')[0].reset();
         loadActivity();
@@ -707,15 +1029,21 @@
 
     function loadAttachments() {
       $.ajax({ url: '/api/v1/tickets/' + ticketId + '/attachments', headers: authHeader }).done(function (attachments) {
+        $('#attachmentCountBadge').text(attachments.length + ' file' + (attachments.length === 1 ? '' : 's'));
         $('#attachmentList').html(attachments.map(function (a) {
           const sizeKb = Math.round(a.file_size / 1024);
-          return '<li class="list-group-item d-flex justify-content-between align-items-center py-2 gap-2">' +
-            '<a href="#" class="download-attachment text-truncate" data-id="' + a.id + '" data-filename="' + escapeHtml(a.file_name) + '">' +
-              '<i class="bi ' + fileIcon(a.file_name) + ' me-1"></i>' + escapeHtml(a.file_name) + '</a>' +
-            '<span class="text-muted small flex-shrink-0">' + sizeKb + ' KB &middot; ' + escapeHtml(a.uploader_name) +
-              ' <button class="btn btn-sm btn-outline-danger ms-2 remove-attachment" data-id="' + a.id + '"><i class="bi bi-trash"></i></button></span>' +
-          '</li>';
-        }).join('') || '<li class="list-group-item text-muted small">No attachments yet.</li>');
+          return '<div class="col-md-6 col-12">' +
+            '<div class="attachment-card d-flex justify-content-between align-items-center gap-2">' +
+              '<a href="#" class="download-attachment text-truncate text-decoration-none fw-semibold small text-navy" data-id="' + a.id + '" data-filename="' + escapeHtml(a.file_name) + '">' +
+                '<i class="bi ' + fileIcon(a.file_name) + ' fs-5 me-2"></i>' + escapeHtml(a.file_name) +
+              '</a>' +
+              '<div class="d-flex align-items-center gap-2 flex-shrink-0">' +
+                '<span class="text-muted small">' + sizeKb + ' KB</span>' +
+                '<button class="btn btn-sm btn-outline-danger py-0 px-1 remove-attachment" data-id="' + a.id + '" title="Delete attachment"><i class="bi bi-trash"></i></button>' +
+              '</div>' +
+            '</div>' +
+          '</div>';
+        }).join('') || '<div class="col-12"><div class="text-muted small py-3 text-center bg-light border">No attachments uploaded yet.</div></div>');
       });
     }
 
@@ -724,7 +1052,13 @@
 
     function setSelectedAttachmentFile(file) {
       selectedAttachmentFile = file;
-      $('#attachmentDropZoneText').text(file ? file.name : 'Drag & drop a file here, or click to browse');
+      if (file) {
+        $('#attachmentDropZoneText').html('Selected: <strong>' + escapeHtml(file.name) + '</strong> (' + Math.round(file.size/1024) + ' KB)');
+        $('#uploadFileBtn').show();
+      } else {
+        $('#attachmentDropZoneText').html('Drag &amp; drop file here, or click to browse');
+        $('#uploadFileBtn').hide();
+      }
     }
 
     ['dragenter', 'dragover'].forEach(function (evt) {

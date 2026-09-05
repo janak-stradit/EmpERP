@@ -10,15 +10,15 @@
   <link href="/static/css/app.css" rel="stylesheet">
   <style nonce="{{ csp_nonce }}">
     .avatar-chip {
-      width: 26px; height: 26px; background: var(--emp-primary); color: #fff;
-      font-size: .68rem; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+      width: 28px; height: 28px; background: #4f46e5; color: #fff; border-radius: 50%;
+      font-size: .7rem; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
     }
-    .avatar-chip.unassigned { background: var(--emp-text-subtle); }
-    .row-progress { width: 90px; }
-    #goalView.is-empty { color: var(--emp-text-subtle); font-style: italic; }
+    .avatar-chip.unassigned { background: #94a3b8; }
+    .row-progress { width: 100px; }
+    #goalView.is-empty { color: var(--emp-text-muted); font-style: italic; }
     #goalView p:last-child { margin-bottom: 0; }
     #goalView ul, #goalView ol { padding-left: 1.25rem; }
-    #goalEditor { background: #fff; }
+    #goalEditor { background: #fff; border-radius: 0px; }
     #goalEditor .ql-editor { min-height: 140px; }
   </style>
 </head>
@@ -39,136 +39,202 @@
   <div class="toast-container position-fixed top-0 end-0 p-3" id="toastContainer"></div>
 
   <div class="container-fluid px-4 pb-5">
-    <a href="/tickets" class="btn btn-sm btn-link ps-0 mb-2" id="backLink"><i class="bi bi-arrow-left me-1"></i>Back to Backlog</a>
+    <a href="#" class="btn btn-sm btn-link text-decoration-none text-muted ps-0 mb-2" id="backLink"><i class="bi bi-arrow-left me-1"></i>Back to Backlog</a>
 
-    <div class="emp-page-header d-flex justify-content-between align-items-end flex-wrap gap-2">
+    <div class="emp-page-header d-flex justify-content-between align-items-end flex-wrap gap-2 mb-3">
       <div>
-        <div class="emp-breadcrumb"><i class="bi bi-flag"></i> Sprint</div>
-        <h1 id="sprintName">Loading&hellip;</h1>
-        <div class="text-muted small" id="sprintMeta">&mdash;</div>
+        <div class="emp-breadcrumb text-uppercase tracking-wider fw-bold text-muted mb-1" style="font-size: 0.725rem;">
+          <i class="bi bi-flag-fill me-1 text-primary"></i> Sprint Overview
+        </div>
+        <h1 class="h3 fw-bold mb-1 d-flex align-items-center gap-2 flex-wrap" id="sprintName">Loading Sprint...</h1>
+        <div class="text-muted small fw-semibold" id="sprintMeta">&mdash;</div>
       </div>
-      <button class="btn btn-sm btn-outline-primary" id="editSprintBtn"><i class="bi bi-pencil me-1"></i>Edit</button>
+      <button class="btn btn-sm btn-outline-primary rounded-0 px-3 shadow-sm" id="editSprintBtn"><i class="bi bi-pencil me-1"></i>Edit Sprint</button>
     </div>
 
-    <div class="card mb-3">
-      <div class="card-body">
-        <h6 class="text-muted text-uppercase small mb-2">Goal</h6>
-        <div id="goalView"></div>
+    <!-- Sprint Goal Card -->
+    <div class="card border-0 shadow-sm rounded-0 mb-4 card-accent-indigo">
+      <div class="card-body p-3">
+        <div class="d-flex align-items-center gap-2 mb-2 text-uppercase fw-bold text-muted small" style="font-size: 0.725rem;">
+          <i class="bi bi-bullseye text-indigo fs-6"></i>
+          <span>Sprint Goal</span>
+        </div>
+        <div id="goalView" class="text-navy"></div>
       </div>
     </div>
 
+    <!-- Stat Row 1: Metrics -->
     <div class="row g-3 mb-3" id="statsRow">
       <div class="col-sm-6 col-lg-3">
-        <div class="emp-stat-card">
-          <div class="emp-stat-icon primary"><i class="bi bi-ticket-detailed"></i></div>
-          <div class="emp-stat-content">
-            <div class="emp-stat-label">Tickets</div>
-            <div class="emp-stat-val" id="statTicketCount">&mdash;</div>
+        <div class="card emp-stat-card border-0 shadow-sm card-accent-primary h-100">
+          <div class="card-body p-3">
+            <div class="d-flex align-items-center justify-content-between">
+              <div>
+                <span class="text-muted small fw-bold text-uppercase d-block mb-1" style="font-size: 0.725rem;">Total Tickets</span>
+                <h2 class="fw-bold mb-0 text-navy" id="statTicketCount">&mdash;</h2>
+              </div>
+              <div class="emp-stat-icon primary"><i class="bi bi-ticket-detailed"></i></div>
+            </div>
           </div>
         </div>
       </div>
       <div class="col-sm-6 col-lg-3">
-        <div class="emp-stat-card">
-          <div class="emp-stat-icon info"><i class="bi bi-award"></i></div>
-          <div class="emp-stat-content">
-            <div class="emp-stat-label">Story Points</div>
-            <div class="emp-stat-val" id="statTotalPoints">&mdash;</div>
+        <div class="card emp-stat-card border-0 shadow-sm card-accent-info h-100">
+          <div class="card-body p-3">
+            <div class="d-flex align-items-center justify-content-between">
+              <div>
+                <span class="text-muted small fw-bold text-uppercase d-block mb-1" style="font-size: 0.725rem;">Story Points</span>
+                <h2 class="fw-bold mb-0 text-navy" id="statTotalPoints">&mdash;</h2>
+              </div>
+              <div class="emp-stat-icon info"><i class="bi bi-award"></i></div>
+            </div>
           </div>
         </div>
       </div>
       <div class="col-sm-6 col-lg-3">
-        <div class="emp-stat-card">
-          <div class="emp-stat-icon success"><i class="bi bi-check-circle"></i></div>
-          <div class="emp-stat-content">
-            <div class="emp-stat-label">Completed</div>
-            <div class="emp-stat-val" id="statCompletedPoints">&mdash;</div>
-            <div class="progress mt-1" style="height: 5px;"><div class="progress-bar bg-success" id="statCompletedBar"></div></div>
+        <div class="card emp-stat-card border-0 shadow-sm card-accent-success h-100">
+          <div class="card-body p-3">
+            <div class="d-flex align-items-center justify-content-between">
+              <div>
+                <span class="text-muted small fw-bold text-uppercase d-block mb-1" style="font-size: 0.725rem;">Completed Points</span>
+                <h2 class="fw-bold mb-1 text-navy" id="statCompletedPoints">&mdash;</h2>
+                <div class="progress rounded-0 mt-1" style="height: 5px; min-width: 100px;"><div class="progress-bar bg-success" id="statCompletedBar"></div></div>
+              </div>
+              <div class="emp-stat-icon success"><i class="bi bi-check-circle"></i></div>
+            </div>
           </div>
         </div>
       </div>
       <div class="col-sm-6 col-lg-3">
-        <div class="emp-stat-card">
-          <div class="emp-stat-icon warning"><i class="bi bi-bullseye"></i></div>
-          <div class="emp-stat-content">
-            <div class="emp-stat-label">Committed</div>
-            <div class="emp-stat-val" id="statCommittedPoints">&mdash;</div>
+        <div class="card emp-stat-card border-0 shadow-sm card-accent-warning h-100">
+          <div class="card-body p-3">
+            <div class="d-flex align-items-center justify-content-between">
+              <div>
+                <span class="text-muted small fw-bold text-uppercase d-block mb-1" style="font-size: 0.725rem;">Committed Points</span>
+                <h2 class="fw-bold mb-0 text-navy" id="statCommittedPoints">&mdash;</h2>
+              </div>
+              <div class="emp-stat-icon warning"><i class="bi bi-bullseye"></i></div>
+            </div>
           </div>
         </div>
       </div>
     </div>
 
-    <div class="row g-3 mb-3" id="effortRow">
+    <!-- Stat Row 2: Effort -->
+    <div class="row g-3 mb-4" id="effortRow">
       <div class="col-sm-6 col-lg-3">
-        <div class="emp-stat-card">
-          <div class="emp-stat-icon primary"><i class="bi bi-people-fill"></i></div>
-          <div class="emp-stat-content">
-            <div class="emp-stat-label">Team Members</div>
-            <div class="emp-stat-val" id="statTeamMembers">&mdash;</div>
+        <div class="card emp-stat-card border-0 shadow-sm card-accent-indigo h-100">
+          <div class="card-body p-3">
+            <div class="d-flex align-items-center justify-content-between">
+              <div>
+                <span class="text-muted small fw-bold text-uppercase d-block mb-1" style="font-size: 0.725rem;">Team Members</span>
+                <h2 class="fw-bold mb-0 text-navy" id="statTeamMembers">&mdash;</h2>
+              </div>
+              <div class="emp-stat-icon primary"><i class="bi bi-people-fill"></i></div>
+            </div>
           </div>
         </div>
       </div>
       <div class="col-sm-6 col-lg-3">
-        <div class="emp-stat-card">
-          <div class="emp-stat-icon info"><i class="bi bi-clock-history"></i></div>
-          <div class="emp-stat-content">
-            <div class="emp-stat-label">Estimated Effort</div>
-            <div class="emp-stat-val" id="statEstimatedHours">&mdash;</div>
+        <div class="card emp-stat-card border-0 shadow-sm card-accent-info h-100">
+          <div class="card-body p-3">
+            <div class="d-flex align-items-center justify-content-between">
+              <div>
+                <span class="text-muted small fw-bold text-uppercase d-block mb-1" style="font-size: 0.725rem;">Estimated Effort</span>
+                <h2 class="fw-bold mb-0 text-navy" id="statEstimatedHours">&mdash;</h2>
+              </div>
+              <div class="emp-stat-icon info"><i class="bi bi-clock-history"></i></div>
+            </div>
           </div>
         </div>
       </div>
       <div class="col-sm-6 col-lg-3">
-        <div class="emp-stat-card">
-          <div class="emp-stat-icon success"><i class="bi bi-hourglass-bottom"></i></div>
-          <div class="emp-stat-content">
-            <div class="emp-stat-label">Logged Hours</div>
-            <div class="emp-stat-val" id="statLoggedHours">&mdash;</div>
+        <div class="card emp-stat-card border-0 shadow-sm card-accent-success h-100">
+          <div class="card-body p-3">
+            <div class="d-flex align-items-center justify-content-between">
+              <div>
+                <span class="text-muted small fw-bold text-uppercase d-block mb-1" style="font-size: 0.725rem;">Logged Hours</span>
+                <h2 class="fw-bold mb-0 text-navy" id="statLoggedHours">&mdash;</h2>
+              </div>
+              <div class="emp-stat-icon success"><i class="bi bi-hourglass-bottom"></i></div>
+            </div>
           </div>
         </div>
       </div>
       <div class="col-sm-6 col-lg-3">
-        <div class="emp-stat-card">
-          <div class="emp-stat-icon warning"><i class="bi bi-hourglass-split"></i></div>
-          <div class="emp-stat-content">
-            <div class="emp-stat-label">Remaining Effort</div>
-            <div class="emp-stat-val" id="statRemainingHours">&mdash;</div>
+        <div class="card emp-stat-card border-0 shadow-sm card-accent-warning h-100">
+          <div class="card-body p-3">
+            <div class="d-flex align-items-center justify-content-between">
+              <div>
+                <span class="text-muted small fw-bold text-uppercase d-block mb-1" style="font-size: 0.725rem;">Remaining Effort</span>
+                <h2 class="fw-bold mb-0 text-navy" id="statRemainingHours">&mdash;</h2>
+              </div>
+              <div class="emp-stat-icon warning"><i class="bi bi-hourglass-split"></i></div>
+            </div>
           </div>
         </div>
       </div>
     </div>
 
-    <div class="card mb-3">
-      <div class="card-header"><i class="bi bi-diagram-3 me-1"></i>By Project</div>
+    <!-- Project Breakdown Card -->
+    <div class="card border-0 shadow-sm rounded-0 mb-4 card-accent-primary">
+      <div class="card-header bg-white border-bottom py-3 fw-bold text-navy d-flex align-items-center gap-2">
+        <i class="bi bi-diagram-3-fill text-primary fs-5"></i>
+        <span>Project Breakdown</span>
+      </div>
       <div class="card-body p-0">
         <div class="table-responsive">
           <table class="table table-hover align-middle mb-0">
-            <thead><tr><th>Project</th><th>Tickets</th><th>Story Points</th><th>Completed</th><th>Progress</th></tr></thead>
+            <thead>
+              <tr class="bg-light text-uppercase small font-monospace">
+                <th>Project</th>
+                <th>Tickets</th>
+                <th>Story Points</th>
+                <th>Completed</th>
+                <th>Progress</th>
+              </tr>
+            </thead>
             <tbody id="projectBreakdownRows"></tbody>
           </table>
         </div>
-        <div class="emp-empty-state d-none" id="projectBreakdownEmpty">
-          <i class="bi bi-inbox"></i>No tickets in this sprint yet.
+        <div class="p-4 text-center text-muted small d-none" id="projectBreakdownEmpty">
+          <i class="bi bi-inbox fs-3 d-block mb-1"></i>No tickets in this sprint yet.
         </div>
       </div>
     </div>
 
-    <div class="card mb-3">
-      <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-1">
-        <span><i class="bi bi-speedometer2 me-1"></i>Capacity Planner</span>
-        <span class="text-muted small" id="capacitySummary"></span>
+    <!-- Capacity Planner Card -->
+    <div class="card border-0 shadow-sm rounded-0 mb-4 card-accent-success">
+      <div class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div class="fw-bold text-navy d-flex align-items-center gap-2">
+          <i class="bi bi-speedometer2 text-success fs-5"></i>
+          <span>Capacity Planner</span>
+        </div>
+        <span class="badge bg-light text-dark border rounded-0 px-2 py-1 small" id="capacitySummary"></span>
       </div>
-      <div class="card-body">
-        <div class="text-muted small d-none" id="capacityNotice"></div>
+      <div class="card-body p-3">
+        <div class="text-muted small py-3 text-center d-none" id="capacityNotice"></div>
         <div class="d-none" id="capacityContent">
-          <div style="height: 280px; position: relative;">
+          <div style="height: 280px; position: relative;" class="mb-3">
             <canvas id="capacityChart"></canvas>
           </div>
-          <div class="table-responsive mt-3">
+          <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">
-              <thead><tr><th>Member</th><th>Working Days</th><th>Total Hrs</th><th>Leave Days</th><th>Leave Hrs</th><th>Available Hrs</th><th></th></tr></thead>
+              <thead>
+                <tr class="bg-light text-uppercase small font-monospace">
+                  <th>Team Member</th>
+                  <th>Working Days</th>
+                  <th>Total Hrs</th>
+                  <th>Leave Days</th>
+                  <th>Leave Hrs</th>
+                  <th>Available Hrs</th>
+                  <th class="text-end">Actions</th>
+                </tr>
+              </thead>
               <tbody id="capacityRows"></tbody>
               <tfoot id="capacityTotalsFoot" class="d-none">
-                <tr class="table-light fw-semibold">
-                  <td>Total</td>
+                <tr class="table-light fw-bold">
+                  <td>Total Capacity</td>
                   <td id="capacityTotalWorkingDays"></td>
                   <td id="capacityTotalHours"></td>
                   <td id="capacityTotalLeaveDays"></td>
@@ -183,17 +249,32 @@
       </div>
     </div>
 
-    <div class="card">
-      <div class="card-header"><i class="bi bi-people me-1"></i>Team Workload</div>
+    <!-- Team Workload Table Card -->
+    <div class="card border-0 shadow-sm rounded-0 card-accent-info">
+      <div class="card-header bg-white border-bottom py-3 fw-bold text-navy d-flex align-items-center gap-2">
+        <i class="bi bi-people-fill text-info fs-5"></i>
+        <span>Team Workload Summary</span>
+      </div>
       <div class="card-body p-0">
         <div class="table-responsive">
           <table class="table table-hover align-middle mb-0">
-            <thead><tr><th>Member</th><th>Tickets</th><th>Story Points</th><th>Completed</th><th>Progress</th><th>Est. Hrs</th><th>Logged Hrs</th><th>Remaining Hrs</th></tr></thead>
+            <thead>
+              <tr class="bg-light text-uppercase small font-monospace">
+                <th>Member</th>
+                <th>Tickets</th>
+                <th>Story Points</th>
+                <th>Completed</th>
+                <th>Progress</th>
+                <th>Est. Hrs</th>
+                <th>Logged Hrs</th>
+                <th>Remaining Hrs</th>
+              </tr>
+            </thead>
             <tbody id="workloadRows"></tbody>
           </table>
         </div>
-        <div class="emp-empty-state d-none" id="workloadEmpty">
-          <i class="bi bi-inbox"></i>No tickets in this sprint yet.
+        <div class="p-4 text-center text-muted small d-none" id="workloadEmpty">
+          <i class="bi bi-inbox fs-3 d-block mb-1"></i>No tickets in this sprint yet.
         </div>
       </div>
     </div>
@@ -202,26 +283,26 @@
   <!-- Edit Sprint Modal -->
   <div class="modal fade" id="editSprintModal" tabindex="-1">
     <div class="modal-dialog modal-lg">
-      <div class="modal-content">
+      <div class="modal-content rounded-0 border-0 shadow">
         <form id="editSprintForm">
-          <div class="modal-header">
-            <h5 class="modal-title"><i class="bi bi-pencil me-1"></i>Edit Sprint</h5>
+          <div class="modal-header border-bottom py-3">
+            <h5 class="modal-title fw-bold text-navy"><i class="bi bi-pencil me-2 text-primary"></i>Edit Sprint Details</h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
           </div>
-          <div class="modal-body">
+          <div class="modal-body p-4">
             <div class="mb-3">
-              <label class="form-label small">Goal</label>
+              <label class="form-label small fw-bold text-muted text-uppercase">Sprint Goal</label>
               <div id="goalEditor"></div>
             </div>
-            <div class="mb-1">
-              <label class="form-label small">Linked projects</label>
-              <select class="form-select" id="editSprintLinkedProjects" multiple size="5"></select>
-              <div class="form-text">Tickets from these projects can also be added to this sprint.</div>
+            <div>
+              <label class="form-label small fw-bold text-muted text-uppercase">Linked Projects</label>
+              <select class="form-select rounded-0" id="editSprintLinkedProjects" multiple size="4"></select>
+              <div class="form-text small text-muted">Hold Ctrl/Cmd to select multiple projects. Tickets from these projects can also be added to this sprint.</div>
             </div>
           </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-            <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Save Changes</button>
+          <div class="modal-footer border-top bg-light py-2">
+            <button type="button" class="btn btn-outline-secondary rounded-0 px-3" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary rounded-0 px-4"><i class="bi bi-check-lg me-1"></i>Save Changes</button>
           </div>
         </form>
       </div>
@@ -231,37 +312,37 @@
   <!-- Log Leave Modal -->
   <div class="modal fade" id="logLeaveModal" tabindex="-1">
     <div class="modal-dialog">
-      <div class="modal-content">
+      <div class="modal-content rounded-0 border-0 shadow">
         <form id="logLeaveForm">
-          <div class="modal-header">
-            <h5 class="modal-title"><i class="bi bi-calendar-x me-1"></i>Log Leave &mdash; <span id="logLeaveEmployeeName"></span></h5>
+          <div class="modal-header border-bottom py-3">
+            <h5 class="modal-title fw-bold text-navy"><i class="bi bi-calendar-x me-2 text-danger"></i>Log Leave &mdash; <span id="logLeaveEmployeeName"></span></h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
           </div>
-          <div class="modal-body">
-            <p class="text-muted small">Records this as approved leave right away, so the capacity planner reflects it immediately.</p>
+          <div class="modal-body p-4">
+            <p class="text-muted small mb-3">Records approved leave so the sprint capacity planner automatically recalculates available team hours.</p>
             <input type="hidden" id="logLeaveEmployeeId">
             <div class="mb-3">
-              <label class="form-label small">Leave type</label>
-              <select class="form-select" id="logLeaveType" required><option value="" disabled selected>Loading&hellip;</option></select>
+              <label class="form-label small fw-bold text-muted text-uppercase">Leave Type</label>
+              <select class="form-select rounded-0" id="logLeaveType" required><option value="" disabled selected>Loading...</option></select>
             </div>
-            <div class="row g-2 mb-1">
+            <div class="row g-3 mb-3">
               <div class="col-6">
-                <label class="form-label small">From date</label>
-                <input type="date" class="form-control" id="logLeaveFromDate" required>
+                <label class="form-label small fw-bold text-muted text-uppercase">From Date</label>
+                <input type="date" class="form-control rounded-0" id="logLeaveFromDate" required>
               </div>
               <div class="col-6">
-                <label class="form-label small">To date</label>
-                <input type="date" class="form-control" id="logLeaveToDate" required>
+                <label class="form-label small fw-bold text-muted text-uppercase">To Date</label>
+                <input type="date" class="form-control rounded-0" id="logLeaveToDate" required>
               </div>
             </div>
-            <div class="mb-1">
-              <label class="form-label small">Reason (optional)</label>
-              <input type="text" class="form-control" id="logLeaveReason" maxlength="255">
+            <div>
+              <label class="form-label small fw-bold text-muted text-uppercase">Reason (Optional)</label>
+              <input type="text" class="form-control rounded-0" id="logLeaveReason" placeholder="Brief reason..." maxlength="255">
             </div>
           </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-            <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Log Leave</button>
+          <div class="modal-footer border-top bg-light py-2">
+            <button type="button" class="btn btn-outline-secondary rounded-0 px-3" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary rounded-0 px-4"><i class="bi bi-check-lg me-1"></i>Log Leave</button>
           </div>
         </form>
       </div>
@@ -285,7 +366,7 @@
       const bg = variant === 'success' ? 'text-bg-success' : 'text-bg-danger';
       const icon = variant === 'success' ? 'bi-check-circle' : 'bi-exclamation-triangle';
       const toastEl = $(
-        '<div class="toast align-items-center ' + bg + ' border-0" role="alert">' +
+        '<div class="toast align-items-center ' + bg + ' border-0 rounded-0 shadow" role="alert">' +
           '<div class="d-flex">' +
             '<div class="toast-body"><i class="bi ' + icon + ' me-2"></i>' + message + '</div>' +
             '<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>' +
@@ -303,15 +384,12 @@
     function initials(name) { return (name || '?').split(' ').map(function (n) { return n[0]; }).join('').substring(0, 2).toUpperCase(); }
 
     const STATUS_BADGE = {
-      future: '<span class="badge bg-light text-muted border">Future</span>',
-      active: '<span class="badge emp-status emp-status-active">Active</span>',
-      completed: '<span class="badge emp-status emp-status-completed">Completed</span>',
-      closed: '<span class="badge bg-secondary">Closed</span>',
+      future: '<span class="badge bg-light text-dark border rounded-0">Future</span>',
+      active: '<span class="badge bg-success rounded-0 px-2 py-1"><i class="bi bi-play-circle me-1"></i>Active</span>',
+      completed: '<span class="badge bg-primary rounded-0 px-2 py-1"><i class="bi bi-check-circle me-1"></i>Completed</span>',
+      closed: '<span class="badge bg-secondary rounded-0">Closed</span>',
     };
 
-    // Sprint Goal is stored as rich-text HTML from the Quill editor below. It may
-    // come back from the API unchanged even if someone bypasses the UI and PUTs
-    // raw HTML directly, so always sanitize before ever inserting it into the DOM.
     function sanitizeGoalHtml(html) { return DOMPurify.sanitize(html || ''); }
 
     const goalQuill = new Quill('#goalEditor', {
@@ -329,8 +407,9 @@
 
     function progressBar(completed, total, extraClass) {
       const pct = total > 0 ? Math.min(100, Math.round((completed / total) * 100)) : 0;
-      return '<div class="progress row-progress" style="height: 6px;"><div class="progress-bar' + (extraClass ? ' ' + extraClass : '') +
-        '" style="width: ' + pct + '%"></div></div><div class="text-muted small">' + pct + '%</div>';
+      return '<div class="d-flex align-items-center gap-2">' +
+        '<div class="progress row-progress rounded-0" style="height: 6px;"><div class="progress-bar' + (extraClass ? ' ' + extraClass : ' bg-success') +
+        '" style="width: ' + pct + '%"></div></div><div class="text-muted small font-monospace">' + pct + '%</div></div>';
     }
 
     let currentSprint = null;
@@ -351,7 +430,7 @@
       $('#backLink').attr('href', '/tickets/project/' + s.project_id + '/backlog');
 
       const linkedBadges = (s.linked_project_ids || []).length
-        ? ' <span class="text-muted small">(' + s.linked_project_ids.length + ' linked project' + (s.linked_project_ids.length === 1 ? '' : 's') + ')</span>'
+        ? ' <span class="badge bg-light text-dark border rounded-0 font-monospace">+' + s.linked_project_ids.length + ' linked projects</span>'
         : '';
       $('#sprintName').html(escapeHtml(s.name) + ' ' + (STATUS_BADGE[s.status] || '') + linkedBadges);
 
@@ -359,12 +438,12 @@
       let daysNote = '';
       if (s.end_date) {
         const days = Math.ceil((new Date(s.end_date) - new Date()) / 86400000);
-        if (s.status === 'active') daysNote = days >= 0 ? (' &middot; ' + days + ' day' + (days === 1 ? '' : 's') + ' remaining') : ' &middot; overdue';
+        if (s.status === 'active') daysNote = days >= 0 ? (' &middot; ' + days + ' day' + (days === 1 ? '' : 's') + ' remaining') : ' &middot; <span class="text-danger">Overdue</span>';
       }
       $('#sprintMeta').html(dateRange + daysNote);
 
       $('#goalView').toggleClass('is-empty', !s.goal)
-        .html(s.goal ? sanitizeGoalHtml(s.goal) : 'No goal set. Click Edit to add one.');
+        .html(s.goal ? sanitizeGoalHtml(s.goal) : 'No goal set for this sprint. Click "Edit Sprint" to define sprint objectives.');
 
       $('#statTicketCount').text(s.ticket_count);
       $('#statTotalPoints').text(s.total_points);
@@ -381,10 +460,10 @@
       $('#projectBreakdownEmpty').toggleClass('d-none', s.project_breakdown.length > 0);
       $('#projectBreakdownRows').html(s.project_breakdown.map(function (p) {
         return '<tr>' +
-          '<td><a href="/tickets/project/' + p.project_id + '"><span class="badge bg-secondary me-1">' + escapeHtml(p.project_key) + '</span>' + escapeHtml(p.project_name) + '</a></td>' +
-          '<td>' + p.ticket_count + '</td>' +
-          '<td>' + p.total_points + '</td>' +
-          '<td>' + p.completed_points + '</td>' +
+          '<td><a href="/tickets/project/' + p.project_id + '" class="text-decoration-none text-navy fw-bold"><span class="badge bg-dark rounded-0 me-2 font-monospace">' + escapeHtml(p.project_key) + '</span>' + escapeHtml(p.project_name) + '</a></td>' +
+          '<td class="fw-semibold">' + p.ticket_count + '</td>' +
+          '<td class="fw-semibold">' + p.total_points + '</td>' +
+          '<td class="fw-semibold text-success">' + p.completed_points + '</td>' +
           '<td>' + progressBar(p.completed_points, p.total_points) + '</td>' +
         '</tr>';
       }).join(''));
@@ -395,15 +474,15 @@
         return '<tr>' +
           '<td class="d-flex align-items-center gap-2">' +
             '<span class="avatar-chip' + (isUnassigned ? ' unassigned' : '') + '">' + (isUnassigned ? '?' : initials(m.employee_name)) + '</span>' +
-            '<span>' + escapeHtml(m.employee_name) + (m.employee_code ? ' <span class="text-muted small">(' + escapeHtml(m.employee_code) + ')</span>' : '') + '</span>' +
+            '<span><strong class="text-navy">' + escapeHtml(m.employee_name) + '</strong>' + (m.employee_code ? ' <span class="text-muted small">(' + escapeHtml(m.employee_code) + ')</span>' : '') + '</span>' +
           '</td>' +
-          '<td>' + m.ticket_count + '</td>' +
-          '<td>' + m.total_points + '</td>' +
-          '<td>' + m.completed_points + '</td>' +
+          '<td class="fw-semibold">' + m.ticket_count + '</td>' +
+          '<td class="fw-semibold">' + m.total_points + '</td>' +
+          '<td class="fw-semibold text-success">' + m.completed_points + '</td>' +
           '<td>' + progressBar(m.completed_points, m.total_points) + '</td>' +
           '<td>' + m.estimated_hours + 'h</td>' +
-          '<td>' + m.logged_hours + 'h</td>' +
-          '<td>' + m.remaining_hours + 'h</td>' +
+          '<td class="text-success fw-semibold">' + m.logged_hours + 'h</td>' +
+          '<td class="text-muted">' + m.remaining_hours + 'h</td>' +
         '</tr>';
       }).join(''));
     }
@@ -426,7 +505,7 @@
 
     $('#editSprintForm').on('submit', function (e) {
       e.preventDefault();
-      const linkedProjectIds = $('#editSprintLinkedProjects').val().map(function (v) { return parseInt(v, 10); });
+      const linkedProjectIds = ($('#editSprintLinkedProjects').val() || []).map(function (v) { return parseInt(v, 10); });
       const goalHtml = goalQuill.getText().trim() ? goalQuill.root.innerHTML : null;
       $.ajax({
         url: '/api/v1/sprints/' + sprintId, method: 'PUT', contentType: 'application/json', headers: authHeader,
@@ -453,20 +532,20 @@
     function renderCapacity(c) {
       $('#capacityNotice').addClass('d-none');
       $('#capacityContent').removeClass('d-none');
-      $('#capacitySummary').text(
-        c.working_days + ' working day' + (c.working_days === 1 ? '' : 's') + ' &middot; ' +
-        c.hours_per_day + 'h/day &middot; ' + c.total_available_hours + 'h available of ' + c.total_hours + 'h'
+      $('#capacitySummary').html(
+        '<i class="bi bi-calendar-check me-1"></i>' + c.working_days + ' working days &middot; ' +
+        c.hours_per_day + 'h/day &middot; <strong class="text-success">' + c.total_available_hours + 'h available</strong> of ' + c.total_hours + 'h'
       );
       renderCapacityChart(c);
       $('#capacityRows').html(c.members.map(function (m) {
         return '<tr>' +
-          '<td>' + escapeHtml(m.employee_name) + (m.employee_code ? ' <span class="text-muted small">(' + escapeHtml(m.employee_code) + ')</span>' : '') + '</td>' +
+          '<td><strong class="text-navy">' + escapeHtml(m.employee_name) + '</strong>' + (m.employee_code ? ' <span class="text-muted small">(' + escapeHtml(m.employee_code) + ')</span>' : '') + '</td>' +
           '<td>' + m.working_days + '</td>' +
           '<td>' + m.total_hours + 'h</td>' +
-          '<td>' + m.leave_days + '</td>' +
-          '<td>' + m.leave_hours + 'h</td>' +
-          '<td>' + m.available_hours + 'h</td>' +
-          '<td><button type="button" class="btn btn-sm btn-outline-secondary log-leave-btn" data-employee-id="' + m.employee_id + '" data-employee-name="' + escapeHtml(m.employee_name) + '"><i class="bi bi-calendar-x me-1"></i>Log Leave</button></td>' +
+          '<td class="' + (m.leave_days > 0 ? 'text-danger fw-semibold' : '') + '">' + m.leave_days + '</td>' +
+          '<td class="' + (m.leave_hours > 0 ? 'text-danger fw-semibold' : '') + '">' + m.leave_hours + 'h</td>' +
+          '<td class="text-success fw-bold">' + m.available_hours + 'h</td>' +
+          '<td class="text-end"><button type="button" class="btn btn-sm btn-outline-secondary rounded-0 log-leave-btn" data-employee-id="' + m.employee_id + '" data-employee-name="' + escapeHtml(m.employee_name) + '"><i class="bi bi-calendar-x me-1"></i>Log Leave</button></td>' +
         '</tr>';
       }).join('') || '<tr><td colspan="7" class="text-muted small text-center py-3">No team members on this project yet.</td></tr>');
 
@@ -488,14 +567,14 @@
         data: {
           labels: c.members.map(function (m) { return m.employee_name; }),
           datasets: [
-            { label: 'Available Hours', data: c.members.map(function (m) { return m.available_hours; }), backgroundColor: '#16a34a', borderRadius: 4 },
-            { label: 'Leave Hours', data: c.members.map(function (m) { return m.leave_hours; }), backgroundColor: '#dc3545', borderRadius: 4 }
+            { label: 'Available Hours', data: c.members.map(function (m) { return m.available_hours; }), backgroundColor: '#16a34a', borderRadius: 0 },
+            { label: 'Leave Hours', data: c.members.map(function (m) { return m.leave_hours; }), backgroundColor: '#dc3545', borderRadius: 0 }
           ]
         },
         options: {
           responsive: true, maintainAspectRatio: false,
           scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true, title: { display: true, text: 'Hours' } } },
-          plugins: { legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } } }
+          plugins: { legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11, family: "'Plus Jakarta Sans', sans-serif" } } } }
         }
       });
     }
